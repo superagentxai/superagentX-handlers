@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @pytest.fixture
 def google_calender_init() -> CalenderHandler:
     calender_handler = CalenderHandler(
-        credentials=""
+        credentials="/home/bala/Downloads/credentials.json"
     )
     return calender_handler
 

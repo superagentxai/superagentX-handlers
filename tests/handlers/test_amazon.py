@@ -9,17 +9,14 @@ logger = logging.getLogger(__name__)
  Run Pytest:
 
    1. pytest --log-cli-level=INFO tests/handlers/test_amazon.py::TestAmazon::test_search_product
-   2.pytest --log-cli-level=INFO tests/handlers/test_amazon.py::TestAmazon::test_product_reviews
+   2. pytest --log-cli-level=INFO tests/handlers/test_amazon.py::TestAmazon::test_product_reviews
 
 '''
 
 
 @pytest.fixture
 def amazon_client_init() -> AmazonHandler:
-    amazon = AmazonHandler(
-        api_key="<API_KEY>",
-        country="IN"
-    )
+    amazon = AmazonHandler()
     return amazon
 
 
