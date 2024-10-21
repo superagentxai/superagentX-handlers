@@ -1,6 +1,9 @@
 import logging
 import os
+import pytest
 
+from jira.client import ResultList
+from jira.resources import Sprint, Comment
 from requests.models import Response
 
 from superagentx_handlers.atlassian.confluence import ConfluenceHandler
