@@ -1,4 +1,4 @@
-from enum import StrEnum
+from enum import Enum
 
 import pandas as pd
 from geopy.geocoders import Nominatim
@@ -16,7 +16,7 @@ from superagentx_handlers.weather.exception import InvalidWeatherAction, Invalid
 from superagentx.utils.helper import sync_to_async
 
 
-class ResponseType(StrEnum):
+class ResponseType(Enum):
     current = 'current'
     daily = 'daily'
     hourly = 'hourly'
