@@ -4793,13 +4793,13 @@ full = ["httpx (>=0.22.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.7
 
 [[package]]
 name = "superagentx"
-version = "0.1.3"
+version = "0.1.5"
 description = "The Ultimate Modular Autonomous Multi AI Agent Framework."
 optional = false
 python-versions = "<=3.13,>=3.10"
 files = [
-    {file = "superagentx-0.1.3-py3-none-any.whl", hash = "sha256:937f6edb957ab52d5352cf055b7458f60ac2178e57ed3dfd185feb10a333c5c9"},
-    {file = "superagentx-0.1.3.tar.gz", hash = "sha256:242855df1758f4df8c75879cd23c017f022461b2589f55d53df5cc7e3c654915"},
+    {file = "superagentx-0.1.5-py3-none-any.whl", hash = "sha256:8f17ce2c33303eefac54d09b438b5fc0b4b79e21956a2432ca5c0da470e8d4c4"},
+    {file = "superagentx-0.1.5.tar.gz", hash = "sha256:bdd35a9364cd5ec4d8ff0e29b49f0ba233d560ecd74db5cc4cceae8711e1c634"},
 ]
 
 [package.dependencies]
@@ -5675,4 +5675,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<=3.13"
-content-hash = "5b5638a1dffa35432236744b762f1b739b2defe508fcfe196bd00f3d85bc4815"
+content-hash = "b11948628edd5fb4bffbc92929bc472515850fa3eb1eab32e93682cbb3bf7e0c"
