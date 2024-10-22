@@ -4,7 +4,7 @@ import logging
 from abc import ABC
 from email.message import EmailMessage
 
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
