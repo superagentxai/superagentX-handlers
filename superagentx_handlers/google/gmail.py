@@ -1,15 +1,13 @@
 import base64
+import io
 import logging
 from abc import ABC
 from email.message import EmailMessage
 
 from PyPDF2 import PdfReader
-import io
-
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
 from superagentx.handler.base import BaseHandler
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
@@ -108,15 +106,13 @@ class GmailHandler(BaseHandler, ABC):
         """ Recursively extract the body content from parts. """
         async for part in iter_to_aiter(parts):
             mime_type = part.get('mimeType')
-            data = part.get('body').get('data')
+            data = part.get('body', {}).get('data')
 
             if data and mime_type in ['text/plain', 'text/html']:
                 return base64.urlsafe_b64decode(data).decode('utf-8')
 
             if 'parts' in part:
-                result = await self.extract_body(part.get('parts'))
-                if result:  # If we found the body, return it
-                    return result
+                return await self.extract_body(parts=part.get('parts'))
         return None
 
     async def read_mail(
@@ -197,14 +193,15 @@ class GmailHandler(BaseHandler, ABC):
                     if 'parts' in payload:
                         email_body = await self.extract_body(payload.get('parts')) or ""
                     else:
-                        body_data = payload.get('body').get('data')
+                        body_data = payload.get('body', {}).get('data')
                         email_body = base64.urlsafe_b64decode(body_data).decode(
-                            'utf-8') if body_data else ""
+                            'utf-8'
+                        ) if body_data else ""
 
                     async for part in iter_to_aiter(payload.get('parts', [])):
                         _file_name = part.get('filename')
                         if _file_name:
-                            attachment_id = part.get('body').get('attachmentId')
+                            attachment_id = part.get('body', {}).get('attachmentId')
                             if attachment_id:
                                 events = await sync_to_async(
                                     self._service.users
@@ -233,7 +230,7 @@ class GmailHandler(BaseHandler, ABC):
                                     pdf_reader = PdfReader(io.BytesIO(file_data))
                                     content = ""
                                     async for page in iter_to_aiter(pdf_reader.pages):
-                                        page_text = page.extract_text() or ""
+                                        page_text = await sync_to_async(page.extract_text) or ""
                                         content += page_text
 
                                 # Store the attachment information
