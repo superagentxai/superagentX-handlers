@@ -1,8 +1,10 @@
 import base64
+import io
 import logging
 from abc import ABC
 from email.message import EmailMessage
 
+from PyPDF2 import PdfReader
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -35,18 +37,15 @@ class GmailHandler(BaseHandler, ABC):
     def _connect(self):
         """
             Establish a connection to the Gmail API.
-
             This private method initializes the connection to the Gmail API
             by managing the OAuth 2.0 authentication process. It verifies
             whether valid credentials are available; if not, it prompts
             the user to authenticate through a local server flow to obtain
             new credentials.
-
             Returns:
                 googleapiclient.discovery.Resource:
                     A service object for the Gmail API, which can be used to
                     make subsequent API calls.
-
             Raises:
                 AuthException:
                     If an error occurs during the authentication process, an
@@ -75,21 +74,17 @@ class GmailHandler(BaseHandler, ABC):
     ):
         """
             Retrieve the Gmail profile information for a specified user using the Gmail API.
-
             This asynchronous method fetches the profile details of a user from
             Gmail. If no user ID is provided, it defaults to "me", which refers
             to the authenticated user.
-
             Args:
                 user_id (str): The ID of the user whose profile is to be
                     retrieved. Use "me" to refer to the authenticated user.
                     Defaults to "me".
-
             Returns:
                 dict: A dictionary containing the user's profile information,
                 including fields such as email address, display name, and other
                 relevant details.
-
             """
         try:
             events = await sync_to_async(
@@ -107,9 +102,34 @@ class GmailHandler(BaseHandler, ABC):
             logger.error(message, exc_info=ex)
             raise
 
+    async def extract_body(self, parts):
+        """ Recursively extract the body content from parts. """
+        async for part in iter_to_aiter(parts):
+            mime_type = part.get('mimeType')
+            data = part.get('body', {}).get('data')
+
+            if data and mime_type in ['text/plain', 'text/html']:
+                return base64.urlsafe_b64decode(data).decode('utf-8')
+
+            if 'parts' in part:
+                return await self.extract_body(parts=part.get('parts'))
+        return None
+
     async def read_mail(
             self,
+            max_results: int = 50
     ):
+        """
+           Fetches emails from the Gmail API based on specified criteria.
+           Args:
+               max_results (int): The maximum number of email messages to retrieve.
+                   Limits the number of results returned in the response.
+               days (int): The number of days for filtering recent emails.
+                   Fetches emails that are newer than the specified number of days.
+           Returns:
+               list: A list of email messages matching the given criteria,
+                   containing the sender, receiver, date, subject, body, and attachments.
+        """
         try:
             events = await sync_to_async(
                 self._service.users
@@ -119,7 +139,8 @@ class GmailHandler(BaseHandler, ABC):
             )
             service_lists = await sync_to_async(
                 service_messages.list,
-                userId='me'
+                userId='me',
+                maxResults=max_results
             )
             result = await sync_to_async(
                 service_lists.execute
@@ -169,17 +190,18 @@ class GmailHandler(BaseHandler, ABC):
                             case 'subject':
                                 subject = _value
 
-                    parts = payload.get('parts', [])
-                    # Extract the email body, which is usually the 'data' field in the payload
-                    async for part in iter_to_aiter(parts):
-                        _body = part.get('body', {})
-                        if part.get('mimeType', '') == 'text/plain':  # You can also check for 'text/html'
-                            data = _body.get('data')
-                            if data:
-                                email_body = base64.urlsafe_b64decode(data).decode('utf-8')
-                                break
-                        if part.get('filename'):
-                            attachment_id = _body.get('attachmentId')
+                    if 'parts' in payload:
+                        email_body = await self.extract_body(payload.get('parts')) or ""
+                    else:
+                        body_data = payload.get('body', {}).get('data')
+                        email_body = base64.urlsafe_b64decode(body_data).decode(
+                            'utf-8'
+                        ) if body_data else ""
+
+                    async for part in iter_to_aiter(payload.get('parts', [])):
+                        _file_name = part.get('filename')
+                        if _file_name:
+                            attachment_id = part.get('body', {}).get('attachmentId')
                             if attachment_id:
                                 events = await sync_to_async(
                                     self._service.users
@@ -200,24 +222,30 @@ class GmailHandler(BaseHandler, ABC):
                                     get_attachment.execute
                                 )
                                 file_data = base64.urlsafe_b64decode(attachment.get('data'))
+                                # Try reading the content based on the file type
+                                content = None
+                                if _file_name.endswith('.txt'):
+                                    content = file_data.decode('utf-8')
+                                elif _file_name.endswith('.pdf'):
+                                    pdf_reader = PdfReader(io.BytesIO(file_data))
+                                    content = ""
+                                    async for page in iter_to_aiter(pdf_reader.pages):
+                                        page_text = await sync_to_async(page.extract_text) or ""
+                                        content += page_text
+
                                 # Store the attachment information
                                 attachments.append({
-                                    "filename": part.get('filename'),
-                                    "data": file_data
+                                    "filename": _file_name,
+                                    "content": content or ""
                                 })
-                    # Create a dictionary for the email data
+
                     email_data = {
                         "sender": sender,
                         "receiver": receiver,
                         "date": date,
                         "subject": subject,
-                        "email_body": email_body or "No body content found.",
-                        "attachments": [
-                            {
-                                "filename": att.get("filename")
-                            }
-                            async for att in iter_to_aiter(attachments)
-                        ]
+                        "email_body": email_body,
+                        "attachments": attachments
                     }
 
                     # Add the email data dictionary to the list
@@ -242,10 +270,8 @@ class GmailHandler(BaseHandler, ABC):
     ):
         """
             Send an email using the Gmail API.
-
             This asynchronous method sends an email from the specified sender
             address to the recipient.
-
             Args:
                 from_address (str): The email address of the sender.
                 to (str): The recipient's email address.
@@ -254,7 +280,6 @@ class GmailHandler(BaseHandler, ABC):
                     Use "me" to refer to the authenticated user. Defaults to "me".
                 content (str): The body content of the email. Defaults
                     to "This is automated content".
-
             Returns:
                 dict: A dictionary containing the details of the sent email,
                 including message ID.
@@ -298,11 +323,9 @@ class GmailHandler(BaseHandler, ABC):
     ):
         """
             Create a draft email using the Gmail API.
-
             This asynchronous method creates a draft email that can be edited
             or sent later. The draft is created for the specified sender and
             recipient, with optional subject and content.
-
             Args:
                 from_address (str): The email address of the sender.
                 to (str): The recipient's email address.
@@ -312,11 +335,9 @@ class GmailHandler(BaseHandler, ABC):
                     Use "me" to refer to the authenticated user. Defaults to "me".
                 content (str): The body content of the draft email.
                     Defaults to "This is automated draft mail".
-
             Returns:
                 dict: A dictionary containing details of the created draft,
                 including draft ID.
-
             """
         try:
             message = EmailMessage()
