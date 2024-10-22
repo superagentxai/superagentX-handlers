@@ -29,21 +29,16 @@ export RAPID_API_KEY=XXXXXXXXXXXXXXXXXXXXXXXXX
 # python3 superagentx_examples/ecom_iopipe.py
 
 import asyncio
-import os
-import sys
 
 from rich import print as rprint
-
-from superagentx.memory import Memory
-
-sys.path.extend([os.path.dirname(os.path.dirname(os.path.abspath(__file__)))])
-
 from superagentx.agent import Agent
+from superagentx.agentxpipe import AgentXPipe
 from superagentx.engine import Engine
 from superagentx.llm import LLMClient
-from superagentx.agentxpipe import AgentXPipe
+from superagentx.memory import Memory
 from superagentx.pipeimpl.iopipe import IOPipe
 from superagentx.prompt import PromptTemplate
+
 from superagentx_handlers.ecommerce.amazon import AmazonHandler
 from superagentx_handlers.ecommerce.walmart import WalmartHandler
 
