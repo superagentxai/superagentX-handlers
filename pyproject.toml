@@ -39,7 +39,7 @@ asyncpg = "^0.30.0"
 aiomysql = "^0.2.0"
 aioodbc = "^0.5.0"
 jira = "^3.8.0"
-pypdf2 = "^3.0.1"
+pypdf = "^5.0.1"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"
