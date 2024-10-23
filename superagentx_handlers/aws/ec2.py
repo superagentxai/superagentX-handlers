@@ -1,4 +1,6 @@
 import logging
+import os
+
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
 
@@ -12,11 +14,13 @@ class AWSEC2Handler(BaseHandler):
 
     def __init__(
             self,
-            aws_access_key_id: str,
-            aws_secret_access_key: str,
+            aws_access_key_id: str | None = None,
+            aws_secret_access_key: str | None = None,
             region_name: str | None = None
     ):
-        self.region = region_name
+        self.region = region_name or os.getenv("AWS_REGION")
+        aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
         self.ec2_client = boto3.client(
            'ec2',
             region_name=self.region,

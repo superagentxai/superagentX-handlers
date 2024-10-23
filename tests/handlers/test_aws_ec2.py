@@ -16,11 +16,7 @@ from superagentx_handlers import AWSEC2Handler
 
 @pytest.fixture
 def aws_ec2_client_init() -> AWSEC2Handler:
-    ec2_handler = AWSEC2Handler(
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-        region_name="ap-south-1"
-    )
+    ec2_handler = AWSEC2Handler()
     return ec2_handler
 
 
