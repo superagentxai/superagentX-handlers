@@ -1,7 +1,14 @@
 import logging
 
 from hubspot import HubSpot
-from hubspot.crm.contacts import SimplePublicObjectInputForCreate, ApiException
+from hubspot.crm.contacts import (SimplePublicObjectInputForCreate as Contact_Object_Create,
+                                  ApiException as ContactCreateException)
+from hubspot.crm.companies import (SimplePublicObjectInputForCreate as Company_Object_Create,
+                                   ApiException as ApiException)
+from hubspot.crm.deals import ApiException as DealsCreateException
+from hubspot.crm.tickets import (SimplePublicObjectInputForCreate as Ticket_Object_Create,
+                                 ApiException as TicketCreateException)
+
 from superagentx.handler.base import BaseHandler
 from superagentx.utils.helper import sync_to_async
 
@@ -70,7 +77,7 @@ class HubSpotHandler(BaseHandler):
 
             """
         try:
-            simple_public_object_input_for_create = SimplePublicObjectInputForCreate(
+            simple_public_object_input_for_create = Contact_Object_Create(
                 properties={
                     "email": email,
                     "firstname": firstName,
@@ -81,7 +88,7 @@ class HubSpotHandler(BaseHandler):
                 self._connection.crm.contacts.basic_api.create,
                 simple_public_object_input_for_create=simple_public_object_input_for_create
             )
-        except ApiException as ex:
+        except ContactCreateException as ex:
             message = f"Exception when creating contact {ex}"
             logger.error(message, exc_info=ex)
             raise
@@ -104,7 +111,7 @@ class HubSpotHandler(BaseHandler):
             return await sync_to_async(
                 self._connection.crm.contacts.get_all
             )
-        except ApiException as ex:
+        except ContactCreateException as ex:
             message = f"Exception when getting contacts {ex}"
             logger.error(message, exc_info=ex)
             raise
@@ -129,7 +136,7 @@ class HubSpotHandler(BaseHandler):
                 dict: A dictionary containing the details of the created company info
             """
         try:
-            simple_public_object_input_for_create = SimplePublicObjectInputForCreate(
+            simple_public_object_input_for_create = Company_Object_Create(
                 properties={
                     "domain": domain,
                     "name": name
@@ -183,7 +190,7 @@ class HubSpotHandler(BaseHandler):
             return await sync_to_async(
                 self._connection.crm.deals.get_all
             )
-        except ApiException as ex:
+        except DealsCreateException as ex:
             message = f"Exception when getting deals {ex}"
             logger.error(message, exc_info=ex)
             raise
@@ -206,8 +213,80 @@ class HubSpotHandler(BaseHandler):
             return await sync_to_async(
                 self._connection.crm.tickets.get_all
             )
-        except ApiException as ex:
+        except TicketCreateException as ex:
             message = f"Exception when getting tickets {ex}"
+            logger.error(message, exc_info=ex)
+            raise
+
+    async def get_ticket_status(
+            self,
+            *,
+            ticket_id: str
+    ):
+        """
+            Retrieves the status of a specific ticket.
+
+            Args:
+                ticket_id (str): The unique identifier of the ticket whose status is being retrieved.
+
+            Returns:
+                dict: The ticket information retrieved from HubSpot.
+
+            Raises:
+                TicketCreateException: If the provided ticket_id is invalid.
+        """
+        try:
+            return await sync_to_async(
+                self._connection.crm.tickets.basic_api.get_by_id,
+                ticket_id=ticket_id
+            )
+        except TicketCreateException as ex:
+            message = f"Exception when getting ticket Info {ex}"
+            logger.error(message, exc_info=ex)
+            raise
+
+    async def create_ticket(
+            self,
+            *,
+            subject: str,
+            content: str,
+            pipeline: int = 0,
+            pipeline_stage: int = 1,
+            source_from: str = "EMAIL",
+            priority: str = "LOW"
+    ):
+        """
+            Creates a new ticket received from email.
+
+            Args:
+                subject (str): The subject of the ticket.
+                content (str): The content or description of the ticket.
+                pipeline (int, optional): The ID of the pipeline the ticket belongs to. Defaults to 0 (Pipeline name).
+                pipeline_stage (int, optional): The stage of the pipeline for this ticket. Defaults to 1 (New).
+                source_from (str, optional): The source from which the ticket is created. Defaults to "EMAIL"; can also be "Chat", etc.
+                priority (str, optional): The priority level of the ticket. Defaults to "LOW"; can also be "Medium" or "High".
+
+            Returns:
+                Ticket: The created ticket object or relevant information regarding the ticket.
+
+            """
+        try:
+            ticket_input = Ticket_Object_Create(
+                properties={
+                    "subject": subject,
+                    "content": content,
+                    "hs_pipeline": pipeline,
+                    "hs_pipeline_stage": pipeline_stage,
+                    "source_type": source_from,
+                    "hs_ticket_priority": priority
+                }
+            )
+            return await sync_to_async(
+                self._connection.crm.tickets.basic_api.create,
+                simple_public_object_input_for_create=ticket_input
+            )
+        except TicketCreateException as ex:
+            message = f"Exception when creating Ticket {ex}"
             logger.error(message, exc_info=ex)
             raise
 
@@ -218,5 +297,7 @@ class HubSpotHandler(BaseHandler):
             'create_company',
             'get_all_company',
             'get_all_deals',
-            'get_all_tickets'
+            'get_all_tickets',
+            'get_ticket_status',
+            'create_ticket'
         )
