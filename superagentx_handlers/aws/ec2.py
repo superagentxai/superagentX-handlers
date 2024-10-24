@@ -2,7 +2,6 @@ import logging
 import os
 
 import boto3
-from botocore.exceptions import NoCredentialsError, ClientError
 
 from superagentx.handler.base import BaseHandler
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
@@ -29,7 +28,10 @@ class AWSEC2Handler(BaseHandler):
             aws_secret_access_key=aws_secret_access_key
         )
 
-    async def _get_all_instances(self, filters: list[dict]):
+    async def _get_all_instances(
+            self,
+            filters: list[dict]
+    ):
         """
         Asynchronously retrieves and returns a list of all instances managed by this handler.
 
@@ -49,47 +51,36 @@ class AWSEC2Handler(BaseHandler):
             logger.error(f"Get all Instance getting error: {ex}")
 
 
-    async def get_all_running_instances(self):
+    async def get_all_running_instances(self)->list[dict]:
         """
-           Asynchronously retrieves a list of all currently running instances.
+           Fetch all currently active or running instances.
 
            This method communicates with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to
            fetch details of all instances that are currently in the 'running' state. It is designed to run
            asynchronously to allow non-blocking execution.
         """
-        try:
-            _filters = { "Name": "instance-state-name", "Values": ["running"] }
-            response = await self._get_all_instances(filters=[_filters])
-            logger.info(f"Running Instances {len(response)}")
+        _filters = { "Name": "instance-state-name", "Values": ["running"] }
+        response = await self._get_all_instances(filters=[_filters])
+        if response:
+            logger.debug(f"Running Instances {len(response)}")
             return response
-        except NoCredentialsError:
-            logger.error("Credentials not available.")
-        except ClientError as e:
-            logger.error(f"Client error: {e}")
-        return
 
-
-    async def get_all_stopped_instances(self):
+    async def get_all_stopped_instances(self)->list[dict]:
         """
-            Asynchronously retrieves a list of all currently stopped instances.
+            Retrieve all currently stopped instances.
 
             This method interacts with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to
             fetch details of all instances that are in the 'stopped' state. It is designed to run
             asynchronously, enabling non-blocking execution.
         """
-        try:
-            _filters = {"Name": "instance-state-name", "Values": ["stopped"]}
-            response = await self._get_all_instances(filters=[_filters])
-            logger.info(f"Stopped Instances {len(response)}")
+        _filters = {"Name": "instance-state-name", "Values": ["stopped"]}
+        response = await self._get_all_instances(filters=[_filters])
+        if response:
+            logger.debug(f"Stopped Instances {len(response)}")
             return response
-        except NoCredentialsError:
-            logger.error("Credentials not available.")
-        except ClientError as e:
-            logger.error(f"Client error: {e}")
-        return
 
 
-    def __dir__(self):
+    async def __dir__(self):
         return (
             "get_all_running_instances",
             "get_all_stopped_instances"
