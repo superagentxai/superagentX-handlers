@@ -5,7 +5,7 @@ import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
 
 from superagentx.handler.base import BaseHandler
-from superagentx.utils.helper import sync_to_async
+from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +21,15 @@ class AWSEC2Handler(BaseHandler):
         self.region = region_name or os.getenv("AWS_REGION")
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
+
         self.ec2_client = boto3.client(
            'ec2',
             region_name=self.region,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key
         )
-        logger.info(self.ec2_client)
 
-    async def get_all_instances(self):
+    async def _get_all_instances(self, filters: list[dict]):
         """
         Asynchronously retrieves and returns a list of all instances managed by this handler.
 
@@ -38,101 +38,59 @@ class AWSEC2Handler(BaseHandler):
         allowing other tasks to execute concurrently without blocking.
         """
         try:
-            response = await sync_to_async(self.ec2_client.describe_instances)
-            logger.info(response)
+            instance = await sync_to_async(self.ec2_client.describe_instances, Filters=filters)
+            if instance and instance["Reservations"]:
+                instances = [
+                    _instance async for reservation in iter_to_aiter(instance["Reservations"])
+                    async for _instance in iter_to_aiter(reservation["Instances"])
+                ]
+                return instances
         except Exception as ex:
             logger.error(f"Get all Instance getting error: {ex}")
 
 
-    async def get_all_running_instance(
-            self,
-            instance_id
-    ):
+    async def get_all_running_instances(self):
         """
-        Asynchronously starts an instance with the given instance ID.
+           Asynchronously retrieves a list of all currently running instances.
 
-        This method interacts with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to start
-        a specific instance identified by the provided instance ID. It is designed to be run asynchronously
-        to allow non-blocking execution.
-
-        parameter:
-            instance_id (str): The unique identifier of the instance to be start.
+           This method communicates with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to
+           fetch details of all instances that are currently in the 'running' state. It is designed to run
+           asynchronously to allow non-blocking execution.
         """
         try:
-            response = await sync_to_async(
-                self.ec2_client.start_instances,
-                InstanceIds=[instance_id]
-            )
-            logging.info(f"Started EC2 instance: {instance_id}")
+            _filters = { "Name": "instance-state-name", "Values": ["running"] }
+            response = await self._get_all_instances(filters=[_filters])
+            logger.info(f"Running Instances {len(response)}")
             return response
         except NoCredentialsError:
-            logging.error("Credentials not available.")
+            logger.error("Credentials not available.")
         except ClientError as e:
-            logging.error(f"Client error: {e}")
-        return
-
-    async def get_instance_status (
-            self,
-            instance_id
-    ):
-        """
-       Asynchronously retrieves the status of the current instance.
-
-       This method communicates with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to
-       obtain the current status of a specific instance. It is designed to run asynchronously, allowing
-       other tasks to continue without blocking.
-       parameter:
-            instance_id (str): The unique identifier of the instance to be status.
-        """
-        try:
-            response = await sync_to_async(
-                self.ec2_client.describe_instance_status,
-                InstanceIds=[instance_id]
-            )
-            logging.info(response)
-            status = response['InstanceStatuses'][0] if response['InstanceStatuses'] else None
-            logging.info(f"Instance status: {status}")
-            return status
-        except NoCredentialsError:
-            logging.error("Credentials not available.")
-        except ClientError as e:
-            logging.error(f"Client error: {e}")
+            logger.error(f"Client error: {e}")
         return
 
 
-    async def get_all_stop_instance(
-            self,
-            instance_id
-    ):
+    async def get_all_stopped_instances(self):
         """
-        Asynchronously stops an instance with the given instance ID.
+            Asynchronously retrieves a list of all currently stopped instances.
 
-        This method interacts with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to stop
-        a specific instance identified by the provided instance ID. It is designed to run asynchronously to
-        allow non-blocking execution.
-
-        parameter:
-            instance_id (str): The unique identifier of the instance to be stopped.
+            This method interacts with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to
+            fetch details of all instances that are in the 'stopped' state. It is designed to run
+            asynchronously, enabling non-blocking execution.
         """
         try:
-            response = await sync_to_async(
-                self.ec2_client.stop_instances,
-                InstanceIds=[instance_id]
-            )
-            logging.info(f"Stopped EC2 instance: {instance_id}")
+            _filters = {"Name": "instance-state-name", "Values": ["stopped"]}
+            response = await self._get_all_instances(filters=[_filters])
+            logger.info(f"Stopped Instances {len(response)}")
             return response
         except NoCredentialsError:
-            logging.error("Credentials not available.")
+            logger.error("Credentials not available.")
         except ClientError as e:
-            logging.error(f"Client error: {e}")
+            logger.error(f"Client error: {e}")
         return
 
 
     def __dir__(self):
         return (
-
-            "get_all_instances",
-            "get_all_running_instance",
-            "get_instance_status",
-            "get_all_stop_instance"
+            "get_all_running_instances",
+            "get_all_stopped_instances"
         )
