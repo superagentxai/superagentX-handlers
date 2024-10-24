@@ -223,6 +223,18 @@ class HubSpotHandler(BaseHandler):
             *,
             ticket_id: str
     ):
+        """
+            Retrieves the status of a specific ticket.
+
+            Args:
+                ticket_id (str): The unique identifier of the ticket whose status is being retrieved.
+
+            Returns:
+                dict: The ticket information retrieved from HubSpot.
+
+            Raises:
+                TicketCreateException: If the provided ticket_id is invalid.
+        """
         try:
             return await sync_to_async(
                 self._connection.crm.tickets.basic_api.get_by_id,
@@ -243,7 +255,21 @@ class HubSpotHandler(BaseHandler):
             source_from: str = "EMAIL",
             priority: str = "LOW"
     ):
+        """
+            Creates a new ticket received from email.
 
+            Args:
+                subject (str): The subject of the ticket.
+                content (str): The content or description of the ticket.
+                pipeline (int, optional): The ID of the pipeline the ticket belongs to. Defaults to 0 (Pipeline name).
+                pipeline_stage (int, optional): The stage of the pipeline for this ticket. Defaults to 1 (New).
+                source_from (str, optional): The source from which the ticket is created. Defaults to "EMAIL"; can also be "Chat", etc.
+                priority (str, optional): The priority level of the ticket. Defaults to "LOW"; can also be "Medium" or "High".
+
+            Returns:
+                Ticket: The created ticket object or relevant information regarding the ticket.
+
+            """
         try:
             ticket_input = Ticket_Object_Create(
                 properties={
