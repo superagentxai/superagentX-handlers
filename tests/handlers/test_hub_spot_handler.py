@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
    6. pytest --log-cli-level=INFO tests/handlers/test_hub_spot_handler.py::TestHubSpot::test_get_tickets
    7. pytest --log-cli-level=INFO tests/handlers/test_hub_spot_handler.py::TestHubSpot::test_get_ticket_status
    8. pytest --log-cli-level=INFO tests/handlers/test_hub_spot_handler.py::TestHubSpot::test_create_ticket
+   9. pytest --log-cli-level=INFO tests/handlers/test_hub_spot_handler.py::TestHubSpot::test_search_ticket
 
 '''
 
@@ -108,10 +109,19 @@ class TestHubSpot:
             hs_client_init: HubSpotHandler
     ):
         res = await hs_client_init.create_ticket(
-            subject="Policy Number 12345",
-            content="Need to claim the policy"
+            subject="",
+            content=""
         )
         logger.info(f"Tickets Created Successfully {res}")
         assert isinstance(res, dict)
 
+    async def test_search_ticket(
+            self,
+            hs_client_init: HubSpotHandler
+    ):
+        res = await hs_client_init.get_ticket_status(
+            policy_number=""
+        )
+        logger.info(f"Tickets Info {res}")
+        assert isinstance(res, dict)
 
