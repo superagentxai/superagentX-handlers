@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 '''
  Run Pytest:  
 
-   1. pytest --log-cli-level=INFO tests/agent/test_email_hubspot_agent.py::TestEmailHubSpotAgent::test_email_hubspot_agent
+   1. pytest --log-cli-level=INFO tests/pipe/test_pipe_email_hubspot.py::TestPipeEmailHubSpot::test_pipe_email_hubspot
 '''
 
 
@@ -28,9 +28,9 @@ def agent_client_init() -> dict:
     return response
 
 
-class TestEmailHubSpotAgent:
+class TestPipeEmailHubSpot:
 
-    async def test_email_hubspot_agent(self, agent_client_init: dict):
+    async def test_pipe_email_hubspot(self, agent_client_init: dict):
         llm_client: LLMClient = agent_client_init.get('llm')
         gmail_handler = GmailHandler(
             credentials="/Users/arulvivek/Desktop/Agentx/Google/credentials.json"
