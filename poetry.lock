@@ -525,32 +525,6 @@ files = [
 ]
 
 [[package]]
-name = "cattrs"
-version = "24.1.2"
-description = "Composable complex class support for attrs and dataclasses."
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "cattrs-24.1.2-py3-none-any.whl", hash = "sha256:67c7495b760168d931a10233f979b28dc04daf853b30752246f4f8471c6d68d0"},
-    {file = "cattrs-24.1.2.tar.gz", hash = "sha256:8028cfe1ff5382df59dd36474a86e02d817b06eaf8af84555441bac915d2ef85"},
-]
-
-[package.dependencies]
-attrs = ">=23.1.0"
-exceptiongroup = {version = ">=1.1.1", markers = "python_version < \"3.11\""}
-typing-extensions = {version = ">=4.1.0,<4.6.3 || >4.6.3", markers = "python_version < \"3.11\""}
-
-[package.extras]
-bson = ["pymongo (>=4.4.0)"]
-cbor2 = ["cbor2 (>=5.4.6)"]
-msgpack = ["msgpack (>=1.0.5)"]
-msgspec = ["msgspec (>=0.18.5)"]
-orjson = ["orjson (>=3.9.2)"]
-pyyaml = ["pyyaml (>=6.0)"]
-tomlkit = ["tomlkit (>=0.11.8)"]
-ujson = ["ujson (>=5.7.0)"]
-
-[[package]]
 name = "certifi"
 version = "2024.8.30"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -1361,40 +1335,6 @@ test-full = ["adlfs", "aiohttp (!=4.0.0a0,!=4.0.0a1)", "cloudpickle", "dask", "d
 tqdm = ["tqdm"]
 
 [[package]]
-name = "geographiclib"
-version = "2.0"
-description = "The geodesic routines from GeographicLib"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "geographiclib-2.0-py3-none-any.whl", hash = "sha256:6b7225248e45ff7edcee32becc4e0a1504c606ac5ee163a5656d482e0cd38734"},
-    {file = "geographiclib-2.0.tar.gz", hash = "sha256:f7f41c85dc3e1c2d3d935ec86660dc3b2c848c83e17f9a9e51ba9d5146a15859"},
-]
-
-[[package]]
-name = "geopy"
-version = "2.4.1"
-description = "Python Geocoding Toolbox"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "geopy-2.4.1-py3-none-any.whl", hash = "sha256:ae8b4bc5c1131820f4d75fce9d4aaaca0c85189b3aa5d64c3dcaf5e3b7b882a7"},
-    {file = "geopy-2.4.1.tar.gz", hash = "sha256:50283d8e7ad07d89be5cb027338c6365a32044df3ae2556ad3f52f4840b3d0d1"},
-]
-
-[package.dependencies]
-geographiclib = ">=1.52,<3"
-
-[package.extras]
-aiohttp = ["aiohttp"]
-dev = ["coverage", "flake8 (>=5.0,<5.1)", "isort (>=5.10.0,<5.11.0)", "pytest (>=3.10)", "pytest-asyncio (>=0.17)", "readme-renderer", "sphinx (<=4.3.2)", "sphinx-issues", "sphinx-rtd-theme (>=0.5.0)"]
-dev-docs = ["readme-renderer", "sphinx (<=4.3.2)", "sphinx-issues", "sphinx-rtd-theme (>=0.5.0)"]
-dev-lint = ["flake8 (>=5.0,<5.1)", "isort (>=5.10.0,<5.11.0)"]
-dev-test = ["coverage", "pytest (>=3.10)", "pytest-asyncio (>=0.17)", "sphinx (<=4.3.2)"]
-requests = ["requests (>=2.16.2)", "urllib3 (>=1.24.2)"]
-timezone = ["pytz"]
-
-[[package]]
 name = "google-api-core"
 version = "2.21.0"
 description = "Google API client core library"
@@ -1657,51 +1597,6 @@ files = [
     {file = "h11-0.14.0-py3-none-any.whl", hash = "sha256:e3fe4ac4b851c468cc8363d500db52c2ead036020723024a109d37346efaa761"},
     {file = "h11-0.14.0.tar.gz", hash = "sha256:8f19fbbe99e72420ff35c00b27a34cb9937e902a8b810e2c88300c6f0a3b699d"},
 ]
-
-[[package]]
-name = "h3"
-version = "4.1.1"
-description = "Uber's hierarchical hexagonal geospatial indexing system"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "h3-4.1.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:f7e39173b8b801b4494a0d4a2ccdadc6525861b60c8ce25adbaba304b09bc497"},
-    {file = "h3-4.1.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:0b4cf814ce17b8c5308a50aa2626331171ce4e93837b0ef5b5a11e830b2bfe87"},
-    {file = "h3-4.1.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7475a34894a94a9e5af16ced0578eebd49b0cdcae69aa1d8974047fc4985337c"},
-    {file = "h3-4.1.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fe05271e42b2ec11ce6b13c50f50515d11d2f111f88e1e4d198dc0cb01f9b019"},
-    {file = "h3-4.1.1-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:9625250d23ccc66366632fd3c0c599e040b2a4986bd18a310c2d4ced3670d2dc"},
-    {file = "h3-4.1.1-cp310-cp310-win_amd64.whl", hash = "sha256:6e77f4956c06eabb9f8dc1db196817db7b35c7a229d9d4d109289134743ab9ad"},
-    {file = "h3-4.1.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:3e5aeeae057e5bb20f76be697ab995f9fe694cbca967f4313f361c131e287eca"},
-    {file = "h3-4.1.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:90b6c04e3823ea6371f157ffb805a0b94b23edb76ff81f8f3aa7113cb4fc3082"},
-    {file = "h3-4.1.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f8e94602a7c1a802ad303bd6658ddd1c1676a3978ef8a4b49f11ce519f3650db"},
-    {file = "h3-4.1.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ae406a6b206da7c7f5d48257c4b18bf7457270dbaab0e83b3209b5699ab01012"},
-    {file = "h3-4.1.1-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:c5ffdc6efed445ababbf07d67be6d2176e454af3057c57bc6f6d4a1f006a61cd"},
-    {file = "h3-4.1.1-cp311-cp311-win_amd64.whl", hash = "sha256:622e153e1a2e1f2f2e88e64ff721075ba33f63ce5201cca255c4559ffdab3fd3"},
-    {file = "h3-4.1.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:b14b4c70d2e05809638d50fece66a28d9d45fe08951dd460baf91904b1cfb483"},
-    {file = "h3-4.1.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:fad51b264ef6876cbac9ea8da81f775446cd018e488b01745c051d9ebfe3532a"},
-    {file = "h3-4.1.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:aaaefb6bfa2b391ad14944dc1a16df4a0c4030cfed1c0d3c8b0e0c3c6d07cffb"},
-    {file = "h3-4.1.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5c16a23aac9b324abff0aac3876024a7ef1a1c9c452dd8c3a9c127edd22590cc"},
-    {file = "h3-4.1.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:cb01d2335c06bb3997e25b9dcdcee8e27cbe29f77ea8a45d8712e2c1df859e47"},
-    {file = "h3-4.1.1-cp312-cp312-win_amd64.whl", hash = "sha256:30cfa94d29564664ae3447bbd01e7613397687fa3d38f8570269017c1b6fa2ae"},
-    {file = "h3-4.1.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:63a39089fa9a49ae79e7f787557db81d891811c752508b3c13107d478122ca72"},
-    {file = "h3-4.1.1-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:0c23122fd784e9daca7a783ec6e27f045efb4927d3ad34f1f7386e2be932f952"},
-    {file = "h3-4.1.1-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c1a4eb717b7e6231a31b9cc42bd1787903fc0f359995e307bf7e6e005669d82a"},
-    {file = "h3-4.1.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:05fb5f4228f2c2df8eb25ff58c285646f9ff0757eeb4244598c5de716a04c5e2"},
-    {file = "h3-4.1.1-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:d3854a956ea691caaa0acf643cdb76cc208aa7d4dbe7cf4dab95c07f2efcfae4"},
-    {file = "h3-4.1.1-cp38-cp38-win_amd64.whl", hash = "sha256:44f3e37dfd564a42fb60c40d071b3097f97d6aaff7c67d42b0a87ce9eb57e668"},
-    {file = "h3-4.1.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:baa3f120cc8c5502c9bd7804352cd415f182c9e83e43c87484deb85d42a23052"},
-    {file = "h3-4.1.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:9aa99d9ad4db4b45690a15fc8479ec6712d79b5617fd56b9d1a799a7a5d864c3"},
-    {file = "h3-4.1.1-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:560b8fbfe8923a999249d8296be659f3ad818ce82b3d4b38796209ebb73bb516"},
-    {file = "h3-4.1.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0c5c95791f8f4a9dc686c21c1751cd18048eb73dc8f78b47403de054ab9cfc1e"},
-    {file = "h3-4.1.1-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:22bdcb70daadae676614179be5941faec3b534fd4d8ed62b8b98eca2b0632d66"},
-    {file = "h3-4.1.1-cp39-cp39-win_amd64.whl", hash = "sha256:b961d580715d4e82f496ea64472cf2ff0bcf2f50c8ef702c4fb9353751082479"},
-    {file = "h3-4.1.1.tar.gz", hash = "sha256:94b80249a0c6ae1109defcf2eb8604b00e7be6a7eba2e0e4efd4841f8cc6177a"},
-]
-
-[package.extras]
-all = ["cartopy", "contextily", "flake8", "geodatasets", "geopandas", "geoviews", "jupyter-book", "jupyterlab", "jupyterlab-geojson", "matplotlib", "numpy", "pylint", "pytest", "pytest-cov", "sphinx (>=7.3.3)"]
-numpy = ["numpy"]
-test = ["flake8", "numpy", "pylint", "pytest", "pytest-cov"]
 
 [[package]]
 name = "html2text"
@@ -2853,39 +2748,6 @@ typing-extensions = ">=4.11,<5"
 datalib = ["numpy (>=1)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)"]
 
 [[package]]
-name = "openmeteo-requests"
-version = "1.3.0"
-description = "Open-Meteo Python Library"
-optional = false
-python-versions = ">=3.8.1"
-files = [
-    {file = "openmeteo_requests-1.3.0-py3-none-any.whl", hash = "sha256:e9b4eb9f4a3d234f573be6f83f1c179f2f2f2bbc6533a1541a3fa0a0eb1df54b"},
-    {file = "openmeteo_requests-1.3.0.tar.gz", hash = "sha256:6606975d1939669b69ee1ea46cc5356a03aa99f2259b7b8a2e73841b478eb640"},
-]
-
-[package.dependencies]
-openmeteo-sdk = ">=1.4.0"
-requests = "*"
-
-[package.extras]
-spark = ["pyspark (>=3.0.0)"]
-test = ["bandit[toml] (>=1.7.5)", "black (>=23.10.0)", "check-manifest (>=0.49)", "flake8", "flake8-bugbear (>=23.9.16)", "flake8-docstrings", "flake8-formatter-junit-xml", "flake8-pyproject", "pre-commit (>=3.5.0)", "pylint (>=3.0.1)", "pylint-junit", "pytest (>=7.4.0)", "pytest-asyncio", "pytest-cov (>=4.1.0)", "pytest-github-actions-annotate-failures", "pytest-mock (>=3.11.2)", "pytest-runner", "shellcheck-py (>=0.9.0.6)"]
-
-[[package]]
-name = "openmeteo-sdk"
-version = "1.18.0"
-description = "Open-Meteo Python SDK"
-optional = false
-python-versions = ">=3.8.1"
-files = [
-    {file = "openmeteo_sdk-1.18.0-py3-none-any.whl", hash = "sha256:96e4f538d62a8be257784cef2c368e07e98550a56a0beba4b0efd37d76e0f16e"},
-    {file = "openmeteo_sdk-1.18.0.tar.gz", hash = "sha256:b79b922e8363bf35b79630a6cb1faf35f84b4a9173241849aae50a4b2c5bd034"},
-]
-
-[package.dependencies]
-flatbuffers = ">=24.0.0"
-
-[[package]]
 name = "opensearch-py"
 version = "2.7.1"
 description = "Python client for OpenSearch"
@@ -3257,9 +3119,9 @@ files = [
 
 [package.dependencies]
 numpy = [
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
     {version = ">=1.22.4", markers = "python_version < \"3.11\""},
     {version = ">=1.23.2", markers = "python_version == \"3.11\""},
-    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -3386,22 +3248,6 @@ mic = ["olefile"]
 tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout"]
 typing = ["typing-extensions"]
 xmp = ["defusedxml"]
-
-[[package]]
-name = "platformdirs"
-version = "4.3.6"
-description = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "platformdirs-4.3.6-py3-none-any.whl", hash = "sha256:73e575e1408ab8103900836b97580d5307456908a03e92031bab39e4554cc3fb"},
-    {file = "platformdirs-4.3.6.tar.gz", hash = "sha256:357fb2acbc885b0419afd3ce3ed34564c13c9b95c89360cd9563f73aa5e2b907"},
-]
-
-[package.extras]
-docs = ["furo (>=2024.8.6)", "proselint (>=0.14)", "sphinx (>=8.0.2)", "sphinx-autodoc-typehints (>=2.4)"]
-test = ["appdirs (==1.4.4)", "covdefaults (>=2.3)", "pytest (>=8.3.2)", "pytest-cov (>=5)", "pytest-mock (>=3.14)"]
-type = ["mypy (>=1.11.2)"]
 
 [[package]]
 name = "playwright"
@@ -3760,8 +3606,8 @@ files = [
 annotated-types = ">=0.6.0"
 pydantic-core = "2.23.4"
 typing-extensions = [
-    {version = ">=4.6.1", markers = "python_version < \"3.13\""},
     {version = ">=4.12.2", markers = "python_version >= \"3.13\""},
+    {version = ">=4.6.1", markers = "python_version < \"3.13\""},
 ]
 
 [package.extras]
@@ -4402,36 +4248,6 @@ socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
-name = "requests-cache"
-version = "1.2.1"
-description = "A persistent cache for python requests"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "requests_cache-1.2.1-py3-none-any.whl", hash = "sha256:1285151cddf5331067baa82598afe2d47c7495a1334bfe7a7d329b43e9fd3603"},
-    {file = "requests_cache-1.2.1.tar.gz", hash = "sha256:68abc986fdc5b8d0911318fbb5f7c80eebcd4d01bfacc6685ecf8876052511d1"},
-]
-
-[package.dependencies]
-attrs = ">=21.2"
-cattrs = ">=22.2"
-platformdirs = ">=2.5"
-requests = ">=2.22"
-url-normalize = ">=1.4"
-urllib3 = ">=1.25.5"
-
-[package.extras]
-all = ["boto3 (>=1.15)", "botocore (>=1.18)", "itsdangerous (>=2.0)", "pymongo (>=3)", "pyyaml (>=6.0.1)", "redis (>=3)", "ujson (>=5.4)"]
-bson = ["bson (>=0.5)"]
-docs = ["furo (>=2023.3,<2024.0)", "linkify-it-py (>=2.0,<3.0)", "myst-parser (>=1.0,<2.0)", "sphinx (>=5.0.2,<6.0.0)", "sphinx-autodoc-typehints (>=1.19)", "sphinx-automodapi (>=0.14)", "sphinx-copybutton (>=0.5)", "sphinx-design (>=0.2)", "sphinx-notfound-page (>=0.8)", "sphinxcontrib-apidoc (>=0.3)", "sphinxext-opengraph (>=0.9)"]
-dynamodb = ["boto3 (>=1.15)", "botocore (>=1.18)"]
-json = ["ujson (>=5.4)"]
-mongodb = ["pymongo (>=3)"]
-redis = ["redis (>=3)"]
-security = ["itsdangerous (>=2.0)"]
-yaml = ["pyyaml (>=6.0.1)"]
-
-[[package]]
 name = "requests-oauthlib"
 version = "2.0.0"
 description = "OAuthlib authentication support for Requests."
@@ -4462,24 +4278,6 @@ files = [
 
 [package.dependencies]
 requests = ">=2.0.1,<3.0.0"
-
-[[package]]
-name = "retry-requests"
-version = "2.0.0"
-description = "Make requests's sessions auto-retry on failure."
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "retry-requests-2.0.0.tar.gz", hash = "sha256:3d02135e5aafedf09240414182fc7389c5d2b4de0252daba0054c9d6a27e7639"},
-    {file = "retry_requests-2.0.0-py3-none-any.whl", hash = "sha256:38e8e3f55051e7b7915c1768884269097865a5da2ea87d5dcafd6ba9498c363f"},
-]
-
-[package.dependencies]
-requests = "*"
-urllib3 = ">=1.26"
-
-[package.extras]
-test = ["pytest"]
 
 [[package]]
 name = "rich"
@@ -4926,32 +4724,6 @@ requests = ">=2.26.0"
 blobfile = ["blobfile (>=2)"]
 
 [[package]]
-name = "timezonefinder"
-version = "6.5.4"
-description = "python package for finding the timezone of any point on earth (coordinates) offline"
-optional = false
-python-versions = "<4,>=3.8"
-files = [
-    {file = "timezonefinder-6.5.4-cp310-cp310-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a60f23c734b7b229bfbe3dc1ecd54421864d996387a913a7a432ffcd6f86d980"},
-    {file = "timezonefinder-6.5.4-cp311-cp311-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7735f9c4841e5e90fa64b52be2e53591dfbc2796ee5017cd45b648019cdffe1d"},
-    {file = "timezonefinder-6.5.4-cp312-cp312-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6135a56c7af77e68f272899f71f2adfbd6e78595acc8b30a49c1695102fe1311"},
-    {file = "timezonefinder-6.5.4-cp313-cp313-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ac0fd6519b9603f0152507e8db779f6b183a2b73fe4f14a5ab3591d8c1c610a9"},
-    {file = "timezonefinder-6.5.4-cp38-cp38-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8149c72c48ec0db29ad7000ea67217087bc8406021b5b4490e806f9ae93431ee"},
-    {file = "timezonefinder-6.5.4-cp39-cp39-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7a4f865b4227e8a7cbb5b13d9f76b175ab46c8d6a421bf1381be14c95eb1b18e"},
-    {file = "timezonefinder-6.5.4.tar.gz", hash = "sha256:c8c264c5c55ebee23973366541298c45448e4280d59bb218d70b71e9280eefd3"},
-]
-
-[package.dependencies]
-cffi = ">=1.15.1,<2"
-h3 = ">4"
-numpy = {version = ">=1.23,<3", markers = "python_version >= \"3.9\""}
-setuptools = ">=65.5"
-
-[package.extras]
-numba = ["numba (>=0.56,<1)", "numba (>=0.59,<1)"]
-pytz = ["pytz (>=2022.7.1)"]
-
-[[package]]
 name = "tokenizers"
 version = "0.20.1"
 description = ""
@@ -5168,20 +4940,6 @@ files = [
     {file = "uritemplate-4.1.1-py2.py3-none-any.whl", hash = "sha256:830c08b8d99bdd312ea4ead05994a38e8936266f84b9a7878232db50b044e02e"},
     {file = "uritemplate-4.1.1.tar.gz", hash = "sha256:4346edfc5c3b79f694bccd6d6099a322bbeb628dbf2cd86eea55a456ce5124f0"},
 ]
-
-[[package]]
-name = "url-normalize"
-version = "1.4.3"
-description = "URL normalization for Python"
-optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
-files = [
-    {file = "url-normalize-1.4.3.tar.gz", hash = "sha256:d23d3a070ac52a67b83a1c59a0e68f8608d1cd538783b401bc9de2c0fac999b2"},
-    {file = "url_normalize-1.4.3-py2.py3-none-any.whl", hash = "sha256:ec3c301f04e5bb676d333a7fa162fa977ad2ca04b7e652bfc9fac4e405728eed"},
-]
-
-[package.dependencies]
-six = "*"
 
 [[package]]
 name = "urllib3"
@@ -5704,4 +5462,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<=3.13"
-content-hash = "8531b1a0b742e52c1633c9a18764e74778ea4e21a5a784303d88c9ac38b7eb3d"
+content-hash = "fee72b9e6e228119c43c3cf2df979a4211c383da138f8b507a6c66b6167c47b7"
