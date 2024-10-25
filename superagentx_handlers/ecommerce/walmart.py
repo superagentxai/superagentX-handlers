@@ -4,6 +4,7 @@ import urllib.parse
 
 import aiohttp
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class WalmartHandler(BaseHandler):
             process. If not provided, the default behavior is used.
 
         """
+        super().__init__()
         self.api_key = api_key or os.getenv("RAPID_API_KEY")
         self.top_items = top_items
         if not self.top_items:
@@ -82,6 +84,7 @@ class WalmartHandler(BaseHandler):
             ) as resp:
                 return await resp.json()
 
+    @tool
     async def product_search(
             self,
             *,
@@ -115,6 +118,7 @@ class WalmartHandler(BaseHandler):
             #return [item async for item in self._construct_data(products)]
             return products
 
+    @tool
     async def product_reviews(
             self,
             url: str
@@ -141,10 +145,4 @@ class WalmartHandler(BaseHandler):
         return await self._retrieve(
             endpoint=_endpoint,
             params=params
-        )
-
-    def __dir__(self):
-        return (
-            'product_search',
-            'product_reviews',
         )

@@ -10,6 +10,7 @@ from hubspot.crm.tickets import (SimplePublicObjectInputForCreate as TicketObjec
                                  ApiException as TicketException)
 
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class HubSpotHandler(BaseHandler):
             *,
             token: str
     ):
+        super().__init__()
         self.token = token
         self._connection: HubSpot = self._connect()
 
@@ -55,11 +57,12 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise AuthException(message)
 
+    @tool
     async def create_contact(
             self,
             email: str,
-            firstName: str = '',
-            lastName: str = ''
+            first_name: str = '',
+            last_name: str = ''
     ):
         """
             create a new contact in HubSpot.
@@ -69,8 +72,8 @@ class HubSpotHandler(BaseHandler):
 
             Args:
                 email (str): The email address of the contact. This field is required.
-                firstName (str, optional): The first name of the contact. Defaults to an empty string.
-                lastName (str, optional): The last name of the contact. Defaults to an empty string.
+                first_name (str, optional): The first name of the contact. Defaults to an empty string.
+                last_name (str, optional): The last name of the contact. Defaults to an empty string.
 
             Returns:
                 dict: A dictionary containing the details of the created contact info.
@@ -80,8 +83,8 @@ class HubSpotHandler(BaseHandler):
             simple_public_object_input_for_create = ContactObjectBuilder(
                 properties={
                     "email": email,
-                    "firstname": firstName,
-                    "lastname": lastName
+                    "firstname": first_name,
+                    "lastname": last_name
                 }
             )
             return await sync_to_async(
@@ -93,6 +96,7 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_all_contact(
             self
     ):
@@ -116,6 +120,7 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def create_company(
             self,
             *,
@@ -151,6 +156,7 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_all_company(
             self
     ):
@@ -173,6 +179,7 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_all_deals(
             self
     ):
@@ -195,6 +202,7 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_all_tickets(
             self
     ):
@@ -218,6 +226,7 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_ticket_status(
             self,
             *,
@@ -255,6 +264,7 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def create_ticket(
             self,
             *,
@@ -301,15 +311,3 @@ class HubSpotHandler(BaseHandler):
             message = f"Exception when creating Ticket {ex}"
             logger.error(message, exc_info=ex)
             raise
-
-    def __dir__(self):
-        return (
-            'create_contact',
-            'get_all_contact',
-            'create_company',
-            'get_all_company',
-            'get_all_deals',
-            'get_all_tickets',
-            'create_ticket',
-            'get_ticket_status'
-        )

@@ -39,8 +39,8 @@ class TestHubSpot:
     ):
         res = await hs_client_init.create_contact(
             email='',
-            firstName="",
-            lastName=""
+            first_name="",
+            last_name=""
         )
         logger.info(f"Contact Info: {res}")
         assert isinstance(res, list)

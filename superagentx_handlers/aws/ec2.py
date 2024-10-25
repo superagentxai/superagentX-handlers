@@ -4,6 +4,7 @@ import os
 import boto3
 
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ class AWSEC2Handler(BaseHandler):
             aws_secret_access_key: str | None = None,
             region_name: str | None = None
     ):
+        super().__init__()
         self.region = region_name or os.getenv("AWS_REGION")
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
@@ -50,7 +52,7 @@ class AWSEC2Handler(BaseHandler):
         except Exception as ex:
             logger.error(f"Get all Instance getting error: {ex}")
 
-
+    @tool
     async def get_all_running_instances(self)->list[dict]:
         """
            Fetch all currently active or running instances.
@@ -65,6 +67,7 @@ class AWSEC2Handler(BaseHandler):
             logger.debug(f"Running Instances {len(response)}")
             return response
 
+    @tool
     async def get_all_stopped_instances(self)->list[dict]:
         """
             Retrieve all currently stopped instances.
@@ -78,10 +81,3 @@ class AWSEC2Handler(BaseHandler):
         if response:
             logger.debug(f"Stopped Instances {len(response)}")
             return response
-
-
-    async def __dir__(self):
-        return (
-            "get_all_running_instances",
-            "get_all_stopped_instances"
-        )

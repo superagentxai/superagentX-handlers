@@ -3,6 +3,7 @@ import os
 
 import aiohttp
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import iter_to_aiter
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ class AmazonHandler(BaseHandler):
             # BE, EG
             top_items: int | None = None
     ):
+        super().__init__()
         self.api_key = api_key or os.getenv('RAPID_API_KEY')
         self.country = country
         self.top_items = top_items
@@ -61,6 +63,7 @@ class AmazonHandler(BaseHandler):
                         item["reviews"] = _reviews[:self.top_items]
                         yield item
 
+    @tool
     async def product_search(
             self,
             *,
@@ -96,6 +99,7 @@ class AmazonHandler(BaseHandler):
                 logger.debug(f"Product length: {len(products)}")
                 return [item async for item in self._construct_data(products[:self.top_items])]
 
+    @tool
     async def product_reviews(
             self,
             asin: str
@@ -122,10 +126,4 @@ class AmazonHandler(BaseHandler):
         return await self._retrieve(
             endpoint=_endpoint,
             params=params
-        )
-
-    def __dir__(self):
-        return (
-            'product_search',
-            'product_reviews'
         )
