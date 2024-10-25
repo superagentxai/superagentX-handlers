@@ -7,7 +7,7 @@ from hubspot.crm.companies import (SimplePublicObjectInputForCreate as Company_O
                                    ApiException as ApiException)
 from hubspot.crm.deals import ApiException as DealsCreateException
 from hubspot.crm.tickets import (SimplePublicObjectInputForCreate as Ticket_Object_Create,
-                                 ApiException as TicketCreateException)
+                                 ApiException as TicketException)
 
 from superagentx.handler.base import BaseHandler
 from superagentx.utils.helper import sync_to_async
@@ -104,7 +104,7 @@ class HubSpotHandler(BaseHandler):
 
             Returns:
                 list: A list of dictionaries, each containing details of a contact, such as
-                      email, first name, last name etc..
+                      email, first name, last name etc
 
             """
         try:
@@ -213,7 +213,7 @@ class HubSpotHandler(BaseHandler):
             return await sync_to_async(
                 self._connection.crm.tickets.get_all
             )
-        except TicketCreateException as ex:
+        except TicketException as ex:
             message = f"Exception when getting tickets {ex}"
             logger.error(message, exc_info=ex)
             raise
@@ -221,27 +221,37 @@ class HubSpotHandler(BaseHandler):
     async def get_ticket_status(
             self,
             *,
-            ticket_id: str
+            policy_number: str,
+            property_name: str = "subject"
     ):
         """
-            Retrieves the status of a specific ticket.
+            Retrieve the status of a ticket based on the specified policy number.
 
             Args:
-                ticket_id (str): The unique identifier of the ticket whose status is being retrieved.
+                policy_number (str): The policy number associated with the ticket.
+                property_name (str, optional): The property to filter the ticket by (default is "subject").
 
             Returns:
-                dict: The ticket information retrieved from HubSpot.
-
-            Raises:
-                TicketCreateException: If the provided ticket_id is invalid.
-        """
+                dict: A dictionary containing the status of the ticket and other relevant details.
+            """
         try:
+            ticket_input = {
+                "filterGroups": [{
+                    "filters": [
+                        {
+                            "propertyName": property_name,
+                            "operator": "CONTAINS_TOKEN",
+                            "value": policy_number
+                        }
+                    ]
+                }]
+            }
             return await sync_to_async(
-                self._connection.crm.tickets.basic_api.get_by_id,
-                ticket_id=ticket_id
+                self._connection.crm.tickets.search_api.do_search,
+                public_object_search_request=ticket_input
             )
-        except TicketCreateException as ex:
-            message = f"Exception when getting ticket Info {ex}"
+        except TicketException as ex:
+            message = f"Exception when getting Ticket {ex}"
             logger.error(message, exc_info=ex)
             raise
 
@@ -256,15 +266,17 @@ class HubSpotHandler(BaseHandler):
             priority: str = "LOW"
     ):
         """
-            Creates a new ticket received from email.
+            Creates a new ticket.
 
             Args:
                 subject (str): The subject of the ticket.
                 content (str): The content or description of the ticket.
                 pipeline (int, optional): The ID of the pipeline the ticket belongs to. Defaults to 0 (Pipeline name).
                 pipeline_stage (int, optional): The stage of the pipeline for this ticket. Defaults to 1 (New).
-                source_from (str, optional): The source from which the ticket is created. Defaults to "EMAIL"; can also be "Chat", etc.
-                priority (str, optional): The priority level of the ticket. Defaults to "LOW"; can also be "Medium" or "High".
+                source_from (str, optional): The source from which the ticket is created. Defaults to "EMAIL";
+                can also be "Chat", etc.
+                priority (str, optional): The priority level of the ticket. Defaults to "LOW";
+                can also be "Medium" or "High".
 
             Returns:
                 Ticket: The created ticket object or relevant information regarding the ticket.
@@ -285,7 +297,7 @@ class HubSpotHandler(BaseHandler):
                 self._connection.crm.tickets.basic_api.create,
                 simple_public_object_input_for_create=ticket_input
             )
-        except TicketCreateException as ex:
+        except TicketException as ex:
             message = f"Exception when creating Ticket {ex}"
             logger.error(message, exc_info=ex)
             raise
@@ -298,6 +310,6 @@ class HubSpotHandler(BaseHandler):
             'get_all_company',
             'get_all_deals',
             'get_all_tickets',
-            'get_ticket_status',
-            'create_ticket'
+            'create_ticket',
+            'get_ticket_status'
         )
