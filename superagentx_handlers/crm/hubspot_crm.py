@@ -1,12 +1,12 @@
 import logging
 
 from hubspot import HubSpot
-from hubspot.crm.contacts import (SimplePublicObjectInputForCreate as Contact_Object_Create,
+from hubspot.crm.contacts import (SimplePublicObjectInputForCreate as ContactObjectBuilder,
                                   ApiException as ContactCreateException)
-from hubspot.crm.companies import (SimplePublicObjectInputForCreate as Company_Object_Create,
+from hubspot.crm.companies import (SimplePublicObjectInputForCreate as CompanyObjectBuilder,
                                    ApiException as ApiException)
-from hubspot.crm.deals import ApiException as DealsCreateException
-from hubspot.crm.tickets import (SimplePublicObjectInputForCreate as Ticket_Object_Create,
+from hubspot.crm.deals import ApiException as DealCreationException
+from hubspot.crm.tickets import (SimplePublicObjectInputForCreate as TicketObjectBuilder,
                                  ApiException as TicketException)
 
 from superagentx.handler.base import BaseHandler
@@ -77,7 +77,7 @@ class HubSpotHandler(BaseHandler):
 
             """
         try:
-            simple_public_object_input_for_create = Contact_Object_Create(
+            simple_public_object_input_for_create = ContactObjectBuilder(
                 properties={
                     "email": email,
                     "firstname": firstName,
@@ -136,7 +136,7 @@ class HubSpotHandler(BaseHandler):
                 dict: A dictionary containing the details of the created company info
             """
         try:
-            simple_public_object_input_for_create = Company_Object_Create(
+            simple_public_object_input_for_create = CompanyObjectBuilder(
                 properties={
                     "domain": domain,
                     "name": name
@@ -190,7 +190,7 @@ class HubSpotHandler(BaseHandler):
             return await sync_to_async(
                 self._connection.crm.deals.get_all
             )
-        except DealsCreateException as ex:
+        except DealCreationException as ex:
             message = f"Exception when getting deals {ex}"
             logger.error(message, exc_info=ex)
             raise
@@ -283,7 +283,7 @@ class HubSpotHandler(BaseHandler):
 
             """
         try:
-            ticket_input = Ticket_Object_Create(
+            ticket_input = TicketObjectBuilder(
                 properties={
                     "subject": subject,
                     "content": content,
