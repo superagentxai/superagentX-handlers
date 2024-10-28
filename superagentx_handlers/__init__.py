@@ -3,3 +3,7 @@ from .aws import *
 from .crm import *
 from .ecommerce import *
 from .google import *
+from .scrape import ScrapeHandler
+from .sql import SQLHandler
+from .weather import WeatherHandler
+from .wikipedia import WikipediaHandler
