@@ -5,6 +5,7 @@ from abc import ABC
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async
 
 from superagentx_handlers.google.exceptions import AuthException
@@ -25,9 +26,10 @@ class CalenderHandler(BaseHandler, ABC):
             *,
             credentials: str
     ):
+        super().__init__()
         self.service = None
         self.creds = None
-        logger.info(f'Calendar client initialization')
+        logger.debug(f'Calendar client initialization')
         self.credentials = credentials or {}
         self._service = self._connect()
 
@@ -70,6 +72,7 @@ class CalenderHandler(BaseHandler, ABC):
             logger.error(message, exc_info=ex)
             raise AuthException(message)
 
+    @tool
     async def get_today_events(self):
         """
             Retrieve events occurring for today events.
@@ -84,6 +87,7 @@ class CalenderHandler(BaseHandler, ABC):
             """
         return await self.get_events_by_days(days=1)
 
+    @tool
     async def get_week_events(self):
         """
             Retrieve events occurring in the upcoming week.
@@ -98,6 +102,7 @@ class CalenderHandler(BaseHandler, ABC):
             """
         return await self.get_events_by_days(days=7)
 
+    @tool
     async def get_month_events(self):
         """
             Retrieve events occurring in the upcoming month.
@@ -166,6 +171,7 @@ class CalenderHandler(BaseHandler, ABC):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_events_by_type(
             self,
             *,
@@ -209,11 +215,3 @@ class CalenderHandler(BaseHandler, ABC):
             message = f"Error while Getting Events"
             logger.error(message, exc_info=ex)
             raise
-
-    def __dir__(self):
-        return (
-            'get_today_events',
-            'get_week_events',
-            'get_month_events',
-            'get_events_by_type'
-        )

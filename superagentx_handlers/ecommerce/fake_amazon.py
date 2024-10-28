@@ -1,9 +1,12 @@
+from superagentx.handler.decorators import tool
+
 from superagentx_handlers.ecommerce.fake_product import FakeProductHandler
 
 
 class FakeAmazonHandler(FakeProductHandler):
     _provider: str = 'Amazon'
 
+    @tool
     async def product_search(
             self,
             *,
@@ -25,9 +28,4 @@ class FakeAmazonHandler(FakeProductHandler):
         return await super().search(
             provider=self._provider,
             category=query
-        )
-
-    def __dir__(self):
-        return (
-            "product_search",
         )

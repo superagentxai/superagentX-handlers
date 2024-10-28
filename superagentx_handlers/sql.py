@@ -2,6 +2,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 
 
 class InvalidDatabase(Exception):
@@ -29,6 +30,7 @@ class SQLHandler(BaseHandler):
             username: str | None = None,
             password: str | None = None
     ):
+        super().__init__()
         self.database_type = database_type.lower()
         self.host = host or "localhost"
         self.port = port
@@ -75,7 +77,7 @@ class SQLHandler(BaseHandler):
             self.port = 1433
         return f"mssql+aioodbc://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}?charset=utf8"
 
-
+    @tool
     async def select(
             self,
             *,
@@ -98,6 +100,7 @@ class SQLHandler(BaseHandler):
             res = await conn.execute(text(query))
             return res.all()
 
+    @tool
     async def insert(
             self,
             *,
@@ -125,6 +128,7 @@ class SQLHandler(BaseHandler):
             values=values
         )
 
+    @tool
     async def update(
             self,
             *,
@@ -150,6 +154,7 @@ class SQLHandler(BaseHandler):
             values=values
         )
 
+    @tool
     async def delete(
             self,
             *,
@@ -178,6 +183,7 @@ class SQLHandler(BaseHandler):
             values=values
         )
 
+    @tool
     async def create_table(
             self,
             *,
@@ -201,6 +207,7 @@ class SQLHandler(BaseHandler):
                 text(stmt)
             )
 
+    @tool
     async def drop_table(
             self,
             *,
@@ -223,6 +230,7 @@ class SQLHandler(BaseHandler):
                 text(stmt)
             )
 
+    @tool
     async def alter_table(
             self,
             *,
@@ -275,14 +283,3 @@ class SQLHandler(BaseHandler):
                 text(stmt),
                 values
             )
-
-    def __dir__(self):
-        return (
-            'select',
-            'insert',
-            'update',
-            'delete',
-            'create_table',
-            'drop_table',
-            'alter_table'
-        )

@@ -1,6 +1,7 @@
 from superagentx.handler.base import BaseHandler
 
 from crawl4ai import AsyncWebCrawler
+from superagentx.handler.decorators import tool
 
 from superagentx.utils.helper import iter_to_aiter
 
@@ -31,8 +32,10 @@ class ScrapeHandler(BaseHandler):
             domain_urls (list[str]): A list of domain URLs to be scraped.
         
         """
+        super().__init__()
         self.domain_url = domain_urls
 
+    @tool
     async def scrap_content(self):
 
         """
@@ -51,8 +54,3 @@ class ScrapeHandler(BaseHandler):
                 return [
                     res.markdown async for res in iter_to_aiter(results) if res
                 ]
-
-    def __dir__(self):
-        return (
-            'scrap_content',
-        )

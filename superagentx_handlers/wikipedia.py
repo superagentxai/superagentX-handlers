@@ -1,6 +1,7 @@
 import logging
 import re
 
+from superagentx.handler.decorators import tool
 from wikipediaapi import Wikipedia, WikipediaPage
 
 from superagentx.handler.base import BaseHandler
@@ -20,14 +21,17 @@ class WikipediaHandler(BaseHandler):
     """
 
     def __init__(self, lang: str = 'en'):
+        super().__init__()
         self.wiki_client = Wikipedia('superagentx-wiki', lang)
 
     async def _get_wikipedia_page(self, query: str) -> WikipediaPage | None:
         return self.wiki_client.page(query) if query else None
 
-    async def get_summary(self,
-                          query: str
-                          ) -> str:
+    @tool
+    async def get_summary(
+            self,
+            query: str
+    ) -> str:
         """
         Asynchronously retrieves a summary of a specified topic or content.
         This method condenses information into a concise format, making it easier to understand key points at a glance.
@@ -39,8 +43,3 @@ class WikipediaHandler(BaseHandler):
         summary = re.escape(page.summary)
         logger.debug(f"Page Summary => {page.summary}")
         return summary if page else None
-
-    def __dir__(self):
-        return (
-            'get_summary',
-        )

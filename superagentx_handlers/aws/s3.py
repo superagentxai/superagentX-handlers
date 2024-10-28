@@ -3,6 +3,7 @@ import logging
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async
 
 from superagentx_handlers.aws.exceptions import ListFilesFailed, FileUploadFailed, FileDownloadFailed
@@ -24,6 +25,7 @@ class AWSS3Handler(BaseHandler):
             bucket_name: str | None = None,
             region_name: str | None = None
     ):
+        super().__init__()
         self.bucket_name = bucket_name
         self.region = region_name
         self._storage = boto3.client(
@@ -33,6 +35,7 @@ class AWSS3Handler(BaseHandler):
             aws_secret_access_key=aws_secret_access_key
         )
 
+    @tool
     async def list_bucket(self):
         """
             Asynchronously retrieves a list of all objects in the specified S3 bucket.
@@ -49,6 +52,7 @@ class AWSS3Handler(BaseHandler):
             logger.error(_msg, exc_info=ex)
             raise ListFilesFailed(ex)
 
+    @tool
     async def upload_file(
             self,
             file_name: str,
@@ -78,6 +82,7 @@ class AWSS3Handler(BaseHandler):
             _msg = f'File {file_name} upload failed!'
             raise FileUploadFailed(ex)
 
+    @tool
     async def download_file(
             self,
             object_name: str,
@@ -106,11 +111,3 @@ class AWSS3Handler(BaseHandler):
             _msg = f'File {file_name} download failed!'
             logger.error(_msg, exc_info=ex)
             raise FileDownloadFailed(ex)
-
-
-    def __dir__(self):
-        return (
-            "download_file",
-            "upload_file",
-            "list_bucket"
-        )

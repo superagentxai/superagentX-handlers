@@ -20,6 +20,7 @@ class FakeProductHandler(BaseHandler, ABC):
             product_models: list[dict],
             total: int = 5
     ):
+        super().__init__()
         self.llm_client: LLMClient = llm_client
         self.product_models = product_models
         self.total = total

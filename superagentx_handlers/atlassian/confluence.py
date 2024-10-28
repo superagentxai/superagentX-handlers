@@ -5,6 +5,7 @@ import aiohttp
 from aiohttp import BasicAuth
 from atlassian import Confluence
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async
 
 from superagentx_handlers.atlassian.exceptions import AuthException
@@ -26,6 +27,7 @@ class ConfluenceHandler(BaseHandler):
             token: str | None = None,
             organization: str | None = None
     ):
+        super().__init__()
         self.email = email or os.getenv('ATLASSIAN_EMAIL')
         self.token = token or os.getenv('ATLASSIAN_TOKEN')
         self.organization = organization or os.getenv('ATLASSIAN_ORGANIZATION')
@@ -44,6 +46,7 @@ class ConfluenceHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise AuthException(message)
 
+    @tool
     async def get_all_spaces(
             self,
             *,
@@ -69,6 +72,7 @@ class ConfluenceHandler(BaseHandler):
             logger.error(message, exc_info={ex})
             raise Exception(message)
 
+    @tool
     async def get_pages_spaces(
             self,
             *,
@@ -89,6 +93,7 @@ class ConfluenceHandler(BaseHandler):
             logger.error(message, exc_info={ex})
             raise Exception(message)
 
+    @tool
     async def last_updated_pages(
             self,
             *,
@@ -112,10 +117,3 @@ class ConfluenceHandler(BaseHandler):
             message = f"Error While getting last updated info! {ex}"
             logger.error(message, exc_info={ex})
             raise Exception(message)
-
-    def __dir__(self):
-        return (
-            'get_all_spaces',
-            'get_pages_spaces',
-            'last_updated_pages'
-        )

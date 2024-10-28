@@ -3,6 +3,7 @@ import logging
 import os
 
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import iter_to_aiter
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ class FlipkartHandler(BaseHandler):
             api_key: str | None = None,
             top_items: int | None = None
     ):
+        super().__init__()
         self.api_key = api_key or os.getenv('RAPID_API_KEY')
         self.top_items = top_items
         if not self.top_items:
@@ -55,6 +57,7 @@ class FlipkartHandler(BaseHandler):
                     item["reviews"] = _reviews[:self.top_items]
                     yield item
 
+    @tool
     async def product_search(
             self,
             *,
@@ -87,6 +90,7 @@ class FlipkartHandler(BaseHandler):
             products = res.get("products") or []
             return [item async for item in self._construct_data(products[:self.top_items])]
 
+    @tool
     async def product_reviews(
             self,
             pid: str
@@ -112,10 +116,4 @@ class FlipkartHandler(BaseHandler):
         return await self._retrieve(
             endpoint=_endpoint,
             params=params
-        )
-
-    def __dir__(self):
-        return (
-            'product_search',
-            'product_reviews'
         )

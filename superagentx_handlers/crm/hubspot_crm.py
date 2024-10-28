@@ -1,8 +1,16 @@
 import logging
 
 from hubspot import HubSpot
-from hubspot.crm.contacts import SimplePublicObjectInputForCreate, ApiException
+from hubspot.crm.contacts import (SimplePublicObjectInputForCreate as ContactObjectBuilder,
+                                  ApiException as ContactCreateException)
+from hubspot.crm.companies import (SimplePublicObjectInputForCreate as CompanyObjectBuilder,
+                                   ApiException as ApiException)
+from hubspot.crm.deals import ApiException as DealCreationException
+from hubspot.crm.tickets import (SimplePublicObjectInputForCreate as TicketObjectBuilder,
+                                 ApiException as TicketException)
+
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async
 
 logger = logging.getLogger(__name__)
@@ -23,6 +31,7 @@ class HubSpotHandler(BaseHandler):
             *,
             token: str
     ):
+        super().__init__()
         self.token = token
         self._connection: HubSpot = self._connect()
 
@@ -48,11 +57,12 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise AuthException(message)
 
+    @tool
     async def create_contact(
             self,
             email: str,
-            firstName: str = '',
-            lastName: str = ''
+            first_name: str = '',
+            last_name: str = ''
     ):
         """
             create a new contact in HubSpot.
@@ -62,30 +72,31 @@ class HubSpotHandler(BaseHandler):
 
             Args:
                 email (str): The email address of the contact. This field is required.
-                firstName (str, optional): The first name of the contact. Defaults to an empty string.
-                lastName (str, optional): The last name of the contact. Defaults to an empty string.
+                first_name (str, optional): The first name of the contact. Defaults to an empty string.
+                last_name (str, optional): The last name of the contact. Defaults to an empty string.
 
             Returns:
                 dict: A dictionary containing the details of the created contact info.
 
             """
         try:
-            simple_public_object_input_for_create = SimplePublicObjectInputForCreate(
+            simple_public_object_input_for_create = ContactObjectBuilder(
                 properties={
                     "email": email,
-                    "firstname": firstName,
-                    "lastname": lastName
+                    "firstname": first_name,
+                    "lastname": last_name
                 }
             )
             return await sync_to_async(
                 self._connection.crm.contacts.basic_api.create,
                 simple_public_object_input_for_create=simple_public_object_input_for_create
             )
-        except ApiException as ex:
+        except ContactCreateException as ex:
             message = f"Exception when creating contact {ex}"
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_all_contact(
             self
     ):
@@ -97,18 +108,19 @@ class HubSpotHandler(BaseHandler):
 
             Returns:
                 list: A list of dictionaries, each containing details of a contact, such as
-                      email, first name, last name etc..
+                      email, first name, last name etc
 
             """
         try:
             return await sync_to_async(
                 self._connection.crm.contacts.get_all
             )
-        except ApiException as ex:
+        except ContactCreateException as ex:
             message = f"Exception when getting contacts {ex}"
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def create_company(
             self,
             *,
@@ -129,7 +141,7 @@ class HubSpotHandler(BaseHandler):
                 dict: A dictionary containing the details of the created company info
             """
         try:
-            simple_public_object_input_for_create = SimplePublicObjectInputForCreate(
+            simple_public_object_input_for_create = CompanyObjectBuilder(
                 properties={
                     "domain": domain,
                     "name": name
@@ -144,6 +156,7 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_all_company(
             self
     ):
@@ -166,6 +179,7 @@ class HubSpotHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_all_deals(
             self
     ):
@@ -183,11 +197,12 @@ class HubSpotHandler(BaseHandler):
             return await sync_to_async(
                 self._connection.crm.deals.get_all
             )
-        except ApiException as ex:
+        except DealCreationException as ex:
             message = f"Exception when getting deals {ex}"
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def get_all_tickets(
             self
     ):
@@ -206,17 +221,93 @@ class HubSpotHandler(BaseHandler):
             return await sync_to_async(
                 self._connection.crm.tickets.get_all
             )
-        except ApiException as ex:
+        except TicketException as ex:
             message = f"Exception when getting tickets {ex}"
             logger.error(message, exc_info=ex)
             raise
 
-    def __dir__(self):
-        return (
-            'create_contact',
-            'get_all_contact',
-            'create_company',
-            'get_all_company',
-            'get_all_deals',
-            'get_all_tickets'
-        )
+    @tool
+    async def get_ticket_status(
+            self,
+            *,
+            policy_number: str,
+            property_name: str = "subject"
+    ):
+        """
+            Retrieve the status of a ticket based on the specified policy number.
+
+            Args:
+                policy_number (str): The policy number associated with the ticket.
+                property_name (str, optional): The property to filter the ticket by (default is "subject").
+
+            Returns:
+                dict: A dictionary containing the status of the ticket and other relevant details.
+            """
+        try:
+            ticket_input = {
+                "filterGroups": [{
+                    "filters": [
+                        {
+                            "propertyName": property_name,
+                            "operator": "CONTAINS_TOKEN",
+                            "value": policy_number
+                        }
+                    ]
+                }]
+            }
+            return await sync_to_async(
+                self._connection.crm.tickets.search_api.do_search,
+                public_object_search_request=ticket_input
+            )
+        except TicketException as ex:
+            message = f"Exception when getting Ticket {ex}"
+            logger.error(message, exc_info=ex)
+            raise
+
+    @tool
+    async def create_ticket(
+            self,
+            *,
+            subject: str,
+            content: str,
+            pipeline: int = 0,
+            pipeline_stage: int = 1,
+            source_from: str = "EMAIL",
+            priority: str = "LOW"
+    ):
+        """
+            Creates a new ticket.
+
+            Args:
+                subject (str): The subject of the ticket.
+                content (str): The content or description of the ticket.
+                pipeline (int, optional): The ID of the pipeline the ticket belongs to. Defaults to 0 (Pipeline name).
+                pipeline_stage (int, optional): The stage of the pipeline for this ticket. Defaults to 1 (New).
+                source_from (str, optional): The source from which the ticket is created. Defaults to "EMAIL";
+                can also be "Chat", etc.
+                priority (str, optional): The priority level of the ticket. Defaults to "LOW";
+                can also be "Medium" or "High".
+
+            Returns:
+                Ticket: The created ticket object or relevant information regarding the ticket.
+
+            """
+        try:
+            ticket_input = TicketObjectBuilder(
+                properties={
+                    "subject": subject,
+                    "content": content,
+                    "hs_pipeline": pipeline,
+                    "hs_pipeline_stage": pipeline_stage,
+                    "source_type": source_from,
+                    "hs_ticket_priority": priority
+                }
+            )
+            return await sync_to_async(
+                self._connection.crm.tickets.basic_api.create,
+                simple_public_object_input_for_create=ticket_input
+            )
+        except TicketException as ex:
+            message = f"Exception when creating Ticket {ex}"
+            logger.error(message, exc_info=ex)
+            raise

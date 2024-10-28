@@ -4,6 +4,7 @@ from typing import Any
 
 from jira import JIRA, Project
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
 from superagentx_handlers.atlassian.exceptions import SprintException, AuthException, ProjectException, TaskException
@@ -25,6 +26,7 @@ class JiraHandler(BaseHandler):
             token: str | None = None,
             organization: str | None = None,
     ):
+        super().__init__()
         self.email = email or os.getenv('ATLASSIAN_EMAIL')
         self.token = token or os.getenv('ATLASSIAN_TOKEN')
         self.organization = organization or os.getenv('ATLASSIAN_ORGANIZATION')
@@ -43,6 +45,7 @@ class JiraHandler(BaseHandler):
             logger.error(message, exc_info=ex)
             raise AuthException(message)
 
+    @tool
     async def get_list_projects(
             self
     ):
@@ -68,6 +71,7 @@ class JiraHandler(BaseHandler):
             logger.error(message)
             raise ProjectException(message)
 
+    @tool
     async def get_active_sprint(
             self,
             *,
@@ -104,6 +108,7 @@ class JiraHandler(BaseHandler):
             logger.error(message)
             raise SprintException(message)
 
+    @tool
     async def create_sprint(
             self,
             *,
@@ -142,6 +147,7 @@ class JiraHandler(BaseHandler):
             logger.error(message)
             raise SprintException(message)
 
+    @tool
     async def get_issue(
             self,
             *,
@@ -162,6 +168,7 @@ class JiraHandler(BaseHandler):
             logger.error(message)
             raise SprintException(message)
 
+    @tool
     async def add_issue_to_sprint(
             self,
             *,
@@ -191,6 +198,7 @@ class JiraHandler(BaseHandler):
             logger.error(message)
             raise TaskException(message)
 
+    @tool
     async def move_to_backlog(
             self,
             *,
@@ -213,6 +221,7 @@ class JiraHandler(BaseHandler):
             logger.error(message)
             raise TaskException(message)
 
+    @tool
     async def add_comment_for_issue(
             self,
             *,
@@ -239,6 +248,7 @@ class JiraHandler(BaseHandler):
             logger.error(message)
             raise TaskException(message)
 
+    @tool
     async def active_sprint_get_all_issues(
             self,
             *,
@@ -289,6 +299,7 @@ class JiraHandler(BaseHandler):
             logger.error(message)
             raise SprintException(message)
 
+    @tool
     async def active_sprint_issues_by_assignee(
             self,
             *,
@@ -343,6 +354,7 @@ class JiraHandler(BaseHandler):
             logger.error(message)
             raise SprintException(message)
 
+    @tool
     async def active_sprint_filter_issues_by_status(
             self,
             *,
@@ -396,17 +408,3 @@ class JiraHandler(BaseHandler):
             message = f"Search Error! {ex}"
             logger.error(message)
             raise SprintException(message)
-
-    def __dir__(self):
-        return (
-            'get_list_projects',
-            'get_active_sprint',
-            'create_sprint',
-            'get_issue',
-            'add_issue_to_sprint',
-            'move_to_backlog',
-            'add_comment_for_issue',
-            'active_sprint_get_all_issues',
-            'active_sprint_issues_by_assignee',
-            'active_sprint_filter_issues_by_status'
-        )

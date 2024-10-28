@@ -9,6 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
 from superagentx_handlers.google.exceptions import AuthException
@@ -29,6 +30,7 @@ class GmailHandler(BaseHandler, ABC):
             *,
             credentials: str
     ):
+        super().__init__()
         self.creds = None
         logger.info(f'Gmail client initialization')
         self.credentials = credentials or {}
@@ -68,6 +70,7 @@ class GmailHandler(BaseHandler, ABC):
             logger.error(message, exc_info=ex)
             raise AuthException(message)
 
+    @tool
     async def get_user_profile(
             self,
             user_id: str = "me"
@@ -115,6 +118,7 @@ class GmailHandler(BaseHandler, ABC):
                 return await self.extract_body(parts=part.get('parts'))
         return None
 
+    @tool
     async def read_mail(
             self,
             max_results: int = 50
@@ -259,6 +263,7 @@ class GmailHandler(BaseHandler, ABC):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def send_email(
             self,
             *,
@@ -312,6 +317,7 @@ class GmailHandler(BaseHandler, ABC):
             logger.error(message, exc_info=ex)
             raise
 
+    @tool
     async def create_draft_email(
             self,
             *,
@@ -366,11 +372,3 @@ class GmailHandler(BaseHandler, ABC):
             message = f"Error while Create Draft Email"
             logger.error(message, exc_info=ex)
             raise
-
-    def __dir__(self):
-        return (
-            'get_user_profile',
-            'send_email',
-            'create_draft_email',
-            'read_mail'
-        )
