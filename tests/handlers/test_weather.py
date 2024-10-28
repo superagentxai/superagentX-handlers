@@ -5,6 +5,13 @@ import pytest
 from superagentx_handlers import WeatherHandler
 
 logger = logging.getLogger(__name__)
+'''
+ Run Pytest:  
+
+   1. pytest --log-cli-level=INFO tests/handlers/test_weather.py::TestWeather::test_get_lat_lang
+   2. pytest --log-cli-level=INFO tests/handlers/test_weather.py::TestWeather::test_get_weather
+
+'''
 
 
 @pytest.fixture
