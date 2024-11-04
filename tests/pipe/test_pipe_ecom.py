@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from superagentx.agent import Agent
 from superagentx.agentxpipe import AgentXPipe
@@ -34,13 +32,8 @@ class TestEcommercePipe:
 
     async def test_ecom_pipe(self, agent_client_init: dict):
         llm_client: LLMClient = agent_client_init.get('llm')
-        amazon_ecom_handler = AmazonHandler(
-            api_key=os.getenv('RAPID_API_KEY'),
-            country="IN"
-        )
-        flipkart_ecom_handler = FlipkartHandler(
-            api_key=os.getenv('RAPID_API_KEY'),
-        )
+        amazon_ecom_handler = AmazonHandler()
+        flipkart_ecom_handler = FlipkartHandler()
         ai_handler = AIHandler(
             llm=llm_client
         )
