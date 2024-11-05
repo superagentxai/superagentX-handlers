@@ -21,7 +21,7 @@ def csv_client_init() -> CsvHandler:
     llm_config = {'llm_type': 'openai'}
     llm_client = LLMClient(llm_config=llm_config)
     csv_handler = CsvHandler(
-        csv_path=input_path,
+        file_path=input_path,
         llm_client=llm_client
     )
     return csv_handler

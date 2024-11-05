@@ -15,11 +15,11 @@ class CsvHandler(BaseHandler):
     def __init__(
             self,
             *,
-            csv_path: str,
+            file_path: str,
             llm_client: LLMClient,
     ):
         super().__init__()
-        self.input = csv_path
+        self.file_path = file_path
         self.llm_client = llm_client
 
     @tool
@@ -36,7 +36,7 @@ class CsvHandler(BaseHandler):
         """
 
         try:
-            df = await sync_to_async(pd.read_csv, self.input)
+            df = await sync_to_async(pd.read_csv, self.file_path)
             prompt = (f"Given the following CSV data columns: {list(df.columns)},"
                       f"generate a filter condition based on the query: '{query}'."
                       f"Example:\n df[(df['Index'] >= 10) & (df['Index'] <= 15)]")
