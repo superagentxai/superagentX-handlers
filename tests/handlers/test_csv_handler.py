@@ -1,7 +1,11 @@
+import logging
+
 import pytest
 
 from superagentx.llm import LLMClient
-from superagentx_handlers.csv_data import CsvHandler
+from superagentx_handlers.csv_cli import CsvHandler
+
+logger = logging.getLogger(__name__)
 
 '''
 Run Pytest:
@@ -13,7 +17,7 @@ Run Pytest:
 
 @pytest.fixture
 def csv_client_init() -> CsvHandler:
-    input_path = "/home/vijay/Documents/POC/people.csv"
+    input_path = ""
     llm_config = {'llm_type': 'openai'}
     llm_client = LLMClient(llm_config=llm_config)
     csv_handler = CsvHandler(
@@ -27,4 +31,5 @@ class TestCSV:
     async def test_csv_handler(self, csv_client_init: CsvHandler):
         query = "who are all Petroleum engineer?"
         res = await csv_client_init.search(query)
+        logger.info(f'Result => {res}')
         assert isinstance(res, object)

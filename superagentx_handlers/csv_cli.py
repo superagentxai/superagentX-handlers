@@ -24,10 +24,6 @@ class CsvHandler(BaseHandler):
         self.llm_client = llm_client
         self.prompt = prompt
 
-        if not self.llm_client:
-            llm_config = {'llm_type': 'openai'}
-            self.llm_client = LLMClient(llm_config=llm_config)
-
     @tool
     async def search(self, query: str):
         """
