@@ -1,4 +1,6 @@
 import pytest
+
+from superagentx.llm import LLMClient
 from superagentx_handlers.csv_data import CsvHandler
 
 '''
@@ -11,9 +13,12 @@ Run Pytest:
 
 @pytest.fixture
 def csv_client_init() -> CsvHandler:
-    input = ""
+    input_path = "/home/vijay/Documents/POC/people.csv"
+    llm_config = {'llm_type': 'openai'}
+    llm_client = LLMClient(llm_config=llm_config)
     csv_handler = CsvHandler(
-        csv_path=input
+        csv_path=input_path,
+        llm_client=llm_client
     )
     return csv_handler
 

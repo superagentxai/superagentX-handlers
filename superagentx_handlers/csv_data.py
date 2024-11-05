@@ -16,7 +16,7 @@ class CsvHandler(BaseHandler):
             self,
             *,
             csv_path: str,
-            llm_client: LLMClient | None = None,
+            llm_client: LLMClient,
             prompt: str | None = None
     ):
         super().__init__()
