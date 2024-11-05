@@ -17,12 +17,10 @@ class CsvHandler(BaseHandler):
             *,
             csv_path: str,
             llm_client: LLMClient,
-            prompt: str | None = None
     ):
         super().__init__()
         self.input = csv_path
         self.llm_client = llm_client
-        self.prompt = prompt
 
     @tool
     async def search(self, query: str):
@@ -38,12 +36,10 @@ class CsvHandler(BaseHandler):
         """
 
         try:
-            prompt = self.prompt
-            if not prompt:
-                df = await sync_to_async(pd.read_csv, self.input)
-                prompt = (f"Given the following CSV data columns: {list(df.columns)},"
-                          f"generate a filter condition based on the query: '{query}'."
-                          f"Example:\n df[(df['Index'] >= 10) & (df['Index'] <= 15)]")
+            df = await sync_to_async(pd.read_csv, self.input)
+            prompt = (f"Given the following CSV data columns: {list(df.columns)},"
+                      f"generate a filter condition based on the query: '{query}'."
+                      f"Example:\n df[(df['Index'] >= 10) & (df['Index'] <= 15)]")
             messages = [
                 {
                     "role": "user",
@@ -57,7 +53,7 @@ class CsvHandler(BaseHandler):
             response = await self.llm_client.achat_completion(
                 chat_completion_params=chat_completion_params
             )
-            if response.choices:
+            if response and response.choices:
                 result = response.choices[0].message.content.strip()
                 start = '```python\n'
                 end = '```'
