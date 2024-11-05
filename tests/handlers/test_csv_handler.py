@@ -1,6 +1,5 @@
 import pytest
-
-from superagentx.handler.csv_data import CsvHandler
+from superagentx_handlers.csv_data import CsvHandler
 
 '''
 Run Pytest:
