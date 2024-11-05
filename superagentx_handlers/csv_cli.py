@@ -61,6 +61,5 @@ class CsvHandler(BaseHandler):
                 if trim_res:
                     return eval(trim_res[0]).to_json()
         except Exception as ex:
-            message = f"Error while searching result! {ex}"
-            logger.error(message)
-            raise Exception(message)
+            logger.error(f"Error while searching result! {ex}")
+            raise
