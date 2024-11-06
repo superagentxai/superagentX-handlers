@@ -6,7 +6,11 @@ from superagentx.handler.decorators import tool
 class WeatherHandler(BaseHandler):
 
     @tool
-    async def get_weather(self, latitude: str, longitude: str) -> dict:
+    async def get_weather(
+            self,
+            latitude: str,
+            longitude: str
+    ) -> dict:
         """
         Get the weather data based on given latitude & longitude.
 
@@ -23,7 +27,10 @@ class WeatherHandler(BaseHandler):
                 return await resp.json()
 
     @tool
-    async def get_lat_long(self, place: str) -> dict:
+    async def get_lat_long(
+            self,
+            place: str
+    ) -> dict:
 
         """
         Get the coordinates of a city based on a location.
