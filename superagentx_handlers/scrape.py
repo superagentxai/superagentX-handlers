@@ -1,9 +1,9 @@
 from superagentx.handler.base import BaseHandler
 
 from crawl4ai import AsyncWebCrawler
-from superagentx.handler.decorators import tool
 
 from superagentx.utils.helper import iter_to_aiter
+from superagentx.handler.decorators import tool
 
 
 class ScrapeHandler(BaseHandler):
@@ -20,27 +20,24 @@ class ScrapeHandler(BaseHandler):
         - Processing and storing the scraped content.
     """
 
-    def __init__(
-            self,
-            *,
-            domain_urls: list[str]
-    ):
+    def __init__(self):
         """
         Initializes a new instance of the ScrapeHandler class.
 
-        Args:
-            domain_urls (list[str]): A list of domain URLs to be scraped.
-        
         """
         super().__init__()
-        self.domain_url = domain_urls
 
     @tool
-    async def scrap_content(self):
-
+    async def scrap_content(
+            self,
+            domain_urls: list[str]
+    ):
         """
             This method fetches and processes the content from the target website or data source
             using an asynchronous approach to ensure non-blocking operations.
+
+            Parameters:
+                domain_urls(list[str]): A list of domain URLs to be scraped.
 
             Returns:
                 Parsed content (could be a list, dict, or other structure depending on implementation).
@@ -48,7 +45,7 @@ class ScrapeHandler(BaseHandler):
        """
         async with AsyncWebCrawler(verbose=True) as crawler:
             results = await crawler.arun_many(
-                urls=self.domain_url
+                urls=domain_urls
             )
             if results:
                 return [
