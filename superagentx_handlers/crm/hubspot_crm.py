@@ -1,4 +1,5 @@
 import logging
+import os
 
 from hubspot import HubSpot
 from hubspot.crm.contacts import (SimplePublicObjectInputForCreate as ContactObjectBuilder,
@@ -29,10 +30,10 @@ class HubSpotHandler(BaseHandler):
     def __init__(
             self,
             *,
-            token: str
+            token: str | None = None
     ):
         super().__init__()
-        self.token = token
+        self.token = token or os.getenv("HUBSPOT_TOKEN")
         self._connection: HubSpot = self._connect()
 
     def _connect(self) -> HubSpot:
