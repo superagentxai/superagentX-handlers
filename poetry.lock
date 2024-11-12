@@ -4600,13 +4600,13 @@ full = ["httpx (>=0.22.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.7
 
 [[package]]
 name = "superagentx"
-version = "0.1.8"
+version = "0.1.9"
 description = "The Ultimate Modular Autonomous Multi AI Agent Framework."
 optional = false
 python-versions = "<=3.13,>=3.10"
 files = [
-    {file = "superagentx-0.1.8-py3-none-any.whl", hash = "sha256:fd720932fae68d9ab47961ea916111ea8cb9b38792cf937aacbd143757e6c2c4"},
-    {file = "superagentx-0.1.8.tar.gz", hash = "sha256:07d30af2d0ee9123af4040559a0ee59742de2c1554caa26d3039bd0d0b3d81f2"},
+    {file = "superagentx-0.1.9-py3-none-any.whl", hash = "sha256:fd30f6ceb17c21c1330422ce081dc71659534c37ffd4f6bba9ae3963cd6ddc2f"},
+    {file = "superagentx-0.1.9.tar.gz", hash = "sha256:7371b846dc7e55985259debe81c8ae9fd27a9103809f89b70a4a96d09e610985"},
 ]
 
 [package.dependencies]
