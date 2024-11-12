@@ -57,9 +57,15 @@ class CsvHandler(BaseHandler):
                 result = response.choices[0].message.content.strip()
                 start = '```python\n'
                 end = '```'
-                trim_res = re.findall(re.escape(start) + "(.+?)" + re.escape(end), result, re.DOTALL)
+                trim_res = await sync_to_async(
+                    re.findall,
+                    re.escape(start) + "(.+?)" + re.escape(end),
+                    result,
+                    re.DOTALL
+                )
                 if trim_res:
-                    return eval(trim_res[0]).to_json()
+                    result = eval(trim_res[0])
+                    return result.to_json()
         except Exception as ex:
             logger.error(f"Error while searching result! {ex}")
             raise
