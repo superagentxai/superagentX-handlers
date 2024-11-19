@@ -1,6 +1,7 @@
 import logging
-from requests_oauthlib import OAuth1Session
 import os
+
+from requests_oauthlib import OAuth1Session
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
