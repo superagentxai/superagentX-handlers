@@ -60,11 +60,8 @@ class TwitterHandler(BaseHandler):
 
         try:
             # Post the tweet
-            hash_list = ["#" + x for x in hash_tags if isinstance(x, str)]
-            join_hashtags = " ".join(hash_list)
-
-            user_list = ["@" + x for x in user_tags if isinstance(x, str)]
-            join_user_tags = " ".join(user_list)
+            join_hashtags = " ".join(f"{"#"}{x}" for x in hash_tags if isinstance(x, str))
+            join_user_tags = " ".join(f"{"@"}{x}" for x in user_tags if isinstance(x, str))
 
             tweet_text = f"{join_hashtags}  {join_user_tags}  {text}"
             response = self.client.create_tweet(
