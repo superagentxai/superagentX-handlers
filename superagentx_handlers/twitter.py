@@ -2,14 +2,19 @@ import logging
 from requests_oauthlib import OAuth1Session
 import os
 from superagentx.handler.base import BaseHandler
-from superagentx_handlers.google.exceptions import AuthException
+from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
 
+API_BASE_URL = "https://api.twitter.com/2"
+REQUEST_TOKEN_URL = "https://api.twitter.com/oauth/request_token?oauth_callback=oob&x_auth_access_type=write"
+
+
+class AuthException(Exception):
+    pass
+
 
 class TwitterHandler(BaseHandler):
-    API_BASE_URL = "https://api.twitter.com/2"
-    REQUEST_TOKEN_URL = "https://api.twitter.com/oauth/request_token?oauth_callback=oob&x_auth_access_type=write"
 
     def __init__(
         self,
@@ -19,8 +24,8 @@ class TwitterHandler(BaseHandler):
         request_token_url: str = REQUEST_TOKEN_URL,
     ):
         super().__init__()
-        self.consumer_key = consumer_key or os.getenv("CONSUMER_KEY")
-        self.consumer_secret = consumer_secret or os.getenv("CONSUMER_SECRET")
+        self.consumer_key = consumer_key or os.getenv("TWITTER_CONSUMER_KEY")
+        self.consumer_secret = consumer_secret or os.getenv("TWITTER_CONSUMER_SECRET")
         self.oauth = OAuth1Session(self.consumer_key, client_secret=self.consumer_secret)
 
         try:
@@ -36,6 +41,7 @@ class TwitterHandler(BaseHandler):
             logger.error(message, exc_info=True)
             raise AuthException(message)
 
+    @tool
     async def post_tweet(
         self,
         payload: str | dict,
@@ -72,7 +78,7 @@ class TwitterHandler(BaseHandler):
             logger.error("Error during authorization: %s", ex, exc_info=True)
             raise AuthException("Authorization failed.")
 
-        url = f"{self.API_BASE_URL}/tweets"
+        url = f"{API_BASE_URL}/tweets"
         headers = {"Content-Type": "application/json"}
         tweet_data = payload if isinstance(payload, dict) else {"text": payload}
 
