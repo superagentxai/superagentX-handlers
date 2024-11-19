@@ -19,7 +19,7 @@ show_options = ("show=customerReviewAverage"
                 ",salePrice"
                 ",sku"
                 ",thumbnailImage")
-pagination = "&pageSize=100"
+default_pagination = "&pageSize=100"
 response_format = "&format=json"
 
 class BestbuyHandler(BaseHandler, ABC):
@@ -32,9 +32,11 @@ class BestbuyHandler(BaseHandler, ABC):
         self.api_key = api_key
 
     @tool
-    async def get_best_buy_info(self, keyword:str):
+    async def get_best_buy_info(self, keyword:str, pagination:str = None):
 
         search_keyword = f"(({keyword}))" if keyword else ""
+        pagination = pagination if pagination else default_pagination
+
         url = f"{base_url}{search_keyword}?{show_options}{response_format}{pagination}&apiKey={self.api_key}"
         async with aiohttp.ClientSession() as session:
             async with session.get(url=url) as resp:
