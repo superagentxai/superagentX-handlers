@@ -1,6 +1,8 @@
 import logging
-from requests_oauthlib import OAuth1Session
 import os
+
+import tweepy
+
 from superagentx.handler.base import BaseHandler
 from superagentx_handlers.google.exceptions import AuthException
 
@@ -8,79 +10,67 @@ logger = logging.getLogger(__name__)
 
 
 class TwitterHandler(BaseHandler):
-    API_BASE_URL = "https://api.twitter.com/2"
-    REQUEST_TOKEN_URL = "https://api.twitter.com/oauth/request_token?oauth_callback=oob&x_auth_access_type=write"
-
     def __init__(
-        self,
-        *,
-        consumer_key: str | None = None,
-        consumer_secret: str | None = None,
-        request_token_url: str = REQUEST_TOKEN_URL,
+            self,
+            *,
+            api_key: str | None = None,
+            api_secret_key: str | None = None,
+            access_token: str | None = None,
+            access_token_secret: str | None = None
     ):
         super().__init__()
-        self.consumer_key = consumer_key or os.getenv("CONSUMER_KEY")
-        self.consumer_secret = consumer_secret or os.getenv("CONSUMER_SECRET")
-        self.oauth = OAuth1Session(self.consumer_key, client_secret=self.consumer_secret)
-
-        try:
-            fetch_response = self.oauth.fetch_request_token(request_token_url)
-            self.resource_owner_key = fetch_response.get("oauth_token")
-            self.resource_owner_secret = fetch_response.get("oauth_token_secret")
-
-            if not self.resource_owner_key or not self.resource_owner_secret:
-                raise AuthException("OAuth tokens not retrieved.")
-            logger.debug("Authentication Success")
-        except Exception as ex:
-            message = f"Twitter Handler Authentication Problem: {ex}"
-            logger.error(message, exc_info=True)
-            raise AuthException(message)
+        # Define client as an instance attribute
+        self.client = tweepy.Client(
+            consumer_key=api_key or os.getenv("CONSUMER_KEY"),
+            consumer_secret=api_secret_key or os.getenv("CONSUMER_SECRET"),
+            access_token=access_token or os.getenv("ACCESS_TOKEN"),
+            access_token_secret=access_token_secret or os.getenv("ACCESS_TOKEN_SECRET")
+        )
 
     async def post_tweet(
-        self,
-        payload: str | dict,
-        base_authorization_url: str = "https://api.twitter.com/oauth/authorize",
-        verifier: str | None = None,
+            self,
+            text: str,
+            hash_tags: list[str] = "",
+            user_tags: list[str] = ""
     ):
-        authorization_url = self.oauth.authorization_url(base_authorization_url)
-        logger.info("Please go here and authorize: %s", authorization_url)
+        """
+                posts a tweet with optional hashtags and user tags.
 
-        if verifier is None:
-            verifier = input("Paste the PIN here: ")
+                Parameters:
+                -----------
+                text : str
+                    The main content of the tweet. This is a required parameter.
 
-        try:
-            access_token_url = "https://api.twitter.com/oauth/access_token"
-            self.oauth = OAuth1Session(
-                self.consumer_key,
-                client_secret=self.consumer_secret,
-                resource_owner_key=self.resource_owner_key,
-                resource_owner_secret=self.resource_owner_secret,
-                verifier=verifier,
-            )
-            oauth_tokens = self.oauth.fetch_access_token(access_token_url)
-            access_token = oauth_tokens["oauth_token"]
-            access_token_secret = oauth_tokens["oauth_token_secret"]
+                hash_tags : list[str], optional
+                    A list of hashtags to include in the tweet. Each hashtag should be a string without the `#` symbol.
+                    Defaults to an empty.
 
-            self.oauth = OAuth1Session(
-                self.consumer_key,
-                client_secret=self.consumer_secret,
-                resource_owner_key=access_token,
-                resource_owner_secret=access_token_secret,
-            )
-            logger.info("Authorization successful")
-        except Exception as ex:
-            logger.error("Error during authorization: %s", ex, exc_info=True)
-            raise AuthException("Authorization failed.")
+                user_tags : list[str], optional
+                    A list of Twitter usernames (without the `@` symbol) to mention in the tweet.
+                    Defaults to an empty.
 
-        url = f"{self.API_BASE_URL}/tweets"
-        headers = {"Content-Type": "application/json"}
-        tweet_data = payload if isinstance(payload, dict) else {"text": payload}
+                Returns:
+                dict
+                    A dictionary containing the response from the tweet ID, text, and meta etc...
+                ```
+                """
+        if not text:
+            logger.error("Tweet text cannot be empty.")
+            raise ValueError("Tweet text cannot be empty.")
 
         try:
-            response = self.oauth.post(url, json=tweet_data, headers=headers)
-            response.raise_for_status()
-            logger.info("Tweet posted successfully: %s", response.json())
-            return response.json()
-        except Exception as ex:
-            logger.error("Failed to post tweet: %s", ex, exc_info=True)
-            raise AuthException("Failed to post tweet.")
+            # Post the tweet
+            hash_list = ["#" + x for x in hash_tags if isinstance(x, str)]
+            join_hashtags = " ".join(hash_list)
+
+            user_list = ["@" + x for x in user_tags if isinstance(x, str)]
+            join_user_tags = " ".join(user_list)
+
+            tweet_text = f"{join_hashtags}  {join_user_tags}  {text}"
+            response = self.client.create_tweet(
+                text=tweet_text
+            )
+            return response.data
+        except tweepy.TweepyException as e:
+            logger.debug("Error posting tweet: %s", e)
+            raise AuthException(f"Failed to post tweet: {e}")

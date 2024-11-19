@@ -21,4 +21,7 @@ def twitter_client_init() -> TwitterHandler:
 
 class TestTwitter:
     async def test_post_tweet(self, twitter_client_init: TwitterHandler):
-        logger.info(await twitter_client_init.post_tweet(payload="Hey everyone!"))
+        res = await twitter_client_init.post_tweet(
+            text=""
+        )
+        logger.info(res)
