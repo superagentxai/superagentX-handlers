@@ -4,6 +4,8 @@ import os
 import tweepy
 
 from superagentx.handler.base import BaseHandler
+from superagentx.utils.helper import sync_to_async
+
 from superagentx_handlers.google.exceptions import AuthException
 
 logger = logging.getLogger(__name__)
@@ -30,8 +32,8 @@ class TwitterHandler(BaseHandler):
     async def post_tweet(
             self,
             text: str,
-            hash_tags: list[str] = "",
-            user_tags: list[str] = ""
+            hash_tags: list[str] = None,
+            user_tags: list[str] = None
     ):
         """
                 posts a tweet with optional hashtags and user tags.
@@ -60,11 +62,12 @@ class TwitterHandler(BaseHandler):
 
         try:
             # Post the tweet
-            join_hashtags = " ".join(f"{"#"}{x}" for x in hash_tags if isinstance(x, str))
-            join_user_tags = " ".join(f"{"@"}{x}" for x in user_tags if isinstance(x, str))
+            join_hashtags = " ".join(f"#{x}" for x in hash_tags if isinstance(x, str)) if hash_tags else ""
+            join_user_tags = " ".join(f"@{x}" for x in user_tags if isinstance(x, str)) if user_tags else ""
 
             tweet_text = f"{join_hashtags}  {join_user_tags}  {text}"
-            response = self.client.create_tweet(
+            response = await sync_to_async(
+                self.client.create_tweet,
                 text=tweet_text
             )
             return response.data
