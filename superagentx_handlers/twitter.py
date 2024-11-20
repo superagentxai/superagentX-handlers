@@ -65,8 +65,8 @@ class TwitterHandler(BaseHandler):
 
         try:
             # Post the tweet
-            join_hashtags = " ".join(f"#{x}" for x in hash_tags if isinstance(x, str)) if hash_tags else ""
-            join_user_tags = " ".join(f"@{x}" for x in user_tags if isinstance(x, str)) if user_tags else ""
+            join_hashtags = " ".join(f"#{x}" for x in hash_tags or [])
+            join_user_tags = " ".join(f"@{x}" for x in user_tags or [])
 
             tweet_text = f"{join_hashtags}  {join_user_tags}  {text}"
             response = await sync_to_async(
@@ -75,5 +75,5 @@ class TwitterHandler(BaseHandler):
             )
             return response.data
         except tweepy.TweepyException as e:
-            logger.debug("Error posting tweet: %s", e)
+            logger.error(f"Error posting tweet: {e}")
             raise AuthException(f"Failed to post tweet: {e}")
