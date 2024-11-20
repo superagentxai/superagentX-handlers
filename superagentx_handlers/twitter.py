@@ -4,6 +4,7 @@ import os
 import tweepy
 
 from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async
 
 from superagentx_handlers.google.exceptions import AuthException
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class TwitterHandler(BaseHandler):
 
+    @tool
     def __init__(
             self,
             *,
@@ -37,26 +39,26 @@ class TwitterHandler(BaseHandler):
             user_tags: list[str] = None
     ):
         """
-                posts a tweet with optional hashtags and user tags.
+            posts a tweet with optional hashtags and user tags.
 
-                Parameters:
-                -----------
-                text : str
-                    The main content of the tweet. This is a required parameter.
+            Parameters:
+            -----------
+            text : str
+                The main content of the tweet. This is a required parameter.
 
-                hash_tags : list[str], optional
-                    A list of hashtags to include in the tweet. Each hashtag should be a string without the `#` symbol.
-                    Defaults to an empty.
+            hash_tags : list[str], optional
+                A list of hashtags to include in the tweet. Each hashtag should be a string without the `#` symbol.
+                Defaults to an empty.
 
-                user_tags : list[str], optional
-                    A list of Twitter usernames (without the `@` symbol) to mention in the tweet.
-                    Defaults to an empty.
+            user_tags : list[str], optional
+                A list of Twitter usernames (without the `@` symbol) to mention in the tweet.
+                Defaults to an empty.
 
-                Returns:
-                dict
-                    A dictionary containing the response from the tweet ID, text, and meta etc...
-                ```
-                """
+            Returns:
+            dict
+                A dictionary containing the response from the tweet ID, text, and meta etc...
+            ```
+            """
         if not text:
             logger.error("Tweet text cannot be empty.")
             raise ValueError("Tweet text cannot be empty.")
