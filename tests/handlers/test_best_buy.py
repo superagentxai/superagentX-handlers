@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture
 async def best_buy_handler() -> BestbuyHandler:
-    return BestbuyHandler(api_key="dmx8sagAYsaH0ghrgAA7OhkR")
+    return BestbuyHandler(api_key="<Api_Key>")
 
 
 class TestBestBuy:
 
     async def test_get_best_buy_info(self, best_buy_handler: BestbuyHandler):
-        res = await best_buy_handler.get_best_buy_info(keyword="search=iphone")
+        res = await best_buy_handler.get_best_buy_info(search_text="search=iphone")
         logger.info(f'Lat Lang => {res}')
         assert res
