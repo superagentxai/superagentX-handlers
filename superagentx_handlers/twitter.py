@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class TwitterHandler(BaseHandler):
+
     def __init__(
             self,
             *,
