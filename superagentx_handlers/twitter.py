@@ -5,7 +5,7 @@ import tweepy
 
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
-from superagentx.utils.helper import sync_to_async
+from tweepy.asynchronous import AsyncClient
 
 from superagentx_handlers.google.exceptions import AuthException
 
@@ -24,7 +24,7 @@ class TwitterHandler(BaseHandler):
     ):
         super().__init__()
         # Define client as an instance attribute
-        self.client = tweepy.Client(
+        self.client = AsyncClient(
             consumer_key=api_key or os.getenv("CONSUMER_KEY"),
             consumer_secret=api_secret_key or os.getenv("CONSUMER_SECRET"),
             access_token=access_token or os.getenv("ACCESS_TOKEN"),
@@ -69,10 +69,7 @@ class TwitterHandler(BaseHandler):
             join_user_tags = " ".join(f"@{x}" for x in user_tags or [])
 
             tweet_text = f"{join_hashtags}  {join_user_tags}  {text}"
-            response = await sync_to_async(
-                self.client.create_tweet,
-                text=tweet_text
-            )
+            response = await self.client.create_tweet(text=tweet_text)
             return response.data
         except tweepy.TweepyException as e:
             logger.error(f"Error posting tweet: {e}")
