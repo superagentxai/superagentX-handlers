@@ -25,7 +25,6 @@ DEFAULT_PAGINATION = "&pageSize=100"
 RESPONSE_FORMAT = "&format=json"
 
 
-
 class BestbuyHandler(BaseHandler):
     """
     A handler for interacting with the Best Buy API. This class provides methods
