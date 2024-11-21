@@ -21,21 +21,29 @@ SHOW_OPTIONS = (
     "thumbnailImage"
 )
 
-DEFAULT_PAGINATION = "&pageSize=100"
-RESPONSE_FORMAT = "&format=json"
+DEFAULT_PAGINATION = "pageSize=100"
+RESPONSE_FORMAT = "format=json"
 
 
 class BestbuyHandler(BaseHandler):
     """
-    A handler for interacting with the Best Buy API. This class provides methods
-    to retrieve information about products from Best Buy's inventory.
+    A handler for interacting with the Best Buy API.
+
+    This class provides methods to retrieve information about products from
+    Best Buy's inventory using the API, with options for customization such
+    as search filters, pagination, and response formatting.
 
     Attributes:
-        api_key (str): The API key for authenticating requests to the Best Buy API.
+        api_key (str): The API key used for authenticating requests to the
+            Best Buy API.
 
     Methods:
-        get_best_buy_info(keyword: str, pagination: str = None) -> dict:
-            Retrieves product information from the Best Buy API based on the specified keyword.
+        get_best_buy_info(search_text: str, show_options: str = SHOW_OPTIONS,
+                          pagination: str = DEFAULT_PAGINATION,
+                          response_format: str = RESPONSE_FORMAT) -> dict:
+            Asynchronously retrieves product information from the Best Buy API
+            based on the provided search text and optional parameters for
+            customization.
     """
 
     def __init__(
@@ -50,22 +58,35 @@ class BestbuyHandler(BaseHandler):
     async def get_best_buy_info(
             self,
             search_text: str,
-            pagination: str = None
+            show_options: str = SHOW_OPTIONS,
+            pagination: str = DEFAULT_PAGINATION,
+            response_format: str = RESPONSE_FORMAT
     ):
         """
-        Retrieves product information from the Best Buy API.
+        Fetches product information from the Best Buy API based on the search text.
 
         Args:
-            search_text (str): The search keyword to look for products.
-            pagination (str, optional): Pagination token or parameters for fetching
-                additional results. Defaults to None.
+            search_text (str): The keyword or query string to search for products.
+            show_options (str, optional): The fields to be included in the API response.
+                Defaults to `SHOW_OPTIONS`, which includes fields like customer review
+                average, model number, sale price, etc.
+            pagination (str, optional): Pagination parameters to limit the number of
+                results or specify the page size. Defaults to `DEFAULT_PAGINATION`.
+            response_format (str, optional): The format of the API response.
+                Defaults to `RESPONSE_FORMAT` (e.g., JSON).
 
         """
 
         search_keyword = f"(({search_text}))" if search_text else ""
-        pagination = pagination if pagination else DEFAULT_PAGINATION
 
-        url = f"{BASE_URL}{search_keyword}?{SHOW_OPTIONS}{RESPONSE_FORMAT}{pagination}&apiKey={self.api_key}"
+        url = (
+            f"{BASE_URL}"
+            f"{search_keyword}?"
+            f"{show_options}"
+            f"&{response_format}"
+            f"&{pagination}"
+            f"&apiKey={self.api_key}"
+        )
         async with aiohttp.ClientSession() as session:
             async with session.get(url=url) as resp:
                 return await resp.json()
