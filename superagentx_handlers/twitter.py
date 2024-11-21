@@ -1,13 +1,9 @@
 import logging
 import os
 
-import tweepy
-
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from tweepy.asynchronous import AsyncClient
-
-from superagentx_handlers.google.exceptions import AuthException
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +59,10 @@ class TwitterHandler(BaseHandler):
             logger.error("Tweet text cannot be empty.")
             raise ValueError("Tweet text cannot be empty.")
 
-        try:
-            # Post the tweet
-            join_hashtags = " ".join(f"#{x}" for x in hash_tags or [])
-            join_user_tags = " ".join(f"@{x}" for x in user_tags or [])
+        # Post the tweet
+        join_hashtags = " ".join(f"#{x}" for x in hash_tags or [])
+        join_user_tags = " ".join(f"@{x}" for x in user_tags or [])
 
-            tweet_text = f"{join_hashtags}  {join_user_tags}  {text}"
-            response = await self.client.create_tweet(text=tweet_text)
-            return response.data
-        except tweepy.TweepyException as e:
-            logger.error(f"Error posting tweet: {e}")
-            raise AuthException(f"Failed to post tweet: {e}")
+        tweet_text = f"{join_hashtags}  {join_user_tags}  {text}"
+        response = await self.client.create_tweet(text=tweet_text)
+        return response.data
