@@ -1,4 +1,3 @@
-from abc import ABC
 import aiohttp
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
@@ -40,15 +39,20 @@ class BestbuyHandler(BaseHandler):
             Retrieves product information from the Best Buy API based on the specified keyword.
     """
 
-    def __init__(self,
-                 *,
-                 api_key: str
-                 ):
+    def __init__(
+            self,
+            *,
+            api_key: str
+    ):
         super().__init__()
         self.api_key = api_key
 
     @tool
-    async def get_best_buy_info(self, search_text: str, pagination: str = None):
+    async def get_best_buy_info(
+            self,
+            search_text: str,
+            pagination: str = None
+    ):
         """
         Retrieves product information from the Best Buy API.
 
