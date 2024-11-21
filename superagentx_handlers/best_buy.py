@@ -91,8 +91,11 @@ class BestbuyHandler(BaseHandler):
             f"&{pagination}"
             f"&apiKey={self.api_key}"
         )
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url=url) as resp:
-                if resp.status == 200:
-                    return await resp.json()
-                raise BestBuyError(await resp.text())
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url=url) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+                    raise BestBuyError(await resp.text())
+        except Exception as ex:
+            raise BestBuyError(ex)
