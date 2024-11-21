@@ -25,6 +25,10 @@ DEFAULT_PAGINATION = "pageSize=100"
 RESPONSE_FORMAT = "format=json"
 
 
+class BestBuyError(Exception):
+    pass
+
+
 class BestbuyHandler(BaseHandler):
     """
     A handler for interacting with the Best Buy API.
@@ -89,4 +93,6 @@ class BestbuyHandler(BaseHandler):
         )
         async with aiohttp.ClientSession() as session:
             async with session.get(url=url) as resp:
-                return await resp.json()
+                if resp.status == 200:
+                    return await resp.json()
+                raise BestBuyError(await resp.text())
