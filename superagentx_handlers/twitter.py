@@ -5,7 +5,6 @@ import tweepy
 
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
-from superagentx.utils.helper import sync_to_async
 from tweepy.asynchronous import AsyncClient
 
 from superagentx_handlers.google.exceptions import AuthException
