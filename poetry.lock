@@ -224,6 +224,20 @@ typing-extensions = {version = ">=4", markers = "python_version < \"3.11\""}
 tests = ["mypy (>=0.800)", "pytest", "pytest-asyncio"]
 
 [[package]]
+name = "async-lru"
+version = "2.0.4"
+description = "Simple LRU cache for asyncio"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "async-lru-2.0.4.tar.gz", hash = "sha256:b8a59a5df60805ff63220b2a0c5b5393da5521b113cd5465a44eb037d81a5627"},
+    {file = "async_lru-2.0.4-py3-none-any.whl", hash = "sha256:ff02944ce3c288c5be660c42dbcca0742b32c3b279d6dceda655190240b99224"},
+]
+
+[package.dependencies]
+typing-extensions = {version = ">=4.0.0", markers = "python_version < \"3.11\""}
+
+[[package]]
 name = "async-timeout"
 version = "5.0.1"
 description = "Timeout context manager for asyncio programs"
@@ -4889,6 +4903,8 @@ files = [
 ]
 
 [package.dependencies]
+aiohttp = {version = ">=3.7.3,<4", optional = true, markers = "extra == \"async\""}
+async-lru = {version = ">=1.0.3,<3", optional = true, markers = "extra == \"async\""}
 oauthlib = ">=3.2.0,<4"
 requests = ">=2.27.0,<3"
 requests-oauthlib = ">=1.2.0,<2"
@@ -5471,4 +5487,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<=3.13"
-content-hash = "47a3c61f9dc3f45303ced74eb76f9aff487bbd158e2bd4b140addf72cc96f4b8"
+content-hash = "ab7a39a14b669edfefa9fd618aa6bcb283192966ab4c80493b06c770f00b2647"
