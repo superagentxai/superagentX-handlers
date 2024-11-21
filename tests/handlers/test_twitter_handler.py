@@ -22,8 +22,8 @@ def twitter_client_init() -> TwitterHandler:
 class TestTwitter:
     async def test_post_tweet(self, twitter_client_init: TwitterHandler):
         res = await twitter_client_init.post_tweet(
-            text="#RefrigeratorDeals #OutdoorCooling #SummerEssentials @DanbyAppliances https://amzn.in/d/dhC2jX5",
-            # hash_tags=["TEST"],
-            # user_tags=[""]
+            text="",
+            hash_tags=["TEST"],
+            user_tags=[""]
         )
         logger.info(res)
