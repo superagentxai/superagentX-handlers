@@ -81,7 +81,7 @@ class BestbuyHandler(BaseHandler):
 
         """
 
-        search_keyword = f"(({search_text}))" if search_text else ""
+        search_keyword = f"((search={search_text}))" if search_text else ""
 
         url = (
             f"{BASE_URL}"

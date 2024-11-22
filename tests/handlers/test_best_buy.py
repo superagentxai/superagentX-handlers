@@ -19,6 +19,6 @@ async def best_buy_handler() -> BestbuyHandler:
 class TestBestBuy:
 
     async def test_get_best_buy_info(self, best_buy_handler: BestbuyHandler):
-        res = await best_buy_handler.get_best_buy_info(search_text="search=iphone")
+        res = await best_buy_handler.get_best_buy_info(search_text="iphone")
         logger.info(f'Lat Lang => {res}')
         assert res
