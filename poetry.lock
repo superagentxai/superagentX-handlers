@@ -207,6 +207,17 @@ test = ["anyio[trio]", "coverage[toml] (>=7)", "exceptiongroup (>=1.2.0)", "hypo
 trio = ["trio (>=0.26.1)"]
 
 [[package]]
+name = "appdirs"
+version = "1.4.4"
+description = "A small Python module for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
+optional = false
+python-versions = "*"
+files = [
+    {file = "appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"},
+    {file = "appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41"},
+]
+
+[[package]]
 name = "asgiref"
 version = "3.8.1"
 description = "ASGI specs, helper code, and adapters"
@@ -485,6 +496,20 @@ urllib3 = {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >
 
 [package.extras]
 crt = ["awscrt (==0.22.0)"]
+
+[[package]]
+name = "bs4"
+version = "0.0.2"
+description = "Dummy package for Beautiful Soup (beautifulsoup4)"
+optional = false
+python-versions = "*"
+files = [
+    {file = "bs4-0.0.2-py2.py3-none-any.whl", hash = "sha256:abf8742c0805ef7f662dce4b51cca104cffe52b835238afc169142ab9b3fbccc"},
+    {file = "bs4-0.0.2.tar.gz", hash = "sha256:a48685c58f50fe127722417bae83fe6badf500d54b55f7e39ffe43b798653925"},
+]
+
+[package.dependencies]
+beautifulsoup4 = "*"
 
 [[package]]
 name = "build"
@@ -1004,6 +1029,17 @@ test = ["certifi", "cryptography-vectors (==43.0.3)", "pretend", "pytest (>=6.2.
 test-randomorder = ["pytest-randomly"]
 
 [[package]]
+name = "cssselect"
+version = "1.2.0"
+description = "cssselect parses CSS3 Selectors and translates them to XPath 1.0"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "cssselect-1.2.0-py2.py3-none-any.whl", hash = "sha256:da1885f0c10b60c03ed5eccbb6b68d6eff248d91976fcde348f395d54c9fd35e"},
+    {file = "cssselect-1.2.0.tar.gz", hash = "sha256:666b19839cfaddb9ce9d36bfe4c969132c647b92fc9088c4e23f786b30f1b3dc"},
+]
+
+[[package]]
 name = "defusedxml"
 version = "0.7.1"
 description = "XML bomb protection for Python stdlib modules"
@@ -1142,6 +1178,17 @@ optional = false
 python-versions = ">=3.6"
 files = [
     {file = "fake_http_header-0.3.5-py3-none-any.whl", hash = "sha256:cd05f4bebf1b7e38b5f5c03d7fb820c0c17e87d9614fbee0afa39c32c7a2ad3c"},
+]
+
+[[package]]
+name = "fake-useragent"
+version = "1.5.1"
+description = "Up-to-date simple useragent faker with real world database"
+optional = false
+python-versions = "*"
+files = [
+    {file = "fake-useragent-1.5.1.tar.gz", hash = "sha256:6387269f5a2196b5ba7ed8935852f75486845a1c95c50e72460e6a8e762f5c49"},
+    {file = "fake_useragent-1.5.1-py3-none-any.whl", hash = "sha256:57415096557c8a4e23b62a375c21c55af5fd4ba30549227f562d2c4f5b60e3b3"},
 ]
 
 [[package]]
@@ -2240,6 +2287,20 @@ htmlsoup = ["BeautifulSoup4"]
 source = ["Cython (>=3.0.11)"]
 
 [[package]]
+name = "lxml-html-clean"
+version = "0.4.1"
+description = "HTML cleaner from lxml project"
+optional = false
+python-versions = "*"
+files = [
+    {file = "lxml_html_clean-0.4.1-py3-none-any.whl", hash = "sha256:b704f2757e61d793b1c08bf5ad69e4c0b68d6696f4c3c1429982caf90050bcaf"},
+    {file = "lxml_html_clean-0.4.1.tar.gz", hash = "sha256:40c838bbcf1fc72ba4ce811fbb3135913017b27820d7c16e8bc412ae1d8bc00b"},
+]
+
+[package.dependencies]
+lxml = "*"
+
+[[package]]
 name = "markdown-it-py"
 version = "3.0.0"
 description = "Python port of markdown-it. Markdown parsing, done right!"
@@ -3156,6 +3217,17 @@ test = ["hypothesis (>=6.46.1)", "pytest (>=7.3.2)", "pytest-xdist (>=2.2.0)"]
 xml = ["lxml (>=4.9.2)"]
 
 [[package]]
+name = "parse"
+version = "1.20.2"
+description = "parse() is the opposite of format()"
+optional = false
+python-versions = "*"
+files = [
+    {file = "parse-1.20.2-py2.py3-none-any.whl", hash = "sha256:967095588cb802add9177d0c0b6133b5ba33b1ea9007ca800e526f42a85af558"},
+    {file = "parse-1.20.2.tar.gz", hash = "sha256:b41d604d16503c79d81af5165155c0b20f6c8d6c559efa66b4b695c3e5a0a0ce"},
+]
+
+[[package]]
 name = "pillow"
 version = "10.4.0"
 description = "Python Imaging Library (Fork)"
@@ -3930,6 +4002,23 @@ files = [
 ]
 
 [[package]]
+name = "pyppeteer"
+version = "0.0.25"
+description = "Headless chrome/chromium automation library (unofficial port of puppeteer)"
+optional = false
+python-versions = ">=3.5"
+files = [
+    {file = "pyppeteer-0.0.25.tar.gz", hash = "sha256:51fe769b722a1718043b74d12c20420f29e0dd9eeea2b66652b7f93a9ad465dd"},
+]
+
+[package.dependencies]
+appdirs = "*"
+pyee = "*"
+tqdm = "*"
+urllib3 = "*"
+websockets = "*"
+
+[[package]]
 name = "pyproject-hooks"
 version = "1.2.0"
 description = "Wrappers to call pyproject.toml-based build backend hooks."
@@ -3939,6 +4028,24 @@ files = [
     {file = "pyproject_hooks-1.2.0-py3-none-any.whl", hash = "sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913"},
     {file = "pyproject_hooks-1.2.0.tar.gz", hash = "sha256:1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8"},
 ]
+
+[[package]]
+name = "pyquery"
+version = "2.0.1"
+description = "A jquery-like library for python"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pyquery-2.0.1-py3-none-any.whl", hash = "sha256:aedfa0bd0eb9afc94b3ddbec8f375a6362b32bc9662f46e3e0d866483f4771b0"},
+    {file = "pyquery-2.0.1.tar.gz", hash = "sha256:0194bb2706b12d037db12c51928fe9ebb36b72d9e719565daba5a6c595322faf"},
+]
+
+[package.dependencies]
+cssselect = ">=1.2.0"
+lxml = ">=2.1"
+
+[package.extras]
+test = ["pytest", "pytest-cov", "requests", "webob", "webtest"]
 
 [[package]]
 name = "pyreadline3"
@@ -3953,6 +4060,23 @@ files = [
 
 [package.extras]
 dev = ["build", "flake8", "mypy", "pytest", "twine"]
+
+[[package]]
+name = "pyshorteners"
+version = "1.0.1"
+description = "A Python lib to wrap and consume the most used shorteners APIs"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "pyshorteners-1.0.1.tar.gz", hash = "sha256:22045c997c4283124768c165623a267cf9ba2a7d416101e2e5fccfc244d34544"},
+]
+
+[package.dependencies]
+requests = "*"
+
+[package.extras]
+dev = ["pre-commit"]
+docs = ["sphinx"]
 
 [[package]]
 name = "pytest"
@@ -4247,6 +4371,26 @@ urllib3 = ">=1.21.1,<3"
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
+
+[[package]]
+name = "requests-html"
+version = "0.10.0"
+description = "HTML Parsing for Humans."
+optional = false
+python-versions = ">=3.6.0"
+files = [
+    {file = "requests-html-0.10.0.tar.gz", hash = "sha256:7e929ecfed95fb1d0994bb368295d6d7c4d06b03fcb900c33d7d0b17e6003947"},
+    {file = "requests_html-0.10.0-py3-none-any.whl", hash = "sha256:cb8a78cf829c4eca9d6233f28524f65dd2bfaafb4bdbbc407f0a0b8f487df6e2"},
+]
+
+[package.dependencies]
+bs4 = "*"
+fake-useragent = "*"
+parse = "*"
+pyppeteer = ">=0.0.14"
+pyquery = "*"
+requests = "*"
+w3lib = "*"
 
 [[package]]
 name = "requests-oauthlib"
@@ -5061,6 +5205,17 @@ docs = ["Sphinx (>=4.1.2,<4.2.0)", "sphinx-rtd-theme (>=0.5.2,<0.6.0)", "sphinxc
 test = ["aiohttp (>=3.10.5)", "flake8 (>=5.0,<6.0)", "mypy (>=0.800)", "psutil", "pyOpenSSL (>=23.0.0,<23.1.0)", "pycodestyle (>=2.9.0,<2.10.0)"]
 
 [[package]]
+name = "w3lib"
+version = "2.2.1"
+description = "Library of web-related functions"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "w3lib-2.2.1-py3-none-any.whl", hash = "sha256:e56d81c6a6bf507d7039e0c95745ab80abd24b465eb0f248af81e3eaa46eb510"},
+    {file = "w3lib-2.2.1.tar.gz", hash = "sha256:756ff2d94c64e41c8d7c0c59fea12a5d0bc55e33a531c7988b4a163deb9b07dd"},
+]
+
+[[package]]
 name = "watchfiles"
 version = "0.24.0"
 description = "Simple, modern and high performance file watching and code reload in python."
@@ -5487,4 +5642,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<=3.13"
-content-hash = "ab7a39a14b669edfefa9fd618aa6bcb283192966ab4c80493b06c770f00b2647"
+content-hash = "c4426a996d9476a8404f931e17a0787318aa20bd7d322b312f2af25996944202"
