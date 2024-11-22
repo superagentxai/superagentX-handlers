@@ -18,68 +18,91 @@ class AmazonWebHandler(BaseHandler):
     ):
         super().__init__()
         self.deals_list = []
+        self.asession = AsyncHTMLSession()
 
-    @staticmethod
     async def _get_data(
+            self,
             url: str
     ):
-        s = AsyncHTMLSession()
         headers = {
-            'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36',
+            'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)'
+                          ' Chrome/98.0.4758.80 Safari/537.36',
             'Accept-Encoding': 'gzip, deflate', 'Accept': '*/*', 'Connection': 'keep-alive',
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'rtt': '200'}
-        r = await s.get(
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,'
+                      'image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'rtt': '200'
+        }
+        r = await self.asession.get(
             url,
             headers=headers
         )
-        # r.html.render(sleep=1)
-        soup = BeautifulSoup(
+        return BeautifulSoup(
             r.html.html,
             'html.parser'
         )
-        return soup
 
     def _get_deals(
             self,
             soup
     ):
-        products = soup.find_all('div', {'data-component-type': 's-search-result'})
+        products = soup.find_all(
+            'div',
+            {
+                'data-component-type': 's-search-result'
+            }
+        )
         if products:
             for item in products:
-                title = item.find('a', {
-                    'class': 'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'}).text.strip()
-                short_title = item.find('a', {
-                    'class': 'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'}).text.strip()[
-                              :25]
-                link = item.find('a', {
-                    'class': 'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'})['href']
+                title = item.find(
+                    'a',
+                    {
+                        'class': 'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'
+                    }
+                ).text.strip()
+                link = item.find(
+                    'a',
+                    {
+                        'class': 'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'
+                    }
+                ).get('href')
                 try:
-                    if len(item.find_all('span', {'class': 'a-offscreen'})) > 0:
-                        saleprice = item.find_all('span', {'class': 'a-offscreen'})[0].text.replace('$', '').replace(
-                            ',',
-                            '').strip()
+                    sale_prices = item.find_all('span', {'class': 'a-offscreen'})
+                    if sale_prices:
+                        sale_price = sale_prices[0].text.replace('$', '').replace(',', '').strip()
                     else:
-                        saleprice = ''
+                        sale_price = ''
 
-                    if len(item.find_all('span', {'class': 'a-offscreen'})) > 1:
-                        oldprice = item.find_all('span', {'class': 'a-offscreen'})[1].text.replace('$', '').replace(',',
-                                                                                                                    '').strip()
+                    old_prices = item.find_all('span', {'class': 'a-offscreen'})
+                    if old_prices:
+                        old_price = old_prices[1].text.replace('$', '').replace(',', '').strip()
                     else:
-                        oldprice = ''
+                        old_price = ''
                 except:
-                    oldprice = float(
-                        item.find('span', {'class': 'a-offscreen'}).text.replace('£', '').replace(',', '').strip())
+                    old_prices = item.find(
+                        'span',
+                        {
+                            'class': 'a-offscreen'
+                        }
+                    )
+                    old_price = float(
+                        old_prices.text.replace('£', '').replace(',', '').strip())
                 try:
-                    reviews = float(item.find('span', {'class': 'a-size-base'}).text.strip())
-                except:
-                    reviews = 0
+                    reviews = float(
+                        item.find(
+                            'span',
+                            {
+                                'class': 'a-size-base'
+                            }
+                        ).text.strip()
+                    )
+                except ValueError:
+                    logger.error("float error!...")
 
                 saleitem = {
                     'title': title,
-                    'link': pyshorteners.Shortener().tinyurl.short('https://www.amazon.com' + link),
-                    'saleprice': saleprice,
-                    'oldprice': oldprice,
+                    'link': pyshorteners.Shortener(timeout=5).tinyurl.short('https://www.amazon.com' + link),
+                    'saleprice': sale_price,
+                    'oldprice': old_price,
                     'reviews': reviews
                 }
                 self.deals_list.append(saleitem)
@@ -88,23 +111,51 @@ class AmazonWebHandler(BaseHandler):
     async def _get_next_page(
             soup
     ):
-        pages = soup.find('span', {'class': 's-pagination-strip'})
+        pages = soup.find(
+            'span',
+            {
+                'class': 's-pagination-strip'
+            }
+        )
         if pages:
-            all_pages = pages.find('ul', {'class': 'a-unordered-list a-horizontal s-unordered-list-accessibility'})
+            all_pages = pages.find(
+                'ul',
+                {
+                    'class': 'a-unordered-list a-horizontal s-unordered-list-accessibility'
+                }
+            )
             time.sleep(1)
             list_page = []
             if not all_pages:
-                _list = pages.find_all("a", {"class": "s-pagination-item s-pagination-button"})
+                _list = pages.find_all(
+                    "a",
+                    {
+                        "class": "s-pagination-item s-pagination-button"
+                    }
+                )
                 for page in _list:
-                    list_page.append('https://www.amazon.com/s?k=' + page["href"])
+                    list_page.append(
+                        'https://www.amazon.com/s?k=' + page.get("href")
+                    )
                 return list_page
             else:
-                li_urls = all_pages.find_all('li', {'class': 's-list-item-margin-right-adjustment'})
+                li_urls = all_pages.find_all(
+                    'li',
+                    {
+                        'class': 's-list-item-margin-right-adjustment'
+                    }
+                )
                 for _url in li_urls:
-                    a_url = _url.find('a', {
-                        'class': 's-pagination-item s-pagination-button s-pagination-button-accessibility'})
+                    a_url = _url.find(
+                        'a',
+                        {
+                            'class': 's-pagination-item s-pagination-button s-pagination-button-accessibility'
+                        }
+                    )
                     if a_url:
-                        list_page.append('https://www.amazon.com/s?k=' + a_url["href"])
+                        list_page.append(
+                            'https://www.amazon.com/s?k=' + a_url.get("href")
+                        )
                 return list_page
 
     @tool
@@ -128,7 +179,12 @@ class AmazonWebHandler(BaseHandler):
         """
 
         url = f'https://www.amazon.com/s?k={query}'
-        soup = await self._get_data(url)
-        await sync_to_async(self._get_deals, soup)
+        soup = await self._get_data(
+            url
+        )
+        await sync_to_async(
+            self._get_deals,
+            soup
+        )
         time.sleep(1)
         return self.deals_list
