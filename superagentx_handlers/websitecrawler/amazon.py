@@ -85,7 +85,7 @@ class AmazonWebHandler(BaseHandler):
                         }
                     )
                     old_price = float(
-                        old_prices.text.replace('£', '').replace(',', '').strip())
+                        old_prices.text.replace('$', '').replace(',', '').strip())
                 try:
                     reviews = float(
                         item.find(
