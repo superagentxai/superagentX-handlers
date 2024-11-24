@@ -96,6 +96,7 @@ class AmazonWebHandler(BaseHandler):
                         ).text.strip()
                     )
                 except ValueError:
+                    reviews = 0
                     logger.error("float error!...")
 
                 saleitem = {
