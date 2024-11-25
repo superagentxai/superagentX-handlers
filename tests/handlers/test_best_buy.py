@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture
 async def best_buy_handler() -> BestbuyHandler:
-    return BestbuyHandler(api_key="<Api_key>")
+    return BestbuyHandler(api_key="dmx8sagAYsaH0ghrgAA7OhkR")
 
 
 class TestBestBuy:
