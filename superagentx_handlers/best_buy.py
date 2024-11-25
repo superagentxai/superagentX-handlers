@@ -65,8 +65,7 @@ class BestbuyHandler(BaseHandler):
             search_text: str,
             show_options: str = SHOW_OPTIONS,
             pagination: str = DEFAULT_PAGINATION,
-            response_format: str = RESPONSE_FORMAT,
-            extra_fields: list[str] = None
+            response_format: str = RESPONSE_FORMAT
     ):
         """
         Fetches product information from the Best Buy API based on the search text.
@@ -80,8 +79,6 @@ class BestbuyHandler(BaseHandler):
                 results or specify the page size. Defaults to `DEFAULT_PAGINATION`.
             response_format (str, optional): The format of the API response.
                 Defaults to `RESPONSE_FORMAT` (e.g., JSON).
-            extra_fields (list[str], optional): Additional fields to include in the request.
-                Each field should be a string.
 
         """
 
@@ -101,17 +98,17 @@ class BestbuyHandler(BaseHandler):
                     if resp.status == 200:
                         data = await resp.json()
                         products = data['products']
-                        json_data = []
-                        result = {}
                         if products:
-                            async for item in iter_to_aiter(products):
-                                result['title'] = item['name']
-                                result['link'] = item['url']
-                                result['saleprice'] = item['salePrice']
-                                result['oldprice'] = item['regularPrice']
-                                result['reviews'] = item['customerReviewCount']
-                                json_data.append(result)
-                        return json_data
+                            return [
+                                {
+                                    'title': item.get('name'),
+                                    'link': item.get('url'),
+                                    'saleprice': item.get('salePrice'),
+                                    'oldprice': item.get('regularPrice'),
+                                    'reviews': item.get('customerReviewCount')
+                                }
+                                async for item in iter_to_aiter(products)
+                            ]
                     raise BestBuyError(await resp.text())
         except Exception as ex:
             raise BestBuyError(ex)
