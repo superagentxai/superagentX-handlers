@@ -45,7 +45,8 @@ class ScrapeHandler(BaseHandler):
        """
         async with AsyncWebCrawler(verbose=True) as crawler:
             results = await crawler.arun_many(
-                urls=domain_urls
+                urls=domain_urls,
+                bypass_cache=True
             )
             if results:
                 return [

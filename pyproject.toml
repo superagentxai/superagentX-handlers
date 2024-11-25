@@ -24,7 +24,7 @@ openai = "^1.52.0"
 google-auth-oauthlib = "^1.2.1"
 google-api-python-client = "^2.149.0"
 wikipedia-api = "^0.7.1"
-crawl4ai = "^0.3.71"
+crawl4ai = "0.3.731"
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.36"}
 psycopg2-binary = "^2.9.10"
 oracledb = "^2.4.1"
