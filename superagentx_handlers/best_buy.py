@@ -22,7 +22,6 @@ SHOW_OPTIONS = (
     "sku,"
     "thumbnailImage"
 )
-
 DEFAULT_PAGINATION = "pageSize=100"
 RESPONSE_FORMAT = "format=json"
 
@@ -67,7 +66,7 @@ class BestbuyHandler(BaseHandler):
             show_options: str = SHOW_OPTIONS,
             pagination: str = DEFAULT_PAGINATION,
             response_format: str = RESPONSE_FORMAT,
-            extra_fields: list = None
+            extra_fields: list[str] = None
     ):
         """
         Fetches product information from the Best Buy API based on the search text.
@@ -81,7 +80,7 @@ class BestbuyHandler(BaseHandler):
                 results or specify the page size. Defaults to `DEFAULT_PAGINATION`.
             response_format (str, optional): The format of the API response.
                 Defaults to `RESPONSE_FORMAT` (e.g., JSON).
-            extra_fields (list, optional): Additional fields to include in the request.
+            extra_fields (list[str], optional): Additional fields to include in the request.
                 Each field should be a string.
 
         """
@@ -111,9 +110,6 @@ class BestbuyHandler(BaseHandler):
                                 result['saleprice'] = item['salePrice']
                                 result['oldprice'] = item['regularPrice']
                                 result['reviews'] = item['customerReviewCount']
-                                if extra_fields and len(extra_fields) > 0:
-                                    async for field in iter_to_aiter(extra_fields):
-                                        result[result] = item[field]
                                 json_data.append(result)
                         return json_data
                     raise BestBuyError(await resp.text())
