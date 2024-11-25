@@ -1,12 +1,12 @@
+import asyncio
 import logging
-import time
 
 import pyshorteners
 from bs4 import BeautifulSoup
 from requests_html import AsyncHTMLSession
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
-from superagentx.utils.helper import sync_to_async
+from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class AmazonWebHandler(BaseHandler):
     ):
         super().__init__()
         self.deals_list = []
-        self.asession = AsyncHTMLSession()
+        self._tinyurl = pyshorteners.Shortener(timeout=5).tinyurl
 
     async def _get_data(
             self,
@@ -32,7 +32,7 @@ class AmazonWebHandler(BaseHandler):
                       'image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
             'rtt': '200'
         }
-        r = await self.asession.get(
+        r = await AsyncHTMLSession().get(
             url,
             headers=headers
         )
@@ -41,113 +41,138 @@ class AmazonWebHandler(BaseHandler):
             'html.parser'
         )
 
-    def _get_deals(
+    async def _get_shortener_url(self, link: str):
+        return await sync_to_async(
+            self._tinyurl.short,
+            'https://www.amazon.com' + link
+        )
+
+    async def _get_deals(
             self,
             soup
     ):
-        products = soup.find_all(
+        products = await sync_to_async(
+            soup.find_all,
             'div',
             {
                 'data-component-type': 's-search-result'
             }
         )
         if products:
-            for item in products:
-                title = item.find(
+            async for item in iter_to_aiter(products):
+                sale_price = ''
+                title_find = await sync_to_async(
+                    item.find,
+                    'a',
+                    {
+                        'class': 'a-link-normal '
+                                 's-underline-text '
+                                 's-underline-link-text '
+                                 's-link-style a-text-normal'
+                    }
+                )
+                title = title_find.text.strip()
+                link_find = await sync_to_async(
+                    item.find,
                     'a',
                     {
                         'class': 'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'
                     }
-                ).text.strip()
-                link = item.find(
-                    'a',
-                    {
-                        'class': 'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'
-                    }
-                ).get('href')
+                )
+                link = link_find.get('href')
                 try:
-                    sale_prices = item.find_all('span', {'class': 'a-offscreen'})
+                    sale_prices = await sync_to_async(
+                        item.find_all, 'span', {'class': 'a-offscreen'}
+                    )
                     if sale_prices:
                         sale_price = sale_prices[0].text.replace('$', '').replace(',', '').strip()
-                    else:
-                        sale_price = ''
 
-                    old_prices = item.find_all('span', {'class': 'a-offscreen'})
-                    if old_prices:
+                    old_prices = await sync_to_async(
+                        item.find_all,
+                        'span', {'class': 'a-offscreen'}
+                    )
+                    if  len(old_prices) > 1:
                         old_price = old_prices[1].text.replace('$', '').replace(',', '').strip()
                     else:
                         old_price = ''
-                except:
-                    old_prices = item.find(
+                except ValueError:
+                    old_prices = await sync_to_async(
+                        item.find,
                         'span',
                         {
                             'class': 'a-offscreen'
                         }
                     )
                     old_price = float(
-                        old_prices.text.replace('$', '').replace(',', '').strip())
-                try:
-                    reviews = float(
-                        item.find(
-                            'span',
-                            {
-                                'class': 'a-size-base'
-                            }
-                        ).text.strip()
+                        old_prices.text.replace('$', '').replace(',', '').strip()
                     )
+                try:
+                    reviews_find = await sync_to_async(
+                        item.find,
+                        'span',
+                        {
+                            'class': 'a-size-base'
+                        }
+                    )
+                    reviews = float(reviews_find.text.strip())
                 except ValueError:
                     reviews = 0
                     logger.error("float error!...")
 
-                saleitem = {
+                sale_item = {
                     'title': title,
-                    'link': pyshorteners.Shortener(timeout=5).tinyurl.short('https://www.amazon.com' + link),
-                    'saleprice': sale_price,
-                    'oldprice': old_price,
+                    'link': await self._get_shortener_url(link),
+                    'sale_price': sale_price,
+                    'old_price': old_price,
                     'reviews': reviews
                 }
-                self.deals_list.append(saleitem)
+                self.deals_list.append(sale_item)
 
     @staticmethod
     async def _get_next_page(
             soup
     ):
-        pages = soup.find(
+        pages = await sync_to_async(
+            soup.find,
             'span',
             {
                 'class': 's-pagination-strip'
             }
         )
         if pages:
-            all_pages = pages.find(
+            all_pages = await sync_to_async(
+                pages.find,
                 'ul',
                 {
                     'class': 'a-unordered-list a-horizontal s-unordered-list-accessibility'
                 }
             )
-            time.sleep(1)
+            await asyncio.sleep(1)
             list_page = []
             if not all_pages:
-                _list = pages.find_all(
+                _list = await sync_to_async(
+                    pages.find_all,
                     "a",
                     {
                         "class": "s-pagination-item s-pagination-button"
                     }
                 )
-                for page in _list:
+                async for page in iter_to_aiter(_list):
                     list_page.append(
                         'https://www.amazon.com/s?k=' + page.get("href")
                     )
                 return list_page
             else:
-                li_urls = all_pages.find_all(
+                li_urls = await sync_to_async(
+                    all_pages.find_all,
                     'li',
                     {
                         'class': 's-list-item-margin-right-adjustment'
                     }
                 )
-                for _url in li_urls:
-                    a_url = _url.find(
+                async for _url in iter_to_aiter(li_urls):
+                    a_url = await sync_to_async(
+                        _url.find,
                         'a',
                         {
                             'class': 's-pagination-item s-pagination-button s-pagination-button-accessibility'
@@ -183,9 +208,6 @@ class AmazonWebHandler(BaseHandler):
         soup = await self._get_data(
             url
         )
-        await sync_to_async(
-            self._get_deals,
-            soup
-        )
-        time.sleep(1)
+        await self._get_deals(soup=soup)
+        await asyncio.sleep(1)
         return self.deals_list
