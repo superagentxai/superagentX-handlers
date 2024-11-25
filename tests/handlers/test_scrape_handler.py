@@ -16,14 +16,15 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture
 def scrap_content_init() -> ScrapeHandler:
-    scrap_handler = ScrapeHandler(
-        domain_urls=[""]
-    )
+    scrap_handler = ScrapeHandler()
     return scrap_handler
 
 
 class TestScrap:
 
     async def test_scrap_content(self, scrap_content_init: ScrapeHandler):
-        res = await scrap_content_init.scrap_content()
+        res = await scrap_content_init.scrap_content(
+            domain_urls=[]
+        )
+        logger.info(f'Scrap Content Results =>\n{res}')
         assert isinstance(res, list)
