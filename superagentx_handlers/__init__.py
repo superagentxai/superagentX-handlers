@@ -7,3 +7,6 @@ from .scrape import ScrapeHandler
 from .sql import SQLHandler
 from .weather import WeatherHandler
 from .wikipedia import WikipediaHandler
+from .twitter import TwitterHandler
+from .websitecrawler import *
+from .best_buy import BestbuyHandler
