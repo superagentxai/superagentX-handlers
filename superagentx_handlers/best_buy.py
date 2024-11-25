@@ -1,6 +1,7 @@
 import aiohttp
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.utils.helper import iter_to_aiter
 
 BASE_URL = "https://api.bestbuy.com/v1/products"
 
@@ -8,6 +9,7 @@ SHOW_OPTIONS = (
     "show=customerReviewAverage,"
     "customerReviewCount,"
     "dollarSavings,"
+    "url,"
     "image,"
     "includedItemList.includedItem,"
     "modelNumber,"
@@ -20,7 +22,6 @@ SHOW_OPTIONS = (
     "sku,"
     "thumbnailImage"
 )
-
 DEFAULT_PAGINATION = "pageSize=100"
 RESPONSE_FORMAT = "format=json"
 
@@ -95,7 +96,19 @@ class BestbuyHandler(BaseHandler):
             async with aiohttp.ClientSession() as session:
                 async with session.get(url=url) as resp:
                     if resp.status == 200:
-                        return await resp.json()
+                        data = await resp.json()
+                        products = data['products']
+                        if products:
+                            return [
+                                {
+                                    'title': item.get('name'),
+                                    'link': item.get('url'),
+                                    'saleprice': item.get('salePrice'),
+                                    'oldprice': item.get('regularPrice'),
+                                    'reviews': item.get('customerReviewCount')
+                                }
+                                async for item in iter_to_aiter(products)
+                            ]
                     raise BestBuyError(await resp.text())
         except Exception as ex:
             raise BestBuyError(ex)
