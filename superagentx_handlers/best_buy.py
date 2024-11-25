@@ -1,6 +1,7 @@
 import aiohttp
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.utils.helper import iter_to_aiter
 
 BASE_URL = "https://api.bestbuy.com/v1/products"
 
@@ -101,7 +102,7 @@ class BestbuyHandler(BaseHandler):
                         json_data=[]
                         result={}
                         if products:
-                            for item in products:
+                            async for item in iter_to_aiter(products):
                                 result['title'] = item['name']
                                 result['link'] = item['url']
                                 result['saleprice'] = item['salePrice']
