@@ -8,6 +8,7 @@ SHOW_OPTIONS = (
     "show=customerReviewAverage,"
     "customerReviewCount,"
     "dollarSavings,"
+    "url,"
     "image,"
     "includedItemList.includedItem,"
     "modelNumber,"
@@ -95,7 +96,19 @@ class BestbuyHandler(BaseHandler):
             async with aiohttp.ClientSession() as session:
                 async with session.get(url=url) as resp:
                     if resp.status == 200:
-                        return await resp.json()
+                        data =await resp.json()
+                        products = data['products']
+                        json_data=[]
+                        result={}
+                        if products:
+                            for item in products:
+                                result['title'] = item['name']
+                                result['link'] = item['url']
+                                result['saleprice'] = item['salePrice']
+                                result['oldprice'] = item['regularPrice']
+                                result['reviews'] = item['customerReviewCount']
+                                json_data.append(result)
+                        return  json_data
                     raise BestBuyError(await resp.text())
         except Exception as ex:
             raise BestBuyError(ex)
