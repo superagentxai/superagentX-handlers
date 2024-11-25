@@ -66,7 +66,8 @@ class BestbuyHandler(BaseHandler):
             search_text: str,
             show_options: str = SHOW_OPTIONS,
             pagination: str = DEFAULT_PAGINATION,
-            response_format: str = RESPONSE_FORMAT
+            response_format: str = RESPONSE_FORMAT,
+            extra_fields: list = None
     ):
         """
         Fetches product information from the Best Buy API based on the search text.
@@ -80,6 +81,8 @@ class BestbuyHandler(BaseHandler):
                 results or specify the page size. Defaults to `DEFAULT_PAGINATION`.
             response_format (str, optional): The format of the API response.
                 Defaults to `RESPONSE_FORMAT` (e.g., JSON).
+            extra_fields (list, optional): Additional fields to include in the request.
+                Each field should be a string.
 
         """
 
@@ -97,10 +100,10 @@ class BestbuyHandler(BaseHandler):
             async with aiohttp.ClientSession() as session:
                 async with session.get(url=url) as resp:
                     if resp.status == 200:
-                        data =await resp.json()
+                        data = await resp.json()
                         products = data['products']
-                        json_data=[]
-                        result={}
+                        json_data = []
+                        result = {}
                         if products:
                             async for item in iter_to_aiter(products):
                                 result['title'] = item['name']
@@ -108,8 +111,11 @@ class BestbuyHandler(BaseHandler):
                                 result['saleprice'] = item['salePrice']
                                 result['oldprice'] = item['regularPrice']
                                 result['reviews'] = item['customerReviewCount']
+                                if extra_fields and len(extra_fields) > 0:
+                                    async for field in iter_to_aiter(extra_fields):
+                                        result[result] = item[field]
                                 json_data.append(result)
-                        return  json_data
+                        return json_data
                     raise BestBuyError(await resp.text())
         except Exception as ex:
             raise BestBuyError(ex)
