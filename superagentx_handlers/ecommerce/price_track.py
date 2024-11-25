@@ -8,6 +8,13 @@ session = HTMLSession()
 
 BASE_URL = 'https://pricetracker.wtf/api/product/search?q='
 
+
+async def get_header(table):
+    # Extract table headers
+    headers = [header.text for header in table.find_all("th")]
+    return headers
+
+
 class PriceTrackHandler(BaseHandler):
     def __init__(
             self,
@@ -23,4 +30,37 @@ class PriceTrackHandler(BaseHandler):
                 if data.get('items')  and data.get('items')[0]:
                     return data.get('items')[0].get("detailsUrl")
 
+    async def get_table_json(self, table):
+        # Extract table rows
+        table_rows = table.find_all("tr")
+        # Extract table data
+        table_json = []
+        headers = await get_header(table)
+        for tbl_row in table_rows[1:]:  # Skip the header row
+            cells = tbl_row.find_all("td")
+            item = {}
+            for idx, cell in enumerate(cells):
+                if idx == 0 and cell.find("a"):
+                    item[headers[idx] if headers[idx] else 'link'] = cell.find("a").get('href')
+                if idx == 1:
+                    item[headers[idx] if headers[idx] else 'site_name'] = cell.text.strip()
+                if headers[idx] and headers[idx].strip():
+                    item[headers[idx]] = cell.text.strip()
+            table_json.append(item)
+        return table_json
 
+    async def get_table_by_url(self, url):
+        # Example HTML content
+        response = requests.get(url)
+        html_content = ""
+        if response.status_code == 200:
+            html_content = response.text
+            print("HTML content fetched successfully!")
+        else:
+            print(f"Failed to fetch HTML content. Status code: {response.status_code}")
+
+        # Parse the HTML
+        soup = BeautifulSoup(html_content, "html.parser")
+        # Find the table
+        table = soup.find("table", {"class": "table-auto"})
+        return table
