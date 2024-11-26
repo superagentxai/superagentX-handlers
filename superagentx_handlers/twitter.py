@@ -72,14 +72,16 @@ class TwitterHandler(BaseHandler):
             logger.error("Tweet text cannot be empty.")
             raise ValueError("Tweet text cannot be empty.")
 
-        # Post the tweet
         join_hashtags = " ".join(f"#{x}" for x in hash_tags or [])
         join_user_tags = " ".join(f"@{x}" for x in user_tags or [])
 
         if link:
-            text = f'{text}\n{await self._get_shortener_url(link)}'
+            text = f'{text} {await self._get_shortener_url(link)}'
+        if join_user_tags:
+            text = f'{join_user_tags} {text}'
+        if join_hashtags:
+            text = f'{join_hashtags} {text}'
 
-        tweet_text = f"{join_hashtags}  {join_user_tags}  {text}"
-        logger.debug(f'Tweet Text Length {len(tweet_text)} and Text => \n\t{tweet_text}')
-        response = await self.client.create_tweet(text=tweet_text)
+        logger.debug(f'Tweet Text Length {len(text)} and Text => \n\t{text}')
+        response = await self.client.create_tweet(text=text)
         return response.data
