@@ -1,6 +1,6 @@
 import logging
 import pytest
-from superagentx_handlers.best_buy import BestbuyHandler
+from superagentx_handlers.ecommerce.best_buy import BestbuyHandler
 
 logger = logging.getLogger(__name__)
 '''
