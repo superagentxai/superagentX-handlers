@@ -62,24 +62,13 @@ class BestbuyHandler(BaseHandler):
     @tool
     async def get_best_buy_info(
             self,
-            search_text: str,
-            show_options: str = SHOW_OPTIONS,
-            pagination: str = DEFAULT_PAGINATION,
-            response_format: str = RESPONSE_FORMAT
+            search_text: str
     ):
         """
         Fetches product information from the Best Buy API based on the search text.
 
         Args:
             search_text (str): The keyword or query string to search for products.
-            show_options (str, optional): The fields to be included in the API response.
-                Defaults to `SHOW_OPTIONS`, which includes fields like customer review
-                average, model number, sale price, etc.
-            pagination (str, optional): Pagination parameters to limit the number of
-                results or specify the page size. Defaults to `DEFAULT_PAGINATION`.
-            response_format (str, optional): The format of the API response.
-                Defaults to `RESPONSE_FORMAT` (e.g., JSON).
-
         """
 
         search_keyword = f"((search={search_text}))" if search_text else ""
@@ -87,9 +76,9 @@ class BestbuyHandler(BaseHandler):
         url = (
             f"{BASE_URL}"
             f"{search_keyword}?"
-            f"{show_options}"
-            f"&{response_format}"
-            f"&{pagination}"
+            f"{SHOW_OPTIONS}"
+            f"&{RESPONSE_FORMAT}"
+            f"&{DEFAULT_PAGINATION}"
             f"&apiKey={self.api_key}"
         )
         try:
