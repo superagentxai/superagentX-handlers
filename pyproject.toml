@@ -44,7 +44,7 @@ pytest = "^8.3.3"
 pytest-asyncio = "^0.24.0"
 
 [tool.poetry.group.dev.dependencies]
-superagentx = "^0.1.11"
+superagentx = "^0.1.12"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
