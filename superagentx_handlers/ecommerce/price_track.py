@@ -4,6 +4,7 @@ import aiohttp
 import requests
 from requests_html import HTMLSession
 from bs4 import BeautifulSoup
+from superagentx.handler.decorators import tool
 
 session = HTMLSession()
 
@@ -58,16 +59,51 @@ async def get_table_by_url(url, class_name: str = CLASS_NAME):
 
 
 class PriceTrackHandler(BaseHandler):
+    """
+    Initializes the handler with a product URL.
+
+    Args:
+        product_url (str): The product URL to track.
+    """
+
     def __init__(
             self,
             product_url: str
     ):
         self.product_url = product_url
+        self.price_track_url = None
+
+    async def initialize(self):
+        """
+        Async initialization to fetch tracking details URL.
+        """
+        self.price_track_url = await self.get_track_detail_by_product_url()
 
     async def get_track_detail_by_product_url(self):
+        """
+        Fetches the tracking details URL based on the product URL.
+        """
         url = BASE_URL + self.product_url
         async with aiohttp.ClientSession() as session:
             async with session.get(url=url) as resp:
-                data = await resp.json()
-                if data.get('items') and data.get('items')[0]:
-                    return data.get('items')[0].get("detailsUrl")
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get('items') and data.get('items')[0]:
+                        return data.get('items')[0].get("detailsUrl")
+                return None
+
+    @tool
+    async def get_product_price_track_info(self):
+        """
+            Retrieves product price tracking information.
+
+            This method ensures that the `price_track_url` is initialized and then fetches
+            the product price tracking details. It retrieves the table information from the URL
+            and converts it into a JSON format.
+        """
+
+        if not self.price_track_url:
+            await self.initialize()
+        table_info = await get_table_by_url(self.price_track_url)
+        table_json = await get_table_json(table_info)
+        return table_json
