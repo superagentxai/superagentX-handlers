@@ -80,5 +80,6 @@ class TwitterHandler(BaseHandler):
             text = f'{text}\n{await self._get_shortener_url(link)}'
 
         tweet_text = f"{join_hashtags}  {join_user_tags}  {text}"
+        logger.debug(f'Tweet Text Length {len(tweet_text)} and Text => \n\t{tweet_text}')
         response = await self.client.create_tweet(text=tweet_text)
         return response.data
