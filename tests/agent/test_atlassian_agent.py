@@ -5,7 +5,6 @@ import pytest
 from superagentx.agent import Agent
 from superagentx.engine import Engine
 from superagentx.llm import LLMClient
-from superagentx.memory import Memory
 from superagentx.prompt import PromptTemplate
 
 from superagentx_handlers.atlassian.confluence import ConfluenceHandler
@@ -59,14 +58,13 @@ class TestAtlassianAgent:
             llm=llm_client,
             prompt_template=prompt_template
         )
-        memory = Memory()
         atlassian_agent = Agent(
             goal="Get a proper answer for asking a question in atlassian.",
             role="You are the Atlassian admin",
             llm=llm_client,
             prompt_template=prompt_template,
             engines=[jira_engine, confluence_engine],
-            memory=memory
+            max_retry=1
         )
 
         result = await atlassian_agent.execute(
