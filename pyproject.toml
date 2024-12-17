@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superagentx-handlers"
-version = "0.1.4"
+version = "0.1.5"
 description = ""
 authors = [
     "SuperAgentX AI <support@superagentx.ai>",
@@ -24,7 +24,7 @@ openai = "^1.52.0"
 google-auth-oauthlib = "^1.2.1"
 google-api-python-client = "^2.149.0"
 wikipedia-api = "^0.7.1"
-crawl4ai = "^0.3.71"
+crawl4ai = "0.3.731"
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.36"}
 psycopg2-binary = "^2.9.10"
 oracledb = "^2.4.1"
@@ -44,7 +44,7 @@ pytest = "^8.3.3"
 pytest-asyncio = "^0.24.0"
 
 [tool.poetry.group.dev.dependencies]
-superagentx = "^0.1.11"
+superagentx = "^0.1.12"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

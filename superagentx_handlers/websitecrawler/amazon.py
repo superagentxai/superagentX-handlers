@@ -1,7 +1,6 @@
 import asyncio
 import logging
 
-import pyshorteners
 from bs4 import BeautifulSoup
 from requests_html import AsyncHTMLSession
 from superagentx.handler.base import BaseHandler
@@ -18,12 +17,9 @@ class AmazonWebHandler(BaseHandler):
     ):
         super().__init__()
         self.deals_list = []
-        self._tinyurl = pyshorteners.Shortener(timeout=5).tinyurl
 
-    async def _get_data(
-            self,
-            url: str
-    ):
+    @staticmethod
+    async def _get_data(url: str):
         headers = {
             'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)'
                           ' Chrome/98.0.4758.80 Safari/537.36',
@@ -39,12 +35,6 @@ class AmazonWebHandler(BaseHandler):
         return BeautifulSoup(
             r.html.html,
             'html.parser'
-        )
-
-    async def _get_shortener_url(self, link: str):
-        return await sync_to_async(
-            self._tinyurl.short,
-            'https://www.amazon.com' + link
         )
 
     async def _get_deals(

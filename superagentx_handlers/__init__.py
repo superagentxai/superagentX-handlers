@@ -9,4 +9,3 @@ from .weather import WeatherHandler
 from .wikipedia import WikipediaHandler
 from .twitter import TwitterHandler
 from .websitecrawler import *
-from .best_buy import BestbuyHandler
