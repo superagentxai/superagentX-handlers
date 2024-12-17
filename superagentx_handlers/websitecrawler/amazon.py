@@ -61,62 +61,63 @@ class AmazonWebHandler(BaseHandler):
                                  's-link-style a-text-normal'
                     }
                 )
-                title = title_find.text.strip()
-                link_find = await sync_to_async(
-                    item.find,
-                    'a',
-                    {
-                        'class': 'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'
+                if title_find:
+                    title = title_find.text.strip()
+                    link_find = await sync_to_async(
+                        item.find,
+                        'a',
+                        {
+                            'class': 'a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal'
+                        }
+                    )
+                    link = link_find.get('href')
+                    try:
+                        sale_prices = await sync_to_async(
+                            item.find_all, 'span', {'class': 'a-offscreen'}
+                        )
+                        if sale_prices:
+                            sale_price = sale_prices[0].text.replace('$', '').replace(',', '').strip()
+
+                        old_prices = await sync_to_async(
+                            item.find_all,
+                            'span', {'class': 'a-offscreen'}
+                        )
+                        if  len(old_prices) > 1:
+                            old_price = old_prices[1].text.replace('$', '').replace(',', '').strip()
+                        else:
+                            old_price = ''
+                    except ValueError:
+                        old_prices = await sync_to_async(
+                            item.find,
+                            'span',
+                            {
+                                'class': 'a-offscreen'
+                            }
+                        )
+                        old_price = float(
+                            old_prices.text.replace('$', '').replace(',', '').strip()
+                        )
+                    try:
+                        reviews_find = await sync_to_async(
+                            item.find,
+                            'span',
+                            {
+                                'class': 'a-size-base'
+                            }
+                        )
+                        reviews = float(reviews_find.text.strip())
+                    except ValueError:
+                        reviews = 0
+                        logger.error("float error!...")
+
+                    sale_item = {
+                        'title': title,
+                        'link': 'https://www.amazon.com' + link,
+                        'sale_price': sale_price,
+                        'old_price': old_price,
+                        'reviews': reviews
                     }
-                )
-                link = link_find.get('href')
-                try:
-                    sale_prices = await sync_to_async(
-                        item.find_all, 'span', {'class': 'a-offscreen'}
-                    )
-                    if sale_prices:
-                        sale_price = sale_prices[0].text.replace('$', '').replace(',', '').strip()
-
-                    old_prices = await sync_to_async(
-                        item.find_all,
-                        'span', {'class': 'a-offscreen'}
-                    )
-                    if  len(old_prices) > 1:
-                        old_price = old_prices[1].text.replace('$', '').replace(',', '').strip()
-                    else:
-                        old_price = ''
-                except ValueError:
-                    old_prices = await sync_to_async(
-                        item.find,
-                        'span',
-                        {
-                            'class': 'a-offscreen'
-                        }
-                    )
-                    old_price = float(
-                        old_prices.text.replace('$', '').replace(',', '').strip()
-                    )
-                try:
-                    reviews_find = await sync_to_async(
-                        item.find,
-                        'span',
-                        {
-                            'class': 'a-size-base'
-                        }
-                    )
-                    reviews = float(reviews_find.text.strip())
-                except ValueError:
-                    reviews = 0
-                    logger.error("float error!...")
-
-                sale_item = {
-                    'title': title,
-                    'link': 'https://www.amazon.com' + link,
-                    'sale_price': sale_price,
-                    'old_price': old_price,
-                    'reviews': reviews
-                }
-                self.deals_list.append(sale_item)
+                    self.deals_list.append(sale_item)
 
     @staticmethod
     async def _get_next_page(
