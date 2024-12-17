@@ -61,8 +61,8 @@ class AmazonWebHandler(BaseHandler):
                                  's-link-style a-text-normal'
                     }
                 )
-                title = title_find.text.strip()
-                if title:
+                if title_find:
+                    title = title_find.text.strip()
                     link_find = await sync_to_async(
                         item.find,
                         'a',
