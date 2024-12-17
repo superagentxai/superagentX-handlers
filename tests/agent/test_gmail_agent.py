@@ -4,7 +4,6 @@ import pytest
 from superagentx.agent import Agent
 from superagentx.engine import Engine
 from superagentx.llm import LLMClient
-from superagentx.memory import Memory
 from superagentx.prompt import PromptTemplate
 
 from superagentx_handlers.google.gmail import GmailHandler
@@ -41,7 +40,6 @@ class TestGmailAgent:
             prompt_template=prompt_template
         )
 
-        memory = Memory()
         gmail_agent = Agent(
             goal="Get me the best search results",
             role="You are the best gmail reader",
