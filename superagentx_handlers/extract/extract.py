@@ -1,16 +1,10 @@
 from abc import ABC
 from urllib.request import BaseHandler
 import logging
-from chromadb.cli.utils import set_log_file_path
 from superagentx.handler.decorators import tool
-import os
 from PIL import Image
 import pytesseract
-# import fitz
-# from pdfminer.high_level import extract_text
 import pdfplumber
-
-import asyncio
 
 logger = logging.getLogger(__name__)
 

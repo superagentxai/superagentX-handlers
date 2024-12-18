@@ -38,6 +38,8 @@ tweepy = {extras = ["async"], version = "^4.14.0"}
 requests-html = "^0.10.0"
 pyshorteners = "^1.0.1"
 lxml-html-clean = "^0.4.1"
+pytesseract = "^0.3.13"
+pdfplumber = "^0.11.4"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"
