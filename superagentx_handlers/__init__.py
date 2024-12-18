@@ -9,5 +9,5 @@ from .weather import WeatherHandler
 from .wikipedia import WikipediaHandler
 from .twitter import TwitterHandler
 from .websitecrawler import *
-from .extract import *
+from .extract import ExtractHandler
 
