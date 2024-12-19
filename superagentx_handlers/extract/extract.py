@@ -1,5 +1,5 @@
 from abc import ABC
-from urllib.request import BaseHandler
+from superagentx.handler.base import BaseHandler
 import logging
 from superagentx.handler.decorators import tool
 from PIL import Image
