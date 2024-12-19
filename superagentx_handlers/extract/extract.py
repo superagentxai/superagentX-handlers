@@ -16,6 +16,9 @@ class ExtractHandler(BaseHandler):
         This class inherits from BaseHandler and extends its functionality
         to include specific extraction-related operations.
     """
+    
+    def __init__(self):
+        super().__init__()
 
 
     @tool
