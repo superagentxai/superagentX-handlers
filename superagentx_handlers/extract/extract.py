@@ -17,24 +17,9 @@ class ExtractHandler(BaseHandler):
         to include specific extraction-related operations.
     """
 
-    def __init__(
-            self,
-            *,
-            file_path:str
-    ):
-        """
-            Initializes the ExtractHandler with the specified file path.
-
-            Args:
-                file_path (str): The path to the file that will be processed
-                    for extraction. This should be a valid file path to a
-                    supported file format (e.g., PDF, image).
-        """
-        super().__init__()
-        self.file_path = file_path
 
     @tool
-    async def extract_pdf_text(self):
+    async def extract_pdf_text(self, file_path:str):
         """
             Extracts text content from the specified PDF file.
 
@@ -43,15 +28,15 @@ class ExtractHandler(BaseHandler):
             extracted text can be used for further analysis or processing.
         """
         try:
-            with pdfplumber.open(self.file_path) as pdf:
+            with pdfplumber.open(file_path) as pdf:
                 text = "".join(page.extract_text() for page in pdf.pages)
             return text
         except Exception as ex:
-            logger.error(f"Error while extracting file: {self.file_path}! ERROR: {ex}")
+            logger.error(f"Error while extracting file: {file_path}! ERROR: {ex}")
             raise
 
     @tool
-    async def extract_image_text(self):
+    async def extract_image_text(self, file_path:str):
         """
             Extracts text content from an image file.
 
@@ -60,11 +45,11 @@ class ExtractHandler(BaseHandler):
             OCR (Optical Character Recognition) techniques.
         """
         try:
-            image = Image.open(self.file_path)
+            image = Image.open(file_path)
             text = pytesseract.image_to_string(image)
             return text
 
         except Exception as ex:
-            logger.error(f"Error while extracting file: {self.file_path}! ERROR: {ex}")
+            logger.error(f"Error while extracting file: {file_path}! ERROR: {ex}")
             raise
 
