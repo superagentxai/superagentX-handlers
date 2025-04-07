@@ -34,10 +34,10 @@ class SlackHandler(BaseHandler):
         """
         try:
             response = await self.client.chat_postMessage(channel=channel_id, text=text)
-            print(f"Message sent: {response['ts']}")
+            logger.debug(f"Message sent: {response['ts']}")
             return response
         except SlackApiError as e:
-            print(f"Error sending message: {e.response['error']}")
+            logger.error(f"Error sending message: {e.response['error']}")
 
     @tool
     async def get_messages_from_channel(self, channel_id: str, limit: int = 5):
@@ -59,14 +59,14 @@ class SlackHandler(BaseHandler):
                 logger.info(f"No messages found in channel {channel_id}.")
                 return
 
-            print(f"Messages from channel {channel_id}:")
+            logger.debug(f"Messages from channel {channel_id}:")
             for msg in messages:
                 user = msg.get("user", "bot")
                 text = msg.get("text", "")
                 print(f"{user} said: {text}")
             return messages
         except SlackApiError as e:
-            print(f"Error fetching messages from channel {channel_id}: {e.response['error']}")
+            logger.debug(f"Error fetching messages from channel {channel_id}: {e.response['error']}")
 
     @tool
     async def get_channel_id(self, channel_name):
@@ -85,4 +85,3 @@ class SlackHandler(BaseHandler):
         for channel in response["channels"]:
             if channel["name"] == channel_name:
                 return channel["id"]
-        return None  # Channel not found

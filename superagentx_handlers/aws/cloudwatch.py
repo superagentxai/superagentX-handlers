@@ -61,4 +61,3 @@ class AWSCloudWatchHandler(BaseHandler):
                 return response
             except Exception as e:
                 logging.error(f"Error fetching metric data: {e}")
-                return None
