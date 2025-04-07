@@ -66,7 +66,7 @@ class SlackHandler(BaseHandler):
                 print(f"{user} said: {text}")
             return messages
         except SlackApiError as e:
-            logger.debug(f"Error fetching messages from channel {channel_id}: {e.response['error']}")
+            logger.error(f"Error fetching messages from channel {channel_id}: {e.response['error']}")
 
     @tool
     async def get_channel_id(self, channel_name):
