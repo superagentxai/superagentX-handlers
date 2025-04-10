@@ -1,6 +1,5 @@
 import logging
 import os
-from datetime import datetime
 
 import boto3
 from superagentx.handler.base import BaseHandler
@@ -31,7 +30,16 @@ class AWSCloudWatchHandler(BaseHandler):
         )
 
     @tool
-    async def get_metric_data(self, namespace, metric_name, start_time, end_time, period, statistics, dimensions):
+    async def get_metric_data(
+            self,
+            namespace,
+            metric_name,
+            start_time,
+            end_time,
+            period,
+            statistics,
+            dimensions
+    ):
             """
             Fetches metric data from CloudWatch for a specified namespace and metric.
 
@@ -48,7 +56,8 @@ class AWSCloudWatchHandler(BaseHandler):
                 dict: The response from CloudWatch containing the metric data.
             """
             try:
-                response = await sync_to_async(self.cloudwatch_client.get_metric_data,
+                response = await sync_to_async(
+                    self.cloudwatch_client.get_metric_data,
                     Namespace=namespace,
                     MetricName=metric_name,
                     StartTime=start_time,

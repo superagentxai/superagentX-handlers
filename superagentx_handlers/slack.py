@@ -1,12 +1,13 @@
 import logging
 import os
-from urllib.request import BaseHandler
 
 from slack_sdk.errors import SlackApiError
 from slack_sdk.web.async_client import AsyncWebClient
+from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
+
 
 class SlackHandler(BaseHandler):
     def __init__(
@@ -19,15 +20,17 @@ class SlackHandler(BaseHandler):
         self.client = AsyncWebClient(token=bot_token)
 
     @tool
-    async def send_slack_message(self, text: str, channel_id: str):
+    async def send_slack_message(
+            self,
+            text: str,
+            channel_id: str
+    ):
         """
             Sends a message to a Slack channel.
 
             Args:
                 channel_id (str): The Slack channel ID (e.g., 'C1234567890') where the message should be sent.
                 text (str): The plain text message to send.
-                self (list, optional): A list of Block Kit blocks for rich formatting (JSON structure).
-                                         If provided, it overrides the plain message format.
 
             Returns:
                 dict: The JSON response from Slack API. Contains metadata such as 'ok', 'ts', 'channel', etc.
@@ -69,7 +72,7 @@ class SlackHandler(BaseHandler):
             logger.error(f"Error fetching messages from channel {channel_id}: {e.response['error']}")
 
     @tool
-    async def get_channel_id(self, channel_name):
+    async def get_channel_id(self, channel_name: str):
         """
            Retrieves the Slack channel ID for a given channel name.
 
@@ -82,6 +85,7 @@ class SlackHandler(BaseHandler):
 
         """Fetch channel ID using channel name."""
         response = await self.client.conversations_list()
-        for channel in response["channels"]:
-            if channel["name"] == channel_name:
-                return channel["id"]
+        if response:
+            for channel in response.get("channels", []):
+                if channel["name"] == channel_name:
+                    return channel.get("id")
