@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superagentx-handlers"
-version = "0.1.5.3"
+version = "0.1.5.4"
 description = ""
 authors = [
     "SuperAgentX AI <support@superagentx.ai>",
@@ -16,7 +16,7 @@ documentation = "https://docs.superagentx.ai/"
 keywords = ["superagentX", "AGI", "Agentic AI", "ASI", "superagentx", "agent", "LLM"]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<=3.13"
+python = ">=3.12,<=3.13"
 aiohttp = "^3.10.10"
 atlassian-python-api = "^3.41.16"
 hubspot-api-client = "^10.0.0"
