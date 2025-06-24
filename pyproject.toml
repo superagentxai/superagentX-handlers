@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superagentx-handlers"
-version = "0.1.5.2"
+version = "0.1.5.4"
 description = ""
 authors = [
     "SuperAgentX AI <support@superagentx.ai>",
@@ -16,7 +16,7 @@ documentation = "https://docs.superagentx.ai/"
 keywords = ["superagentX", "AGI", "Agentic AI", "ASI", "superagentx", "agent", "LLM"]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<=3.13"
+python = ">=3.12,<=3.13"
 aiohttp = "^3.10.10"
 atlassian-python-api = "^3.41.16"
 hubspot-api-client = "^10.0.0"
@@ -38,6 +38,7 @@ tweepy = {extras = ["async"], version = "^4.14.0"}
 requests-html = "^0.10.0"
 pyshorteners = "^1.0.1"
 lxml-html-clean = "^0.4.1"
+slack-sdk = "^3.35.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"
