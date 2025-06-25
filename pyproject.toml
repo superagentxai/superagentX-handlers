@@ -39,6 +39,7 @@ requests-html = "^0.10.0"
 pyshorteners = "^1.0.1"
 lxml-html-clean = "^0.4.1"
 slack-sdk = "^3.35.0"
+boto3 = "^1.38.42"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"
