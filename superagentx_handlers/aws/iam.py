@@ -47,6 +47,12 @@ class AWSIAMHandler(BaseHandler):
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key
         )
+        self.org_client = boto3.client(
+            'organizations',
+            region_name=self.region,  # Organizations API is global but boto3 client still expects a region
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
         logger.info(f"IAM client initialized for region: {region_name}")
 
     async def _async_get_policy_document(self, policy_arn: str, version_id: str):
@@ -501,6 +507,7 @@ class AWSIAMHandler(BaseHandler):
             account_password_policy_task = self.get_account_password_policy()
             account_authorization_details_task = self.get_account_authorization_details()
             list_account_aliases_task = self.list_account_aliases()
+            organization_accounts_task = self.list_organization_accounts()
 
             (
                 account_summary,
@@ -512,7 +519,8 @@ class AWSIAMHandler(BaseHandler):
                 virtual_mfa_devices,
                 account_password_policy,
                 account_authorization_details,
-                account_aliases
+                account_aliases,
+                organization_accounts
             ) = await asyncio.gather(
                 account_summary_task,
                 users_details_task,
@@ -524,6 +532,7 @@ class AWSIAMHandler(BaseHandler):
                 account_password_policy_task,
                 account_authorization_details_task,
                 list_account_aliases_task,
+                organization_accounts_task,
                 return_exceptions=True
             )
 
@@ -539,7 +548,9 @@ class AWSIAMHandler(BaseHandler):
                                                                                      Exception) else {},
                 'account_authorization_details': account_authorization_details if not isinstance(
                     account_authorization_details, Exception) else {},
-                'account_aliases': account_aliases if not isinstance(account_aliases, Exception) else []
+                'account_aliases': account_aliases if not isinstance(account_aliases, Exception) else [],
+                'organization_accounts_inventory': organization_accounts if not isinstance(organization_accounts,
+                                                                                           Exception) else []
             }
             logger.debug("Finished collecting all comprehensive IAM.")
             return evidence
@@ -738,6 +749,39 @@ class AWSIAMHandler(BaseHandler):
             return response['AccountAliases']
         except ClientError as e:
             logger.error(f"Error listing account aliases: {e}")
+            return []
+
+    @tool
+    async def list_organization_accounts(self):
+        """
+        Lists all AWS accounts that are part of the current AWS Organizations.
+        This method provides an inventory of the top-level AWS accounts within the enterprise's organization structure.
+        It returns details for each AWS account itself (e.g., Account ID, Name, Email, Status).
+        Note: This method lists AWS accounts, not individual IAM users, root users, or service roles within those accounts.
+        To gather IAM entity details for each account, this method's output would need to be combined with other
+        IAM-specific tools (e.g., list_iam_users_with_details) by assuming roles into each account.
+
+        Returns:
+            list: A list of dictionaries, where each dictionary represents an AWS account (e.g., {'Id': '123...', 'Name': 'DevAccount', 'Email': '...', 'Status': 'ACTIVE'}),
+                  or an empty list if AWS Organizations is not enabled/configured for the authenticated account,
+                  or if an error occurs.
+        """
+        logger.debug("Starting collection of all AWS accounts in the organization...")
+        accounts = []
+        try:
+            paginator = self.org_client.get_paginator('list_accounts')
+            async for page in iter_to_aiter(paginator.paginate()):
+                accounts.extend(page.get('Accounts', []))
+            logger.debug(f"Collected {len(accounts)} AWS accounts from Organizations.")
+            return accounts
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'AWSOrganizationsNotInUseException':
+                logger.warning("AWS Organizations is not enabled for this account. Cannot list organization accounts.")
+            else:
+                logger.error(f"Error listing organization accounts: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error listing organization accounts: {e}")
             return []
 
     # @tool

@@ -8,7 +8,19 @@ logger = logging.getLogger(__name__)
 '''
  Run Pytest:
 
-   1.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_collect_all_iam
+   1.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_list_iam_users_with_details
+   2.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_get_credential_report
+   3.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_get_account_password_policy
+   4.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_list_iam_groups_with_details
+   5.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_list_iam_managed_policies_with_documents
+   6.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_collect_all_iam
+   7.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_list_mfa_enabled_users
+   8.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_get_account_summary
+   9.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_list_virtual_mfa_devices
+   10.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_get_account_authorization_details
+   11.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_list_iam_users_with_details
+   12.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_list_iam_users_with_details
+   13.pytest --log-cli-level=INFO tests/handlers/test_aws_iam.py::TestAWSIAM::test_list_account_aliases
 
 '''
 
