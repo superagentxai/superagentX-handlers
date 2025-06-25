@@ -4,6 +4,7 @@ import logging
 import os
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
@@ -41,17 +42,23 @@ class AWSIAMHandler(BaseHandler):
         self.region = region_name or os.getenv("AWS_REGION")
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
+        config = Config(
+            retries={"max_attempts": 10, "mode": "standard"},
+            max_pool_connections=50
+        )
         self.iam_client = boto3.client(
             'iam',
             region_name=self.region,
             aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            aws_secret_access_key=aws_secret_access_key,
+            config=config
         )
         self.org_client = boto3.client(
             'organizations',
             region_name=self.region,  # Organizations API is global but boto3 client still expects a region
             aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            aws_secret_access_key=aws_secret_access_key,
+            config=config
         )
         logger.info(f"IAM client initialized for region: {region_name}")
 
@@ -177,7 +184,7 @@ class AWSIAMHandler(BaseHandler):
                 for i, policy_doc_response in enumerate(inline_policy_documents_responses):
                     if not isinstance(policy_doc_response, Exception) and policy_doc_response:
                         policy_name = inline_policy_names_response['PolicyNames'][i]
-                        policy_document = json.loads(policy_doc_response['PolicyDocument'])
+                        policy_document = policy_doc_response['PolicyDocument']
                         user_details['InlinePolicies'].append({
                             'PolicyName': policy_name,
                             'PolicyDocument': policy_document
