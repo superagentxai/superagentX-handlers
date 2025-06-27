@@ -9,7 +9,7 @@ from azure.identity import ClientSecretCredential
 from msgraph.generated.identity.conditional_access.policies.policies_request_builder import PoliciesRequestBuilder
 from msgraph import GraphServiceClient
 # Import the UserRegistrationDetails model for clarity on the object type
-from msgraph.generated.models.user_registration_details import UserRegistrationDetails 
+from msgraph.generated.models.user_registration_details import UserRegistrationDetails
 
 # Import necessary utilities from superagentx
 from superagentx.handler.base import BaseHandler
@@ -80,7 +80,8 @@ class EntraIAMHandler(BaseHandler):
             logger.error(
                 "Please ensure the provided tenant_id, client_id, and client_secret are valid, "
                 "and that the Entra ID application has the necessary API permissions "
-                "(e.g., User.Read.All, Group.Read.All, Application.Read.All, Policy.Read.All, Directory.Read.All, RoleManagement.Read.All, AuditLog.Read.All, UserAuthenticationMethod.Read.All, Reports.Read.All) " # Added Reports.Read.All
+                # Added Reports.Read.All
+                "(e.g., User.Read.All, Group.Read.All, Application.Read.All, Policy.Read.All, Directory.Read.All, RoleManagement.Read.All, AuditLog.Read.All, UserAuthenticationMethod.Read.All, Reports.Read.All) "
                 "and admin consent granted."
             )
             raise
@@ -325,12 +326,15 @@ class EntraIAMHandler(BaseHandler):
         try:
             # 1. Fetch MFA Registration Status for all users from userRegistrationDetails
             # Requires Reports.Read.All permission.
-            logger.debug("Fetching MFA registration details from /reports/authenticationMethods/userRegistrationDetails...")
+            logger.debug(
+                "Fetching MFA registration details from /reports/authenticationMethods/userRegistrationDetails...")
             # This endpoint provides `is_mfa_registered`, `is_mfa_capable`, and `methods_registered`
-            
-            registration_details_response = await self.graph_client.reports.authentication_methods.user_registration_details.get()
 
-            
+            try:
+                registration_details_response = await self.graph_client.reports.authentication_methods.user_registration_details.get()
+            except Exception as ex:
+                return ex
+
             if registration_details_response and registration_details_response.value:
                 # Use iter_to_aiter to correctly handle async iteration over the collection
                 async for detail in iter_to_aiter(registration_details_response.value):
@@ -338,17 +342,18 @@ class EntraIAMHandler(BaseHandler):
                         "id": detail.id,
                         "displayName": detail.display_name,
                         "userPrincipalName": detail.user_principal_name,
-                        "isMfaRegistered": detail.is_mfa_registered,  # This is the correct attribute from UserRegistrationDetails
+                        # This is the correct attribute from UserRegistrationDetails
+                        "isMfaRegistered": detail.is_mfa_registered,
                         "isMfaCapable": detail.is_mfa_capable,
                         "registeredMethodsSummary": list(detail.methods_registered) if detail.methods_registered else [],
-                        "registeredAuthenticationMethods": [],  # Detailed methods via authentication/methods, fetched separately
+                        # Detailed methods via authentication/methods, fetched separately
+                        "registeredAuthenticationMethods": [],
                         "recentMfaAttempts": []
                     }
                 logger.debug(
                     f"Retrieved MFA registration status for {len(users_with_mfa_data)} users.")
             else:
                 logger.warning("No user registration details found.")
-
 
             # 2. Fetch Registered Authentication Methods for each user (optional, but good for detail)
             logger.debug(
@@ -371,11 +376,11 @@ class EntraIAMHandler(BaseHandler):
                         logger.debug(
                             f"Could not retrieve authentication methods for {u_data.get('userPrincipalName', u_id)}. Error: {e}")
                 tasks.append(fetch_auth_methods(user_id, user_data))
-            
+
             # Run all tasks concurrently
             await asyncio.gather(*tasks)
-            logger.debug("Finished collecting registered authentication methods.")
-
+            logger.debug(
+                "Finished collecting registered authentication methods.")
 
             # 3. Fetch recent MFA usage from Sign-in Logs
             now_utc = datetime.now(timezone.utc)
@@ -389,8 +394,8 @@ class EntraIAMHandler(BaseHandler):
             mfa_sign_ins = []
             sign_ins_response = await self.graph_client.audit_logs.sign_ins.get(
                 query_parameters={
-                    "$filter": filter_string, 
-                    "$top": 999, # Max top value for sign-in logs is 999
+                    "$filter": filter_string,
+                    "$top": 999,  # Max top value for sign-in logs is 999
                     "$select": "id,userId,userPrincipalName,createdDateTime,status,authenticationRequirement,authenticationMethodsUsed,authenticationDetails"
                 }
             )
@@ -409,7 +414,7 @@ class EntraIAMHandler(BaseHandler):
                                     is_mfa_attempt = True
                                     break
                         # You can add more heuristics if needed, but these are common
-                        
+
                         if is_mfa_attempt:
                             mfa_sign_ins.append({
                                 "id": sign_in.id,
@@ -433,7 +438,7 @@ class EntraIAMHandler(BaseHandler):
                 f"Collected {len(mfa_sign_ins)} relevant sign-in records for MFA analysis.")
 
             # Aggregate sign-in usage into user data
-            for sign_in_record in mfa_sign_ins: # Iterating over a list directly is fine here
+            for sign_in_record in mfa_sign_ins:  # Iterating over a list directly is fine here
                 user_id = sign_in_record.get("userId")
                 if user_id and user_id in users_with_mfa_data:
                     users_with_mfa_data[user_id]["recentMfaAttempts"].append(
@@ -451,7 +456,6 @@ class EntraIAMHandler(BaseHandler):
         except Exception as e:
             logger.error(
                 f"An error occurred while collecting MFA status evidence: {e}", exc_info=True)
-            
 
         return mfa_evidence
 
