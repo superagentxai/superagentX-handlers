@@ -1,17 +1,26 @@
-import os
-import base64
 import asyncio
+import os
 import json
+import logging
 from datetime import datetime, timedelta, timezone
-
+from typing import Optional, Any
 
 from azure.identity import ClientSecretCredential
+from msgraph.generated.identity.conditional_access.policies.policies_request_builder import PoliciesRequestBuilder
 from msgraph import GraphServiceClient
 
+# Import necessary utilities from superagentx
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.utils.helper import iter_to_aiter 
+# --- Setup Logging ---
 
-# Extensive comments are required!
+logging.basicConfig(
+    level=logging.DEBUG, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 class EntraIAMHandler(BaseHandler):
     """
@@ -22,24 +31,35 @@ class EntraIAMHandler(BaseHandler):
     This class only implements 'get' operations and does not support create, update, or delete operations.
     """
 
-    def __init__(self, tenant_id: str, client_id: str, client_secret: str):
+    def __init__(
+        self,
+        *,
+        tenant_id: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        **kwargs: Any  
+    ):
         """
         Initializes the Microsoft Entra ID IAM Handler with an authenticated Microsoft Graph client.
 
         Args:
-            tenant_id (str): Your Microsoft Entra ID tenant ID.
-            client_id (str): The Application (client) ID of your registered Entra ID application.
-            client_secret (str): The client secret of your registered Entra ID application.
+            tenant_id (str, optional): Your Microsoft Entra ID tenant ID. Defaults to ENTRA_TENANT_ID environment variable.
+            client_id (str, optional): The Application (client) ID of your registered Entra ID application. Defaults to ENTRA_CLIENT_ID environment variable.
+            client_secret (str, optional): The client secret of your registered Entra ID application. Defaults to ENTRA_CLIENT_SECRET environment variable.
         """
+        # Load credentials from environment variables if not provided
+        tenant_id = tenant_id or os.getenv("ENTRA_TENANT_ID")
+        client_id = client_id or os.getenv("ENTRA_CLIENT_ID")
+        client_secret = client_secret or os.getenv("ENTRA_CLIENT_SECRET")
+
         try:
             if not all([tenant_id, client_id, client_secret]):
                 raise ValueError(
                     "All Microsoft Entra ID credentials (tenant_id, client_id, client_secret) "
-                    "must be provided to the EntraIAMHandler constructor."
+                    "must be provided either directly or via ENTRA_TENANT_ID, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET environment variables."
                 )
 
             # Authenticate using Client Secret Credential
-            # This is suitable for daemon applications (non-interactive)
             credentials = ClientSecretCredential(
                 tenant_id=tenant_id,
                 client_id=client_id,
@@ -48,19 +68,19 @@ class EntraIAMHandler(BaseHandler):
 
             # Initialize the Microsoft Graph client
             self.graph_client = GraphServiceClient(credentials)
-            print("Microsoft Graph client initialized with custom credentials.")
+            logger.debug("Microsoft Graph client initialized with custom credentials.")
 
         except Exception as e:
-            print(f"Error initializing Microsoft Graph client: {e}")
-            print(
+            logger.error(f"Error initializing Microsoft Graph client: {e}", exc_info=True)
+            logger.error(
                 "Please ensure the provided tenant_id, client_id, and client_secret are valid, "
                 "and that the Entra ID application has the necessary API permissions "
-                "(e.g., User.Read.All, Group.Read.All, Application.Read.All, Policy.Read.All, Directory.Read.All, RoleManagement.Read.All) "
+                "(e.g., User.Read.All, Group.Read.All, Application.Read.All, Policy.Read.All, Directory.Read.All, RoleManagement.Read.All, AuditLog.Read.All, UserAuthenticationMethod.Read.All) "
                 "and admin consent granted."
             )
             raise
 
-    async def _get_user_details_and_roles(self, user_id: str) -> dict:
+    async def _get_user_details_and_roles(self, user_id: str) -> Optional[dict]:
         """
         Helper method to fetch details and assigned roles for a given user.
         This method is internal and not exposed as a tool directly.
@@ -76,31 +96,15 @@ class EntraIAMHandler(BaseHandler):
                     "userPrincipalName": user.user_principal_name,
                     "mail": user.mail,
                     "userType": user.user_type,
-                    "assignedRoles": [] # Placeholder for roles
+                    "assignedRoles": []  
                 }
 
-                # IMPORTANT NOTE ON ROLES:
-                # Getting comprehensive effective role assignments for a user in Entra ID
-                # is complex. The Graph API primarily provides direct assignments or
-                # directory role memberships. It does not easily provide the full
-                # picture of inherited permissions or transitive group memberships
-                # that grant roles.
-                # For a full GRC view of effective permissions, one might need to:
-                # 1. Query `unifiedRoleAssignments` endpoint filtering by principalId.
-                # 2. Consider PIM (Privileged Identity Management) assignments.
-                # 3. Analyze group memberships recursively and check roles assigned to those groups.
-                # The current placeholder `assignedRoles` is a simplification.
-                # For detailed role assignment evidence, you might need to implement
-                # additional, more complex Graph API queries.
-                user_info["assignedRoles"].append({"note": "Detailed role assignments for this user would require specific Graph API calls (e.g., unifiedRoleAssignments) and permissions (e.g., RoleManagement.Read.All). This is a placeholder."})
-
-
-            print(f"  Successfully retrieved user details for: {user_id}")
+            logger.debug(f"Successfully retrieved user details for: {user_id}")
         except Exception as e:
-            print(f"  Error retrieving user details or roles for {user_id}. Error: {e}")
+            logger.error(f"Error retrieving user details or roles for {user_id}. Error: {e}", exc_info=True)
         return user_info
 
-    async def _get_group_details_and_members(self, group_id: str) -> dict:
+    async def _get_group_details_and_members(self, group_id: str) -> Optional[dict]:
         """
         Helper method to fetch details and members for a given group.
         This method is internal and not exposed as a tool directly.
@@ -118,11 +122,10 @@ class EntraIAMHandler(BaseHandler):
                     "groupTypes": list(group.group_types) if group.group_types else [],
                     "members": []
                 }
-                # Get group members (users, devices, service principals)
-                # You might need to paginate for large groups using `top` and `@odata.nextLink`
+
                 members_result = await self.graph_client.groups.by_group_id(group_id).members.get()
                 if members_result and members_result.value:
-                    for member in members_result.value:
+                    async for member in iter_to_aiter(members_result.value):
                         member_details = {"id": member.id, "odata_type": member.odata_type}
                         if hasattr(member, "display_name"):
                             member_details["displayName"] = member.display_name
@@ -130,12 +133,12 @@ class EntraIAMHandler(BaseHandler):
                             member_details["userPrincipalName"] = member.user_principal_name
                         group_info["members"].append(member_details)
 
-            print(f"  Successfully retrieved group details for: {group_id}")
+            logger.debug(f"Successfully retrieved group details for: {group_id}")
         except Exception as e:
-            print(f"  Error retrieving group details or members for {group_id}. Error: {e}")
+            logger.error(f"Error retrieving group details or members for {group_id}. Error: {e}", exc_info=True)
         return group_info
 
-    async def _get_application_details_and_owners(self, app_id: str) -> dict:
+    async def _get_application_details_and_owners(self, app_id: str) -> Optional[dict]:
         """
         Helper method to fetch details and owners for a given application (Service Principal).
         This method is internal and not exposed as a tool directly.
@@ -143,9 +146,6 @@ class EntraIAMHandler(BaseHandler):
         """
         app_info = None
         try:
-            # Applications in Entra ID are represented by `application` and `servicePrincipal` objects.
-            # `application` defines the app globally, `servicePrincipal` is its instance in a tenant.
-            # For GRC, you typically care about the service principal's permissions within a tenant.
             service_principal = await self.graph_client.service_principals.by_service_principal_id(app_id).get()
             if service_principal:
                 app_info = {
@@ -158,15 +158,15 @@ class EntraIAMHandler(BaseHandler):
                 # Get owners of the service principal
                 owners_result = await self.graph_client.service_principals.by_service_principal_id(app_id).owners.get()
                 if owners_result and owners_result.value:
-                    for owner in owners_result.value:
+                    async for owner in iter_to_aiter(owners_result.value):
                         owner_details = {"id": owner.id, "odata_type": owner.odata_type}
                         if hasattr(owner, "display_name"):
                             owner_details["displayName"] = owner.display_name
                         app_info["owners"].append(owner_details)
 
-            print(f"  Successfully retrieved application details for: {app_id}")
+            logger.debug(f"Successfully retrieved application details for: {app_id}")
         except Exception as e:
-            print(f"  Error retrieving application details or owners for {app_id}. Error: {e}")
+            logger.error(f"Error retrieving application details or owners for {app_id}. Error: {e}", exc_info=True)
         return app_info
 
     @tool
@@ -181,20 +181,20 @@ class EntraIAMHandler(BaseHandler):
             list: A list of dictionaries, where each dictionary contains
                   user details and their assigned roles.
         """
-        print("\nCollecting IAM evidence for Users...")
+        logger.debug("\nCollecting IAM evidence for Users...")
         user_evidence = []
         try:
             # List all users. Requires User.Read.All permission.
             users_response = await self.graph_client.users.get()
             if users_response and users_response.value:
-                for user in users_response.value:
+                async for user in iter_to_aiter(users_response.value):
                     user_details = await self._get_user_details_and_roles(user.id)
                     if user_details:
                         user_evidence.append(user_details)
-            print(f"Collected {len(user_evidence)} user records.")
+            logger.debug(f"Collected {len(user_evidence)} user records.")
         except Exception as e:
-            print(f"An error occurred while collecting user IAM evidence: {e}")
-            print("Ensure the Entra ID application has 'User.Read.All' and potentially 'RoleManagement.Read.All' permissions.")
+            logger.error(f"An error occurred while collecting user IAM evidence: {e}", exc_info=True)
+            logger.error("Ensure the Entra ID application has 'User.Read.All' and potentially 'RoleManagement.Read.All' permissions.")
         return user_evidence
 
     @tool
@@ -208,20 +208,20 @@ class EntraIAMHandler(BaseHandler):
             list: A list of dictionaries, where each dictionary contains
                   group details and its members.
         """
-        print("\nCollecting IAM evidence for Groups...")
+        logger.debug("\nCollecting IAM evidence for Groups...")
         group_evidence = []
         try:
             # List all groups. Requires Group.Read.All permission.
             groups_response = await self.graph_client.groups.get()
             if groups_response and groups_response.value:
-                for group in groups_response.value:
+                async for group in iter_to_aiter(groups_response.value):
                     group_details = await self._get_group_details_and_members(group.id)
                     if group_details:
                         group_evidence.append(group_details)
-            print(f"Collected {len(group_evidence)} group records.")
+            logger.debug(f"Collected {len(group_evidence)} group records.")
         except Exception as e:
-            print(f"An error occurred while collecting group IAM evidence: {e}")
-            print("Ensure the Entra ID application has 'Group.Read.All' permission.")
+            logger.error(f"An error occurred while collecting group IAM evidence: {e}", exc_info=True)
+            logger.error("Ensure the Entra ID application has 'Group.Read.All' permission.")
         return group_evidence
 
     @tool
@@ -235,22 +235,22 @@ class EntraIAMHandler(BaseHandler):
             list: A list of dictionaries, where each dictionary contains
                   application details and its owners.
         """
-        print("\nCollecting IAM evidence for Applications (Service Principals)...")
+        logger.debug("\nCollecting IAM evidence for Applications (Service Principals)...")
         app_evidence = []
         try:
             # List all service principals. Requires Application.Read.All permission.
             service_principals_response = await self.graph_client.service_principals.get()
             if service_principals_response and service_principals_response.value:
-                for sp in service_principals_response.value:
+                async for sp in iter_to_aiter(service_principals_response.value):
                     app_details = await self._get_application_details_and_owners(sp.id)
                     if app_details:
                         app_evidence.append(app_details)
-            print(f"Collected {len(app_evidence)} application records.")
+            logger.debug(f"Collected {len(app_evidence)} application records.")
         except Exception as e:
-            print(f"An error occurred while collecting application IAM evidence: {e}")
-            print("Ensure the Entra ID application has 'Application.Read.All' permission.")
+            logger.error(f"An error occurred while collecting application IAM evidence: {e}", exc_info=True)
+            logger.error("Ensure the Entra ID application has 'Application.Read.All' permission.")
         return app_evidence
-    
+
     @tool
     async def collect_roles_definitions(self) -> list:
         """
@@ -262,24 +262,24 @@ class EntraIAMHandler(BaseHandler):
             list: A list of dictionaries, where each dictionary contains
                 role definition details.
         """
-        print("\nCollecting Microsoft Entra ID Role Definitions...")
+        logger.debug("\nCollecting Microsoft Entra ID Role Definitions...")
         role_definitions = []
         try:
             roles_response = await self.graph_client.directory_roles.get()
             if roles_response and roles_response.value:
-                for role in roles_response.value:
+                async for role in iter_to_aiter(roles_response.value):
                     role_definitions.append({
                         "id": role.id,
                         "displayName": role.display_name,
                         "description": role.description,
                         "roleTemplateId": role.role_template_id
                     })
-            print(f"Collected {len(role_definitions)} role definitions.")
-            
+            logger.debug(f"Collected {len(role_definitions)} role definitions.")
+
         except Exception as e:
-            print(f"Error collecting role definitions: {e}")
-            print("Ensure the Entra ID application has 'RoleManagement.Read.Directory' permission.")
-            
+            logger.error(f"Error collecting role definitions: {e}", exc_info=True)
+            logger.error("Ensure the Entra ID application has 'RoleManagement.Read.Directory' permission.")
+
         return role_definitions
 
     @tool
@@ -295,7 +295,7 @@ class EntraIAMHandler(BaseHandler):
         Returns:
             list: A list of dictionaries, where each dictionary contains user MFA details.
         """
-        print(f"\nCollecting MFA status evidence for users (registration and usage for last {days_ago} days)...")
+        logger.debug(f"\nCollecting MFA status evidence for users (registration and usage for last {days_ago} days)...")
         mfa_evidence = []
         users_with_mfa_data = {} # To store combined data for each user
 
@@ -306,7 +306,7 @@ class EntraIAMHandler(BaseHandler):
                 query_parameters={"$select": "id,displayName,userPrincipalName,isMfaRegistered"}
             )
             if users_response and users_response.value:
-                for user in users_response.value:
+                async for user in iter_to_aiter(users_response.value):
                     users_with_mfa_data[user.id] = {
                         "id": user.id,
                         "displayName": user.display_name,
@@ -315,39 +315,30 @@ class EntraIAMHandler(BaseHandler):
                         "registeredAuthenticationMethods": [], # Placeholder for actual methods
                         "recentMfaAttempts": []
                     }
-            print(f"  Retrieved MFA registration status for {len(users_with_mfa_data)} users.")
+            logger.debug(f"Retrieved MFA registration status for {len(users_with_mfa_data)} users.")
 
             # 2. Fetch Registered Authentication Methods for each user (optional, but good for detail)
-            # This can be slow for many users, consider adding a limit or making it optional
-            print("  Collecting registered authentication methods (this may take a while for many users)...")
-            for user_id, user_data in users_with_mfa_data.items():
+            logger.debug("Collecting registered authentication methods (this may take a while for many users)...")
+            async for user_id, user_data in iter_to_aiter(users_with_mfa_data.items()):
                 try:
                     auth_methods_response = await self.graph_client.users.by_user_id(user_id).authentication.methods.get()
                     if auth_methods_response and auth_methods_response.value:
-                        user_data["registeredAuthenticationMethods"] = [
-                            {"type": method.odata_type.split('.')[-1].replace('AuthenticationMethod', ''),
-                            "id": method.id} # basic info, can add more detail based on type
-                            for method in auth_methods_response.value
-                        ]
+                        async for method in iter_to_aiter(auth_methods_response.value):
+                            user_data["registeredAuthenticationMethods"].append(
+                                {"type": method.odata_type.split('.')[-1].replace('AuthenticationMethod', ''),
+                                "id": method.id} # basic info, can add more detail based on type
+                            )
                 except Exception as e:
-                    # Often, missing permissions for specific user methods will throw errors.
-                    # Or, if a user has no methods registered.
                     user_data["registeredAuthenticationMethods"].append({"error": f"Could not retrieve: {e}"})
-                    # print(f"    Warning: Could not retrieve authentication methods for {user_data.get('userPrincipalName', user_id)}. Error: {e}")
+                    logger.debug(f"Could not retrieve authentication methods for {user_data.get('userPrincipalName', user_id)}. Error: {e}")
 
             # 3. Fetch recent MFA usage from Sign-in Logs
-            # Filter for sign-ins that involved MFA (even if skipped or failed) within the last 'days_ago'
-            # The Graph SDK for Python allows datetime objects for filtering directly            
-            # Get current time in UTC
             now_utc = datetime.now(timezone.utc)
             # Calculate the start time for the filter
             start_date_time = now_utc - timedelta(days=days_ago)
-            
-            # Format the datetime object for the OData filter string
-            # Graph API filter requires ISO 8601 format with 'Z' for UTC
             filter_string = f"createdDateTime ge {start_date_time.isoformat(timespec='seconds').replace('+00:00', 'Z')}"
-            
-            print(f"  Collecting sign-in logs for MFA usage since {start_date_time.isoformat(timespec='seconds').replace('+00:00', 'Z')}...")
+
+            logger.debug(f"Collecting sign-in logs for MFA usage since {start_date_time.isoformat(timespec='seconds').replace('+00:00', 'Z')}...")
 
             mfa_sign_ins = []
             # Initial call
@@ -357,13 +348,11 @@ class EntraIAMHandler(BaseHandler):
 
             while sign_ins_response:
                 if sign_ins_response.value:
-                    for sign_in in sign_ins_response.value:
-                        # Filter for sign-ins where MFA was involved (required, satisfied, or failed challenge)
-                        # You might need to refine this filter based on exactly what "usage" means for your audit
+                    async for sign_in in iter_to_aiter(sign_ins_response.value): 
                         if sign_in.authentication_requirement in ["multiFactorAuthentication", "multiFactorAuthenticationService"] or \
                         (sign_in.authentication_details and any("MFA" in str(detail.get('authenticationStepResultDetail', '')) for detail in sign_in.authentication_details)) or \
                         (sign_in.status and not sign_in.status.is_successful and sign_in.status.additional_details and "MFA" in sign_in.status.additional_details):
-                        
+
                             mfa_sign_ins.append({
                                 "userId": sign_in.user_id,
                                 "userPrincipalName": sign_in.user_principal_name,
@@ -373,38 +362,36 @@ class EntraIAMHandler(BaseHandler):
                                 "authenticationMethodsUsed": sign_in.authentication_methods_used,
                                 "authenticationDetails": [{"step": d.authentication_step, "resultDetail": d.authentication_step_result_detail} for d in sign_in.authentication_details] if sign_in.authentication_details else []
                             })
-                
+
                 # Handle pagination
                 if sign_ins_response.odata_next_link:
-                    # The SDK automatically handles the next link if you call .get() on the response object
                     sign_ins_response = await self.graph_client.audit_logs.sign_ins.by_url(sign_ins_response.odata_next_link).get()
-                    print(f"  Fetching next page of sign-in logs...")
+                    logger.debug(f"Fetching next page of sign-in logs...")
                 else:
                     sign_ins_response = None # No more pages
 
-            print(f"  Collected {len(mfa_sign_ins)} relevant sign-in records for MFA analysis.")
+            logger.debug(f"Collected {len(mfa_sign_ins)} relevant sign-in records for MFA analysis.")
 
             # Aggregate sign-in usage into user data
-            for sign_in_record in mfa_sign_ins:
+            async for sign_in_record in iter_to_aiter(mfa_sign_ins): 
                 user_id = sign_in_record.get("userId")
                 if user_id and user_id in users_with_mfa_data:
                     users_with_mfa_data[user_id]["recentMfaAttempts"].append(sign_in_record)
                 elif user_id:
                     # Handle cases where sign-in log user might not be in the initial user list
-                    # (e.g., guest user outside the primary read scope or recently deleted)
-                    print(f"    Warning: Sign-in record for unknown user ID {user_id} ({sign_in_record.get('userPrincipalName')}) found. Skipping aggregation.")
+                    logger.debug(f"Sign-in record for unknown user ID {user_id} ({sign_in_record.get('userPrincipalName')}) found. Skipping aggregation.")
 
             # Convert dictionary back to list for final output
             mfa_evidence = list(users_with_mfa_data.values())
-            print(f"Finished collecting MFA status evidence for {len(mfa_evidence)} users.")
-            
+            logger.debug(f"Finished collecting MFA status evidence for {len(mfa_evidence)} users.")
+
 
         except Exception as e:
-            print(f"An error occurred while collecting MFA status evidence: {e}")
-            print("Ensure the Entra ID application has 'User.Read.All', 'AuditLog.Read.All', and 'UserAuthenticationMethod.Read.All' permissions.")
+            logger.error(f"An error occurred while collecting MFA status evidence: {e}", exc_info=True)
+            logger.error("Ensure the Entra ID application has 'User.Read.All', 'AuditLog.Read.All', and 'UserAuthenticationMethod.Read.All' permissions.")
 
         return mfa_evidence
-    
+
     @tool
     async def collect_all_entra_iam_evidence(self) -> dict:
         """
@@ -416,7 +403,7 @@ class EntraIAMHandler(BaseHandler):
             dict: A dictionary containing lists of evidence for users, groups,
                 applications, and role definitions.
         """
-        print("\nCollecting ALL Microsoft Entra ID IAM evidence...")
+        logger.debug("\nCollecting ALL Microsoft Entra ID IAM evidence...")
         all_evidence = {
             "users": [],
             "groups": [],
@@ -432,8 +419,5 @@ class EntraIAMHandler(BaseHandler):
         all_evidence["roleDefinitions"] = await self.collect_roles_definitions()
         all_evidence["mfaStatus"] = await self.collect_mfa_status_evidence()
 
-        print("\nFinished collecting all Microsoft Entra ID IAM evidence.")
+        logger.debug("\nFinished collecting all Microsoft Entra ID IAM evidence.")
         return all_evidence
-
-# Removed the main() function and __name__ == "__main__" block
-# This file will now strictly contain the EntraIAMHandler class and its tools.
