@@ -19,15 +19,15 @@ logger = logging.getLogger(__name__)
 To run these tests from your project's root directory (assuming 'tests' is a subdirectory):
 
 To run a specific test:
-pytest --log-cli-level=INFO test_entra_iam_handler.py::TestEntraIAM::test_collect_users_iam_evidence
-pytest --log-cli-level=INFO test_entra_iam_handler.py::TestEntraIAM::test_collect_groups_iam_evidence
-pytest --log-cli-level=INFO test_entra_iam_handler.py::TestEntraIAM::test_collect_applications_iam_evidence
-pytest --log-cli-level=INFO test_entra_iam_handler.py::TestEntraIAM::test_collect_roles_definitions
-pytest --log-cli-level=INFO test_entra_iam_handler.py::TestEntraIAM::test_collect_mfa_status_evidence
-pytest --log-cli-level=INFO test_entra_iam_handler.py::TestEntraIAM::test_collect_all_entra_iam_evidence
+pytest --log-cli-level=INFO tests/handlers/test_entra_iam.py::TestEntraIAM::test_collect_users_iam_evidence
+pytest --log-cli-level=INFO tests/handlers/test_entra_iam.py::TestEntraIAM::test_collect_groups_iam_evidence
+pytest --log-cli-level=INFO tests/handlers/test_entra_iam.py::TestEntraIAM::test_collect_applications_iam_evidence
+pytest --log-cli-level=INFO tests/handlers/test_entra_iam.py::TestEntraIAM::test_collect_roles_definitions
+pytest --log-cli-level=INFO tests/handlers/test_entra_iam.py::TestEntraIAM::test_collect_mfa_status_evidence
+pytest --log-cli-level=INFO tests/handlers/test_entra_iam.py::TestEntraIAM::test_collect_all_entra_iam_evidence
 
 To run all tests in this file:
-pytest --log-cli-level=INFO test_entra_iam_handler.py
+pytest --log-cli-level=INFO tests/handlers/test_entra_iam.py
 
 Remember to set your Microsoft Entra ID environment variables for a TEST/DEVELOPMENT tenant (NOT production) before running:
 export AZURE_TENANT_ID="your_test_tenant_id"
