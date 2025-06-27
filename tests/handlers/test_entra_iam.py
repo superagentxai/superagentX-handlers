@@ -10,7 +10,7 @@ import pytest_asyncio
 # Ensure your 'entra_iam_handler.py' file is accessible to this test file.
 # For example, it could be in the same directory, or your project's structure
 # might require adjusting the import path.
-from Handlers.MicrosoftEntra.entra_iam import EntraIAMHandler 
+from superagentx_handlers import EntraIAMHandler 
 
 logger = logging.getLogger(__name__)
 
