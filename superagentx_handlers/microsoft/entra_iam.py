@@ -41,6 +41,7 @@ class EntraIAMHandler(BaseHandler):
         client_secret: str | None = None,
         **kwargs: Any
     ):
+        super().__init__()
         """
         Initializes the Microsoft Entra ID IAM Handler with an authenticated Microsoft Graph client.
 
