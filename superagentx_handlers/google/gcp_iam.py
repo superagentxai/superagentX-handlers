@@ -1,8 +1,8 @@
-import asyncio
 import os
 import base64
 import json
 import logging
+from typing import List, Optional, Dict, Any
 
 from google.oauth2 import service_account
 from google.cloud import resourcemanager_v3
@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 
 class GCPIAMHandler(BaseHandler):
     def __init__(
-            self,
-            scope: list | None = None,
-            creds: str | None = None
-    ):
+        self,
+        scope: Optional[List[str]] = None,
+        creds: Optional[str] = None
+    ) -> None:
         super().__init__()
-        self.scope=scope
-        self.creds=creds
+        self.scope = scope
+        self.creds = creds
         if not self.scope:
             self.scope = ["https://www.googleapis.com/auth/cloud-platform"]
         try:
@@ -43,7 +43,7 @@ class GCPIAMHandler(BaseHandler):
             logger.error(f"Error initializing GCP clients: {e}")
             raise
 
-    async def _get_resource_iam_policy(self, resource_name: str, resource_type: str):
+    async def _get_resource_iam_policy(self, resource_name: str, resource_type: str) -> Optional[Dict[str, Any]]:
         policy_details = None
         try:
             if resource_type == "project":
@@ -87,14 +87,9 @@ class GCPIAMHandler(BaseHandler):
         return policy_details
 
     @tool
-    async def collect_organization_iam_evidence(self) -> list:
-        """
-        Collects IAM policy details for all accessible GCP organizations.
-        Includes binding roles, members, and MFA enforcement if found.
-        Returns a list of organization IAM policy summaries.
-        """
+    async def collect_organization_iam_evidence(self) -> List[Dict[str, Any]]:
         logger.debug("\n Collecting Organizations IAM Evidence")
-        organization_evidence = []
+        organization_evidence: List[Dict[str, Any]] = []
         try:
             organizations_response = await self.organizations_client.search_organizations(
                 request=SearchOrganizationsRequest()
@@ -117,14 +112,9 @@ class GCPIAMHandler(BaseHandler):
         return organization_evidence
 
     @tool
-    async def collect_folder_iam_evidence(self, parent_resource: str = None) -> list:
-        """
-        Collects IAM policy details for all folders under the given parent resource.
-        If no parent is provided, it defaults to collecting from all organizations.
-        Detects MFA enforcement and prints each folder IAM configuration.
-        """
+    async def collect_folder_iam_evidence(self, parent_resource: Optional[str] = None) -> List[Dict[str, Any]]:
         logger.debug(f"\n Collecting Folder IAM Evidence under: {parent_resource or 'all accessible organizations'}")
-        folder_evidence = []
+        folder_evidence: List[Dict[str, Any]] = []
         try:
             if parent_resource:
                 folders_response = await self.folders_client.list_folders(parent=parent_resource)
@@ -157,14 +147,9 @@ class GCPIAMHandler(BaseHandler):
         return folder_evidence
 
     @tool
-    async def collect_project_iam_evidence(self, parent_resource: str = None) -> list:
-        """
-        Collects IAM policy details for all projects under the given parent resource.
-        If no parent is specified, collects all accessible projects.
-        MFA checks are included in condition expressions.
-        """
+    async def collect_project_iam_evidence(self, parent_resource: Optional[str] = None) -> List[Dict[str, Any]]:
         logger.debug(f"\n Collecting Project IAM Evidence under: {parent_resource or 'all accessible'}")
-        project_evidence = []
+        project_evidence: List[Dict[str, Any]] = []
         try:
             query_string = ""
             if parent_resource:
@@ -199,13 +184,9 @@ class GCPIAMHandler(BaseHandler):
         return project_evidence
 
     @tool
-    async def collect_all_iam_evidence(self) -> dict:
-        """
-        Collects complete IAM policy evidence for the whole profile and enterprise
-        Includes roles, members, and whether MFA is enforced for each binding.
-        """
+    async def collect_all_iam_evidence(self) -> Dict[str, List[Dict[str, Any]]]:
         logger.debug("\nCollecting ALL IAM Evidence")
-        all_evidence = {
+        all_evidence: Dict[str, List[Dict[str, Any]]] = {
             "organizations": [],
             "folders": [],
             "projects": []
@@ -234,6 +215,4 @@ class GCPIAMHandler(BaseHandler):
                 all_evidence["projects"].append(proj)
 
         logger.debug("ALl evidences collected successfully by the Agent")
-
         return all_evidence
-
