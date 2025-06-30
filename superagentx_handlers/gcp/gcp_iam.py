@@ -88,6 +88,11 @@ class GCPIAMHandler(BaseHandler):
 
     @tool
     async def collect_organization_iam_evidence(self) -> List[Dict[str, Any]]:
+        """
+                Collects IAM policy details for all accessible GCP organizations.
+                Includes binding roles, members, and MFA enforcement if found.
+                Returns a list of organization IAM policy summaries.
+        """
         logger.debug("\n Collecting Organizations IAM Evidence")
         organization_evidence: List[Dict[str, Any]] = []
         try:
@@ -113,6 +118,11 @@ class GCPIAMHandler(BaseHandler):
 
     @tool
     async def collect_folder_iam_evidence(self, parent_resource: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+                Collects IAM policy details for all folders under the given parent resource.
+                If no parent is provided, it defaults to collecting from all organizations.
+                Detects MFA enforcement and prints each folder IAM configuration.
+        """
         logger.debug(f"\n Collecting Folder IAM Evidence under: {parent_resource or 'all accessible organizations'}")
         folder_evidence: List[Dict[str, Any]] = []
         try:
@@ -148,6 +158,11 @@ class GCPIAMHandler(BaseHandler):
 
     @tool
     async def collect_project_iam_evidence(self, parent_resource: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+                Collects IAM policy details for all projects under the given parent resource.
+                If no parent is specified, collects all accessible projects.
+                MFA checks are included in condition expressions.
+        """
         logger.debug(f"\n Collecting Project IAM Evidence under: {parent_resource or 'all accessible'}")
         project_evidence: List[Dict[str, Any]] = []
         try:
@@ -185,6 +200,10 @@ class GCPIAMHandler(BaseHandler):
 
     @tool
     async def collect_all_iam_evidence(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+                Collects complete IAM policy evidence for the whole profile and enterprise
+                Includes roles, members, and whether MFA is enforced for each binding.
+        """
         logger.debug("\nCollecting ALL IAM Evidence")
         all_evidence: Dict[str, List[Dict[str, Any]]] = {
             "organizations": [],

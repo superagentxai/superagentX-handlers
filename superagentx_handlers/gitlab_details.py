@@ -1,23 +1,30 @@
-import gitlab
 import os
-import asyncio
-import json
-
+import logging
+import gitlab
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
+logger = logging.getLogger(__name__)
+
 class GitlabHandler(BaseHandler):
-    def __init__(self, private_token=None, url="https://gitlab.com"):
+    def __init__(
+            self,
+            private_token: str | None = None,
+            url: str | None = None
+    ):
+        super().__init__()
+        if not url:
+            url = "https://gitlab.com"
         self.token = private_token or os.getenv("GITLAB_PRIVATE_TOKEN")
         if not self.token:
             raise ValueError("No GitLab private token provided or set in GITLAB_PRIVATE_TOKEN.")
 
         self.gl = gitlab.Gitlab(url, private_token=self.token)
         self.gl.auth()
-        print("✅ Connected to GitLab as:", self.gl.user.username)
+        logger.debug("Connected to GitLab as:", self.gl.user.username)
 
     @tool
-    async def get_user_profile(self):
+    async def get_user_profile(self) -> dict:
         """
         Collects the GitLab user profile, including admin status, 2FA status, and basic metadata.
         Use this to retrieve current user's identity and security posture.
@@ -38,80 +45,78 @@ class GitlabHandler(BaseHandler):
         }
 
     @tool
-    async def get_projects(self):
+    async def get_projects(self) -> list:
         """
         Retrieves a list of all GitLab projects owned by the user.
         Includes visibility, default branch, and last activity.
         """
-        projects_info = []
-        for project in self.gl.projects.list(owned=True, all=True):
-            project_info = {
+        return [
+            {
                 "id": project.id,
                 "name": project.name,
                 "visibility": project.visibility,
                 "default_branch": project.default_branch,
                 "last_activity_at": project.last_activity_at,
             }
-            projects_info.append(project_info)
-        return projects_info
+            for project in self.gl.projects.list(owned=True, all=True)
+        ]
 
     @tool
-    async def get_groups_and_members(self):
+    async def get_groups_and_members(self) -> list:
         """
         Lists GitLab groups owned by the user and their members.
         Includes usernames, emails, and access levels.
         """
-        groups_info = []
-        for group in self.gl.groups.list(owned=True, all=True):
-            members = [
-                {
-                    "username": m.username,
-                    "access_level": m.access_level,
-                    "email": m.email if hasattr(m, "email") else None,
-                }
-                for m in group.members.list()
-            ]
-            groups_info.append({
+        return [
+            {
                 "group_name": group.name,
                 "group_id": group.id,
-                "members": members,
-            })
-        return groups_info
+                "members": [
+                    {
+                        "username": m.username,
+                        "access_level": m.access_level,
+                        "email": m.email if hasattr(m, "email") else None,
+                    }
+                    for m in group.members.list()
+                ],
+            }
+            for group in self.gl.groups.list(owned=True, all=True)
+        ]
 
     @tool
-    async def get_issues(self):
+    async def get_issues(self) -> list:
         """
         Retrieves all GitLab issues assigned to the current user.
         Includes title, state, creation time, and labels.
         """
-        all_issues = []
-        for issue in self.gl.issues.list(scope='assigned-to-me', all=True):
-            all_issues.append({
+        return [
+            {
                 "title": issue.title,
                 "state": issue.state,
                 "created_at": issue.created_at,
                 "labels": issue.labels,
-            })
-        return all_issues
+            }
+            for issue in self.gl.issues.list(scope='assigned_to_me', all=True)
+        ]
 
     @tool
-    async def get_merge_requests(self):
+    async def get_merge_requests(self) -> list:
         """
         Collects all merge requests assigned to the current user.
         Includes title, source/target branches, and state.
         """
-        mrs = []
-        for mr in self.gl.mergerequests.list(scope='assigned_to_me', all=True):
-            mrs.append({
+        return [
+            {
                 "title": mr.title,
                 "state": mr.state,
                 "source_branch": mr.source_branch,
                 "target_branch": mr.target_branch,
-            })
-        return mrs
+            }
+            for mr in self.gl.mergerequests.list(scope='assigned_to_me', all=True)
+        ]
 
     @tool
-    async def get_hooks(self, project_id):
+    async def get_hooks(self, project_id) -> list:
         """
         Fetches all webhooks configured for the specified GitLab project.
         """
@@ -122,7 +127,7 @@ class GitlabHandler(BaseHandler):
             return []
 
     @tool
-    async def get_pipelines(self, project_id):
+    async def get_pipelines(self, project_id) -> list:
         """
         Retrieves recent pipeline runs for a specific GitLab project.
         Includes status, ref, and timestamps.
@@ -142,7 +147,7 @@ class GitlabHandler(BaseHandler):
             return []
 
     @tool
-    async def collect_all_gitlab_data(self):
+    async def collect_all_gitlab_data(self) -> dict:
         """
         Collects full GitLab profile data: user info, projects, groups, issues, and merge requests.
         Useful for complete audit or snapshot.
