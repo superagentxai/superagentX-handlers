@@ -159,3 +159,4 @@ class GitlabHandler(BaseHandler):
             "issues": self.get_issues(),
             "merge_requests": self.get_merge_requests(),
         }
+

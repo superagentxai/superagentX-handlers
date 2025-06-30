@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from gitLab import GitlabHandler
+from gitlab_details import GitlabHandler
 
 logger = logging.getLogger(__name__)
 
