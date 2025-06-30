@@ -12,7 +12,7 @@ from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
-from superagentx_handlers.google.exceptions import AuthException
+from superagentx_handlers.gcp.exceptions import AuthException
 
 logger = logging.getLogger(__name__)
 
