@@ -17,7 +17,7 @@ class GCPIAMHandler(BaseHandler):
     def __init__(
         self,
         scope: Optional[List[str]] = None,
-        creds: Optional[str] = None
+        creds: str | dict | None = None
     ) -> None:
         super().__init__()
         self.scope = scope
@@ -25,14 +25,20 @@ class GCPIAMHandler(BaseHandler):
         if not self.scope:
             self.scope = ["https://www.googleapis.com/auth/cloud-platform"]
         try:
-            creds_path = creds or os.getenv("GCP_AGENT_CREDENTIALS")
-            if not creds_path:
-                raise ValueError("GCP_AGENT_CREDENTIALS environment variable is not set.")
+            creds = creds or os.getenv("GCP_AGENT_CREDENTIALS")
 
-            credentials = service_account.Credentials.from_service_account_file(
-                creds_path,
-                scopes=scope
-            )
+            if isinstance(creds, str):
+                credentials = service_account.Credentials.from_service_account_file(
+                    creds,
+                    scopes=scope
+                )
+            elif isinstance(creds, dict):
+                credentials = service_account.Credentials.from_service_account_info(
+                    creds,
+                    scopes=scope
+                )
+            else:
+                raise ValueError(f"Invalid Creds")
 
             self.projects_client = resourcemanager_v3.ProjectsAsyncClient(credentials=credentials)
             self.folders_client = resourcemanager_v3.FoldersAsyncClient(credentials=credentials)
