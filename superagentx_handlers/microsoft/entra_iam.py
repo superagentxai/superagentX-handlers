@@ -3,7 +3,7 @@ import os
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Any
+from typing import Any
 
 from azure.identity import ClientSecretCredential
 from msgraph.generated.identity.conditional_access.policies.policies_request_builder import PoliciesRequestBuilder
@@ -17,10 +17,7 @@ from superagentx.handler.decorators import tool
 from superagentx.utils.helper import iter_to_aiter
 # --- Setup Logging ---
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+
 logger = logging.getLogger(__name__)
 
 
@@ -77,22 +74,14 @@ class EntraIAMHandler(BaseHandler):
         except Exception as e:
             logger.error(
                 f"Error initializing Microsoft Graph client: {e}", exc_info=True)
-            logger.error(
-                "Please ensure the provided tenant_id, client_id, and client_secret are valid, "
-                "and that the Entra ID application has the necessary API permissions "
-                # Added Reports.Read.All
-                "(e.g., User.Read.All, Group.Read.All, Application.Read.All, Policy.Read.All, Directory.Read.All, RoleManagement.Read.All, AuditLog.Read.All, UserAuthenticationMethod.Read.All, Reports.Read.All) "
-                "and admin consent granted."
-            )
             raise
 
-    async def _get_user_details_and_roles(self, user_id: str) -> Optional[dict]:
+    async def _get_user_details_and_roles(self, user_id: str) -> dict | None:
         """
         Helper method to fetch details and assigned roles for a given user.
         This method is internal and not exposed as a tool directly.
         Requires User.Read.All and RoleManagement.Read.All permissions (for comprehensive roles).
         """
-        user_info = None
         try:
             user = await self.graph_client.users.by_user_id(user_id).get()
             if user:
@@ -111,13 +100,12 @@ class EntraIAMHandler(BaseHandler):
                 f"Error retrieving user details or roles for {user_id}. Error: {e}", exc_info=True)
         return user_info
 
-    async def _get_group_details_and_members(self, group_id: str) -> Optional[dict]:
+    async def _get_group_details_and_members(self, group_id: str) -> dict | None:
         """
         Helper method to fetch details and members for a given group.
         This method is internal and not exposed as a tool directly.
         Requires Group.Read.All and optionally User.Read.All, Device.Read.All, ServicePrincipal.Read.All for members.
         """
-        group_info = None
         try:
             group = await self.graph_client.groups.by_group_id(group_id).get()
             if group:
@@ -148,13 +136,12 @@ class EntraIAMHandler(BaseHandler):
                 f"Error retrieving group details or members for {group_id}. Error: {e}", exc_info=True)
         return group_info
 
-    async def _get_application_details_and_owners(self, app_id: str) -> Optional[dict]:
+    async def _get_application_details_and_owners(self, app_id: str) -> dict | None:
         """
         Helper method to fetch details and owners for a given application (Service Principal).
         This method is internal and not exposed as a tool directly.
         Requires Application.Read.All.
         """
-        app_info = None
         try:
             service_principal = await self.graph_client.service_principals.by_service_principal_id(app_id).get()
             if service_principal:
@@ -334,6 +321,7 @@ class EntraIAMHandler(BaseHandler):
                 registration_details_response = await self.graph_client.reports.authentication_methods.user_registration_details.get()
             except Exception as ex:
                 return ex
+
 
             if registration_details_response and registration_details_response.value:
                 # Use iter_to_aiter to correctly handle async iteration over the collection
