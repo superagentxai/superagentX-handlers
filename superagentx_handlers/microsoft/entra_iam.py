@@ -1,20 +1,17 @@
 import asyncio
-import os
-import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from azure.identity import ClientSecretCredential
-from msgraph.generated.identity.conditional_access.policies.policies_request_builder import PoliciesRequestBuilder
 from msgraph import GraphServiceClient
-# Import the UserRegistrationDetails model for clarity on the object type
-from msgraph.generated.models.user_registration_details import UserRegistrationDetails
-
 # Import necessary utilities from superagentx
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import iter_to_aiter
+
+# Import the UserRegistrationDetails model for clarity on the object type
 # --- Setup Logging ---
 
 
