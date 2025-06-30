@@ -1,7 +1,9 @@
+import asyncio
 import logging
 import os
 
 import boto3
+from botocore.exceptions import ClientError
 
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
@@ -29,55 +31,296 @@ class AWSEC2Handler(BaseHandler):
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key
         )
-
-    async def _get_all_instances(
-            self,
-            filters: list[dict]
-    ):
+    @tool
+    async def get_ec2_instances(self):
         """
-        Asynchronously retrieves and returns a list of all instances managed by this handler.
-
-        This method interacts with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to fetch details
-        of all instances currently available or active in the system. It is designed to be run asynchronously,
-        allowing other tasks to execute concurrently without blocking.
+        Collects EC2 instances, including details like state, type, AMI, tags,
+        security groups, and IP addresses.
         """
+        logger.info("Collecting EC2 Instance...")
+        instances_data = []
         try:
-            instance = await sync_to_async(self.ec2_client.describe_instances, Filters=filters)
-            if instance and instance["Reservations"]:
-                instances = [
-                    _instance async for reservation in iter_to_aiter(instance["Reservations"])
-                    async for _instance in iter_to_aiter(reservation["Instances"])
-                ]
-                return instances
-        except Exception as ex:
-            logger.error(f"Get all Instance getting error: {ex}")
+            paginator = self.ec2_client.get_paginator('describe_instances')
+            async for page in iter_to_aiter(paginator.paginate()):
+                for reservation in page['Reservations']:
+                    for instance in reservation['Instances']:
+                        instance_info = {
+                            'InstanceId': instance.get('InstanceId'),
+                            'InstanceType': instance.get('InstanceType'),
+                            'State': instance['State']['Name'],
+                            'LaunchTime': str(instance.get('LaunchTime')), # Convert datetime to string
+                            'ImageId': instance.get('ImageId'),
+                            'VpcId': instance.get('VpcId'),
+                            'SubnetId': instance.get('SubnetId'),
+                            'PrivateIpAddress': instance.get('PrivateIpAddress'),
+                            'PublicIpAddress': instance.get('PublicIpAddress'),
+                            'KeyName': instance.get('KeyName'),
+                            'Tags': instance.get('Tags', []),
+                            'SecurityGroups': [{'GroupId': sg.get('GroupId'), 'GroupName': sg.get('GroupName')} for sg in instance.get('SecurityGroups', [])],
+                            'BlockDeviceMappings': [
+                                {'DeviceName': bdm.get('DeviceName'), 'EbsVolumeId': bdm['Ebs'].get('VolumeId')}
+                                for bdm in instance.get('BlockDeviceMappings', []) if 'Ebs' in bdm
+                            ],
+                            'PlatformDetails': instance.get('PlatformDetails'),
+                            'Architecture': instance.get('Architecture'),
+                            'Hypervisor': instance.get('Hypervisor'),
+                            'RootDeviceType': instance.get('RootDeviceType'),
+                            'MonitoringState': instance.get('Monitoring', {}).get('State')
+                        }
+                        instances_data.append(instance_info)
+            logger.info(f"Collected for {len(instances_data)} EC2 instances.")
+            return instances_data
+        except ClientError as e:
+            logger.error(f"Error collecting EC2 instance: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error during EC2 instance collection: {e}")
+            return []
 
     @tool
-    async def get_all_running_instances(self)->list[dict]:
+    async def get_ec2_security_groups(self):
         """
-           Fetch all currently active or running instances.
-
-           This method communicates with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to
-           fetch details of all instances that are currently in the 'running' state. It is designed to run
-           asynchronously to allow non-blocking execution.
+        Collects for EC2 Security Groups, including inbound and outbound rules.
         """
-        _filters = { "Name": "instance-state-name", "Values": ["running"] }
-        response = await self._get_all_instances(filters=[_filters])
-        if response:
-            logger.debug(f"Running Instances {len(response)}")
-            return response
+        logger.info("Collecting EC2 Security Group...")
+        security_groups_data = []
+        try:
+            response = await sync_to_async(self.ec2_client.describe_security_groups)
+            for sg in response['SecurityGroups']:
+                sg_info = {
+                    'GroupId': sg.get('GroupId'),
+                    'GroupName': sg.get('GroupName'),
+                    'Description': sg.get('Description'),
+                    'VpcId': sg.get('VpcId'),
+                    'IpPermissions': sg.get('IpPermissions', []), # Inbound rules
+                    'IpPermissionsEgress': sg.get('IpPermissionsEgress', []), # Outbound rules
+                    'Tags': sg.get('Tags', [])
+                }
+                security_groups_data.append(sg_info)
+            logger.info(f"Collected for {len(security_groups_data)} Security Groups.")
+            return security_groups_data
+        except ClientError as e:
+            logger.error(f"Error collecting EC2 security group: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error during EC2 security group collection: {e}")
+            return []
 
     @tool
-    async def get_all_stopped_instances(self)->list[dict]:
+    async def get_ec2_volumes(self):
         """
-            Retrieve all currently stopped instances.
+        Collects for EBS Volumes, including size, type, attachment info, and encryption status.
+        """
+        logger.info("Collecting EBS Volume ...")
+        volumes_data = []
+        try:
+            paginator = self.ec2_client.get_paginator('describe_volumes')
+            async for page in iter_to_aiter(paginator.paginate()):
+                for volume in page['Volumes']:
+                    volume_info = {
+                        'VolumeId': volume.get('VolumeId'),
+                        'Size': volume.get('Size'),
+                        'VolumeType': volume.get('VolumeType'),
+                        'State': volume.get('State'),
+                        'CreateTime': str(volume.get('CreateTime')), # Convert datetime to string
+                        'AvailabilityZone': volume.get('AvailabilityZone'),
+                        'Encrypted': volume.get('Encrypted'),
+                        'KmsKeyId': volume.get('KmsKeyId'),
+                        'Attachments': [
+                            {'InstanceId': att.get('InstanceId'), 'Device': att.get('Device'), 'State': att.get('State')}
+                            for att in volume.get('Attachments', [])
+                        ],
+                        'Tags': volume.get('Tags', [])
+                    }
+                    volumes_data.append(volume_info)
+            logger.info(f"Collected for {len(volumes_data)} EBS Volumes.")
+            return volumes_data
+        except ClientError as e:
+            logger.error(f"Error collecting EBS volume: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error during EBS volume collection: {e}")
+            return []
 
-            This method interacts with an external service (e.g., AWS EC2, Google Cloud Compute, etc.) to
-            fetch details of all instances that are in the 'stopped' state. It is designed to run
-            asynchronously, enabling non-blocking execution.
+    @tool
+    async def get_ec2_amis(self):
         """
-        _filters = {"Name": "instance-state-name", "Values": ["stopped"]}
-        response = await self._get_all_instances(filters=[_filters])
-        if response:
-            logger.debug(f"Stopped Instances {len(response)}")
-            return response
+        Collects for AMIs (Amazon Machine Images) owned by the account.
+        """
+        logger.info("Collecting EC2 AMI (Owned by account)...")
+        amis_data = []
+        try:
+            response = await sync_to_async(self.ec2_client.describe_images, Owners=['self'])
+            for image in response['Images']:
+                ami_info = {
+                    'ImageId': image.get('ImageId'),
+                    'Name': image.get('Name'),
+                    'Description': image.get('Description'),
+                    'State': image.get('State'),
+                    'CreationDate': image.get('CreationDate'), # This is already a string
+                    'Architecture': image.get('Architecture'),
+                    'PlatformDetails': image.get('PlatformDetails'),
+                    'ImageType': image.get('ImageType'),
+                    'Tags': image.get('Tags', [])
+                }
+                amis_data.append(ami_info)
+            logger.info(f"Collected for {len(amis_data)} AMIs.")
+            return amis_data
+        except ClientError as e:
+            logger.error(f"Error collecting EC2 AMI: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error during EC2 AMI collection: {e}")
+            return []
+
+    @tool
+    async def get_ec2_snapshots(self):
+        """
+        Collects for EBS Snapshots owned by the account.
+        """
+        logger.info("Collecting EBS Snapshot(Owned by account)...")
+        snapshots_data = []
+        try:
+            paginator = await sync_to_async(self.ec2_client.get_paginator, 'describe_snapshots')
+            async for page in iter_to_aiter(paginator.paginate(OwnerIds=['self'])):
+                for snapshot in page['Snapshots']:
+                    snapshot_info = {
+                        'SnapshotId': snapshot.get('SnapshotId'),
+                        'VolumeId': snapshot.get('VolumeId'),
+                        'State': snapshot.get('State'),
+                        'StartTime': str(snapshot.get('StartTime')), # Convert datetime to string
+                        'VolumeSize': snapshot.get('VolumeSize'),
+                        'Description': snapshot.get('Description'),
+                        'Encrypted': snapshot.get('Encrypted'),
+                        'KmsKeyId': snapshot.get('KmsKeyId'),
+                        'OwnerId': snapshot.get('OwnerId'),
+                        'Tags': snapshot.get('Tags', [])
+                    }
+                    snapshots_data.append(snapshot_info)
+            logger.info(f"Collected  for {len(snapshots_data)} Snapshots.")
+            return snapshots_data
+        except ClientError as e:
+            logger.error(f"Error collecting EBS snapshot : {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error during EBS snapshot collection: {e}")
+            return []
+
+    @tool
+    async def get_ec2_key_pairs(self):
+        """
+        Collects for EC2 Key Pairs.
+        """
+        logger.info("Collecting EC2 Key Pair...")
+        key_pairs_data = []
+        try:
+            response = await sync_to_async(self.ec2_client.describe_key_pairs)
+            for key_pair in response['KeyPairs']:
+                kp_info = {
+                    'KeyPairId': key_pair.get('KeyPairId'),
+                    'KeyName': key_pair.get('KeyName'),
+                    'KeyFingerprint': key_pair.get('KeyFingerprint'),
+                    'KeyType': key_pair.get('KeyType'),
+                    'Tags': key_pair.get('Tags', [])
+                }
+                key_pairs_data.append(kp_info)
+            logger.info(f"Collected for {len(key_pairs_data)} Key Pairs.")
+            return key_pairs_data
+        except ClientError as e:
+            logger.error(f"Error collecting EC2 key pair: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error during EC2 key pair collection: {e}")
+            return []
+
+    @tool
+    async def get_ec2_network_interfaces(self):
+        """
+        Collects for Network Interfaces, including associated instances and security groups.
+        """
+        logger.info("Collecting Network Interface ...")
+        network_interfaces_data = []
+        try:
+            paginator = await sync_to_async(self.ec2_client.get_paginator, 'describe_network_interfaces')
+            async for page in iter_to_aiter(paginator.paginate()):
+                for ni in page['NetworkInterfaces']:
+                    ni_info = {
+                        'NetworkInterfaceId': ni.get('NetworkInterfaceId'),
+                        'VpcId': ni.get('VpcId'),
+                        'SubnetId': ni.get('SubnetId'),
+                        'Description': ni.get('Description'),
+                        'Status': ni.get('Status'),
+                        'PrivateIpAddress': ni.get('PrivateIpAddress'),
+                        'Association': ni.get('Association'), # Contains PublicIp if associated
+                        'Attachment': {
+                            'InstanceId': ni['Attachment'].get('InstanceId'),
+                            'DeviceIndex': ni['Attachment'].get('DeviceIndex'),
+                            'Status': ni['Attachment'].get('Status')
+                        } if ni.get('Attachment') else None,
+                        'Groups': [{'GroupId': g.get('GroupId'), 'GroupName': g.get('GroupName')} for g in ni.get('Groups', [])],
+                        'Tags': ni.get('Tags', [])
+                    }
+                    network_interfaces_data.append(ni_info)
+            logger.info(f"Collected for {len(network_interfaces_data)} Network Interfaces.")
+            return network_interfaces_data
+        except ClientError as e:
+            logger.error(f"Error collecting network interface : {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error during network interface collection: {e}")
+            return []
+
+    @tool
+    async def collect_all_ec2(self):
+        """
+        Collects all available comprehensive EC2  for purposes asynchronously.
+        This is the main entry point for a full EC2  dump.
+
+        Returns:
+            dict: A dictionary containing all collected EC2 , categorized.
+        """
+        logger.debug("Starting collection of all comprehensive EC2 ...")
+        try:
+            # Concurrently collect different categories of EC2
+            instances_task = self.get_ec2_instances()
+            security_groups_task = self.get_ec2_security_groups()
+            volumes_task = self.get_ec2_volumes()
+            amis_task = self.get_ec2_amis()
+            snapshots_task = self.get_ec2_snapshots()
+            key_pairs_task = self.get_ec2_key_pairs()
+            network_interfaces_task = self.get_ec2_network_interfaces()
+
+            (
+                ec2_instances,
+                ec2_security_groups,
+                ec2_volumes,
+                ec2_amis,
+                ec2_snapshots,
+                ec2_key_pairs,
+                ec2_network_interfaces,
+            ) = await asyncio.gather(
+                instances_task,
+                security_groups_task,
+                volumes_task,
+                amis_task,
+                snapshots_task,
+                key_pairs_task,
+                network_interfaces_task,
+                return_exceptions=True # Allows other tasks to complete even if one fails
+            )
+
+            data = {
+                'ec2_instances': ec2_instances if not isinstance(ec2_instances, Exception) else [],
+                'ec2_security_groups': ec2_security_groups if not isinstance(ec2_security_groups, Exception) else [],
+                'ec2_volumes': ec2_volumes if not isinstance(ec2_volumes, Exception) else [],
+                'ec2_amis': ec2_amis if not isinstance(ec2_amis, Exception) else [],
+                'ec2_snapshots': ec2_snapshots if not isinstance(ec2_snapshots, Exception) else [],
+                'ec2_key_pairs': ec2_key_pairs if not isinstance(ec2_key_pairs, Exception) else [],
+                'ec2_network_interfaces': ec2_network_interfaces if not isinstance(ec2_network_interfaces, Exception) else [],
+            }
+
+            logger.debug("Finished collecting all comprehensive EC2.")
+            return data
+        except Exception as e:
+            logger.error(f"Error during overall EC2  collection: {e}")
+            return {}
