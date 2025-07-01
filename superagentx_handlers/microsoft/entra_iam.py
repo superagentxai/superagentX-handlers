@@ -444,7 +444,7 @@ class EntraIAMHandler(BaseHandler):
 
         return mfa_evidence
 
-    @tool
+    # @tool
     async def collect_all_entra_iam_evidence(self) -> dict:
         """
         Collects IAM related information for all accessible users, groups, applications,
