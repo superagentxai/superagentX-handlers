@@ -100,9 +100,10 @@ class GCPIAMHandler(BaseHandler):
     @tool
     async def collect_organization_iam_evidence(self) -> list:
         """
-                Collects IAM policy details for all accessible GCP organizations.
-                Includes binding roles, members, and MFA enforcement if found.
-                Returns a list of organization IAM policy summaries.
+        Collects IAM policy details for all accessible GCP organizations, including information relevant to
+        MFA implementation for server access and maintaining an inventory of managed accounts.
+        Returns a list of organization IAM policy summaries, detailing binding roles, members,
+        and MFA enforcement status.
         """
         logger.debug("\n Collecting Organizations IAM Evidence")
         organization_evidence: list[dict[str, Any]] = []
@@ -130,9 +131,10 @@ class GCPIAMHandler(BaseHandler):
     @tool
     async def collect_folder_iam_evidence(self, parent_resource: str | None = None) -> list:
         """
-                Collects IAM policy details for all folders under the given parent resource.
-                If no parent is provided, it defaults to collecting from all organizations.
-                Detects MFA enforcement and prints each folder IAM configuration.
+        Collects IAM policy details for all folders under the given parent resource, supporting
+        the implementation of MFA for server access and maintaining an inventory of managed accounts.
+        If no parent is provided, it defaults to collecting from all organizations.
+        Detects MFA enforcement and provides each folder's IAM configuration.
         """
         logger.debug(f"\n Collecting Folder IAM Evidence under: {parent_resource or 'all accessible organizations'}")
         folder_evidence: list[dict[str, Any]] = []
@@ -170,9 +172,10 @@ class GCPIAMHandler(BaseHandler):
     @tool
     async def collect_project_iam_evidence(self, parent_resource: str | None = None) -> list:
         """
-                Collects IAM policy details for all projects under the given parent resource.
-                If no parent is specified, collects all accessible projects.
-                MFA checks are included in condition expressions.
+        Collects IAM policy details for all projects under the given parent resource, aiding in
+        MFA implementation for server access and maintaining an inventory of all managed accounts.
+        If no parent is specified, collects all accessible projects.
+        MFA checks are included in condition expressions.
         """
         logger.debug(f"\n Collecting Project IAM Evidence under: {parent_resource or 'all accessible'}")
         project_evidence: list[dict[str, Any]] = []
@@ -212,8 +215,10 @@ class GCPIAMHandler(BaseHandler):
     @tool
     async def collect_all_iam_evidence(self) -> dict:
         """
-                Collects complete IAM policy evidence for the whole profile and enterprise
-                Includes roles, members, and whether MFA is enforced for each binding.
+        Collects comprehensive IAM policy evidence for the entire GCP profile and enterprise,
+        crucial for implementing MFA for server access and maintaining a complete inventory of
+        all managed accounts. Includes details on roles, members, and whether MFA is enforced
+        for each binding across organizations, folders, and projects.
         """
         logger.debug("\nCollecting ALL IAM Evidence")
         all_evidence: dict[str, list[dict[str, Any]]] = {
