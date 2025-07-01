@@ -19,7 +19,7 @@ class GCPIAMHandler(BaseHandler):
             self,
             scope: list | None = None,
             creds: str | dict | None = None
-    ) -> None:
+    ):
         super().__init__()
         self.scope = scope
         self.creds = creds
@@ -129,7 +129,7 @@ class GCPIAMHandler(BaseHandler):
         return organization_evidence
 
     @tool
-    async def collect_folder_iam_evidence(self, parent_resource: str | None = None) -> list:
+    async def collect_folder_iam_evidence(self, parent_resource: str = None) -> list:
         """
         Collects IAM policy details for all folders under the given parent resource, supporting
         the implementation of MFA for server access and maintaining an inventory of managed accounts.
@@ -170,7 +170,7 @@ class GCPIAMHandler(BaseHandler):
         return folder_evidence
 
     @tool
-    async def collect_project_iam_evidence(self, parent_resource: str | None = None) -> list:
+    async def collect_project_iam_evidence(self, parent_resource: str = None) -> list:
         """
         Collects IAM policy details for all projects under the given parent resource, aiding in
         MFA implementation for server access and maintaining an inventory of all managed accounts.
