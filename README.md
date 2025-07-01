@@ -8,7 +8,7 @@
 
 **Superagentx-Handlers**
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/release/python-3100/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/release/python-31210/)
 [![GitHub Repo stars](https://img.shields.io/github/stars/superagentxai/superagentX-handlers)](https://github.com/superagentxai/superagentX-handlers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/superagentxai/superagentX-handlers/blob/master/LICENSE)
 </div>
