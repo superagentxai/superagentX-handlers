@@ -14,6 +14,32 @@ logger = logging.getLogger(__name__)
 
 
 class AWSAPIGatewayHandler(BaseHandler):
+    """
+        A handler to interact with AWS API Gateway (both v1 and v2) using Boto3.
+
+        This class provides functionality to retrieve detailed information
+        about all REST, HTTP, and WebSocket APIs in API Gateway, along with
+        their associated resources, stages, deployments, integrations, and VPC links.
+
+        Attributes:
+            apigw_client (boto3.client): Boto3 client for 'apigateway' (REST APIs - v1).
+            apigwv2_client (boto3.client): Boto3 client for 'apigatewayv2' (HTTP/WebSocket APIs - v2).
+
+        Args:
+            aws_access_key_id (Optional[str], optional): AWS access key ID.
+                Defaults to environment variable `AWS_ACCESS_KEY_ID` if not provided.
+            aws_secret_access_key (Optional[str], optional): AWS secret access key.
+                Defaults to environment variable `AWS_SECRET_ACCESS_KEY` if not provided.
+            region_name (Optional[str], optional): AWS region.
+                Defaults to environment variable `AWS_REGION` if not provided.
+
+        Raises:
+            NoCredentialsError: If credentials are missing or invalid.
+            ClientError: If the Boto3 client fails to initialize.
+
+        Example:
+            handler = AWSAPIGatewayHandler(region_name="us-west-2")
+        """
 
     def __init__(
         self,
@@ -49,10 +75,40 @@ class AWSAPIGatewayHandler(BaseHandler):
     @tool
     async def get_all_api_gateways_info(self) -> Dict[str, Any]:
         """
-        Retrieve comprehensive information about all API Gateways, their APIs, and VPC links.
+        Retrieve comprehensive information about all API Gateways in the AWS account.
+
+        This includes:
+            - REST APIs (API Gateway v1), with resources, stages, and deployments.
+            - HTTP APIs (API Gateway v2), with routes, stages, and integrations.
+            - WebSocket APIs (API Gateway v2), with routes, stages, and integrations.
+            - VPC Links (for both v1 and v2, if extended).
 
         Returns:
-            Dict containing all API Gateway information
+            Dict[str, Any]: A dictionary with structure:
+                {
+                    'rest_apis': [...],
+                    'http_apis': [...],
+                    'websocket_apis': [...],
+                    'vpc_links': {
+                        'v1': [...],
+                        'v2': [...]
+                    },
+                    'summary': {
+                        'total_rest_apis': int,
+                        'total_http_apis': int,
+                        'total_websocket_apis': int,
+                        'total_vpc_links_v1': int,
+                        'total_vpc_links_v2': int
+                    }
+                }
+
+        Raises:
+            ClientError: If any API Gateway operation fails.
+            NoCredentialsError: If AWS credentials are not found.
+
+        Example:
+            result = await handler.get_all_api_gateways_info()
+            print(result['summary'])
         """
         try:
             # Initialize AWS clients
