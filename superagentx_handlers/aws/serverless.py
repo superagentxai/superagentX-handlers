@@ -24,16 +24,9 @@ class AWSLambdaHandler(BaseHandler):
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
 
-        # Initialize AWS Lambda client
-        self.lambda_client = boto3.client(
-            'lambda',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
-        )
         # Initialize AWS IAM client
-        self.iam_client = boto3.client(
-            'iam',
+        self.rds_client = boto3.client(
+            'rds',
             region_name=region,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key
