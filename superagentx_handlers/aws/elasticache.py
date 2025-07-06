@@ -1,0 +1,239 @@
+import logging
+import os
+
+import boto3
+
+from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
+from botocore.exceptions import ClientError, NoCredentialsError
+
+logger = logging.getLogger(__name__)
+
+
+class AWSElastiCacheHandler(BaseHandler):
+
+    def __init__(
+            self,
+            aws_access_key_id: str | None = None,
+            aws_secret_access_key: str | None = None,
+            region_name: str | None = None
+    ):
+        super().__init__()
+        region = region_name or os.getenv("AWS_REGION")
+        aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
+
+        # Initialize ElastiCache client
+        self.elasticache_client = boto3.client(
+            'elasticache',
+            region_name=region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
+
+        # Initialize AWS EC2 client
+        self.ec2_client = boto3.client(
+            'ec2',
+            region_name=region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
+
+    @tool
+    async def get_elastic_cache_details(self) -> dict:
+        """
+          List all ElastiCache clusters with their VPC and Security Groups information.
+          Returns a dictionary containing all the information.
+        """
+        try:
+            result = {
+                'clusters': [],
+                'replication_groups': [],
+                'subnet_groups': [],
+                'security_groups': [],
+                'vpcs': []
+             }
+
+            # Get all ElasticCache clusters
+            logger.info(f"Fetching ElastiCache clusters...")
+            clusters_response = self.elasticache_client.describe_cache_clusters(ShowCacheNodeInfo=True)
+
+            for cluster in clusters_response['CacheClusters']:
+                cluster_info = {
+                    'cluster_id': cluster['CacheClusterId'],
+                    'engine': cluster['Engine'],
+                    'engine_version': cluster['EngineVersion'],
+                    'status': cluster['CacheClusterStatus'],
+                    'node_type': cluster['CacheNodeType'],
+                    'num_cache_nodes': cluster['NumCacheNodes'],
+                    'security_groups': cluster.get('SecurityGroups', []),
+                    'cache_subnet_group_name': cluster.get('CacheSubnetGroupName'),
+                    'vpc_id': None,
+                    'availability_zone': cluster.get('PreferredAvailabilityZone'),
+                    'replication_group_id': cluster.get('ReplicationGroupId')
+                }
+                result['clusters'].append(cluster_info)
+
+            # Get all ElastiCache replication groups
+            logger.info(f"Fetching ElastiCache replication groups...")
+            replication_groups_response = self.elasticache_client.describe_replication_groups()
+
+            for rep_group in replication_groups_response['ReplicationGroups']:
+                rep_group_info = {
+                    'replication_group_id': rep_group['ReplicationGroupId'],
+                    'description': rep_group['Description'],
+                    'status': rep_group['Status'],
+                    'cache_node_type': rep_group.get('CacheNodeType'),
+                    'engine': rep_group.get('Engine'),
+                    'engine_version': rep_group.get('EngineVersion'),
+                    'security_groups': rep_group.get('SecurityGroups', []),
+                    'cache_subnet_group_name': rep_group.get('CacheSubnetGroupName'),
+                    'vpc_id': None,
+                    'member_clusters': rep_group.get('MemberClusters', [])
+                }
+                result['replication_groups'].append(rep_group_info)
+
+            # Get all cache subnet groups to determine VPC information
+            logger.info(f"Fetching ElastiCache subnet groups...")
+            subnet_groups_response = self.elasticache_client.describe_cache_subnet_groups()
+
+            subnet_group_vpc_mapping = {}
+            for subnet_group in subnet_groups_response['CacheSubnetGroups']:
+                subnet_group_info = {
+                    'name': subnet_group['CacheSubnetGroupName'],
+                    'description': subnet_group['CacheSubnetGroupDescription'],
+                    'vpc_id': subnet_group['VpcId'],
+                    'subnets': []
+                }
+
+                for subnet in subnet_group['Subnets']:
+                    subnet_info = {
+                        'subnet_id': subnet['SubnetIdentifier'],
+                        'availability_zone': subnet['SubnetAvailabilityZone']['Name']
+                    }
+                    subnet_group_info['subnets'].append(subnet_info)
+
+                result['subnet_groups'].append(subnet_group_info)
+                subnet_group_vpc_mapping[subnet_group['CacheSubnetGroupName']] = subnet_group['VpcId']
+
+            # Update clusters and replication groups with VPC information
+            for cluster in result['clusters']:
+                if cluster['cache_subnet_group_name']:
+                    cluster['vpc_id'] = subnet_group_vpc_mapping.get(cluster['cache_subnet_group_name'])
+
+            for rep_group in result['replication_groups']:
+                if rep_group['cache_subnet_group_name']:
+                    rep_group['vpc_id'] = subnet_group_vpc_mapping.get(rep_group['cache_subnet_group_name'])
+
+            # Get unique security group IDs
+            security_group_ids = set()
+            for cluster in result['clusters']:
+                for sg in cluster['security_groups']:
+                    security_group_ids.add(sg['SecurityGroupId'])
+
+            for rep_group in result['replication_groups']:
+                for sg in rep_group['security_groups']:
+                    security_group_ids.add(sg['SecurityGroupId'])
+
+            # Get security group details
+            if security_group_ids:
+                logger.info(f"Fetching security groups information...")
+                try:
+                    security_groups_response = self.ec2_client.describe_security_groups(
+                        GroupIds=list(security_group_ids)
+                    )
+
+                    for sg in security_groups_response['SecurityGroups']:
+                        sg_info = {
+                            'group_id': sg['GroupId'],
+                            'group_name': sg['GroupName'],
+                            'description': sg['Description'],
+                            'vpc_id': sg.get('VpcId'),
+                            'inbound_rules': [],
+                            'outbound_rules': []
+                        }
+
+                        # Process inbound rules
+                        for rule in sg.get('IpPermissions', []):
+                            rule_info = {
+                                'protocol': rule.get('IpProtocol'),
+                                'from_port': rule.get('FromPort'),
+                                'to_port': rule.get('ToPort'),
+                                'sources': []
+                            }
+
+                            for ip_range in rule.get('IpRanges', []):
+                                rule_info['sources'].append({'type': 'cidr', 'value': ip_range.get('CidrIp')})
+
+                            for sg_ref in rule.get('UserIdGroupPairs', []):
+                                rule_info['sources'].append({'type': 'security_group', 'value': sg_ref.get('GroupId')})
+
+                            sg_info['inbound_rules'].append(rule_info)
+
+                        # Process outbound rules
+                        for rule in sg.get('IpPermissionsEgress', []):
+                            rule_info = {
+                                'protocol': rule.get('IpProtocol'),
+                                'from_port': rule.get('FromPort'),
+                                'to_port': rule.get('ToPort'),
+                                'destinations': []
+                            }
+
+                            for ip_range in rule.get('IpRanges', []):
+                                rule_info['destinations'].append({'type': 'cidr', 'value': ip_range.get('CidrIp')})
+
+                            for sg_ref in rule.get('UserIdGroupPairs', []):
+                                rule_info['destinations'].append(
+                                    {'type': 'security_group', 'value': sg_ref.get('GroupId')})
+
+                            sg_info['outbound_rules'].append(rule_info)
+
+                        result['security_groups'].append(sg_info)
+
+                except ClientError as e:
+                    print(f"Error fetching security groups: {e}")
+
+            # Get unique VPC IDs
+            vpc_ids = set()
+            for subnet_group in result['subnet_groups']:
+                if subnet_group['vpc_id']:
+                    vpc_ids.add(subnet_group['vpc_id'])
+
+            # Get VPC details
+            if vpc_ids:
+                logger.info(f"Fetching VPC information...")
+                try:
+                    vpcs_response = self.ec2_client.describe_vpcs(VpcIds=list(vpc_ids))
+
+                    for vpc in vpcs_response['Vpcs']:
+                        vpc_info = {
+                            'vpc_id': vpc['VpcId'],
+                            'cidr_block': vpc['CidrBlock'],
+                            'state': vpc['State'],
+                            'is_default': vpc['IsDefault'],
+                            'tags': vpc.get('Tags', [])
+                        }
+                        result['vpcs'].append(vpc_info)
+
+                except ClientError as e:
+                    print(f"Error fetching VPCs: {e}")
+
+            # Print summary
+            print(f"\nSummary:")
+            print(f"- Found {len(result['clusters'])} ElastiCache clusters")
+            print(f"- Found {len(result['replication_groups'])} replication groups")
+            print(f"- Found {len(result['subnet_groups'])} subnet groups")
+            print(f"- Found {len(result['security_groups'])} security groups")
+            print(f"- Found {len(result['vpcs'])} VPCs")
+
+            return result
+
+        except NoCredentialsError:
+            logger.error(f"Error: AWS credentials not found. Please configure your AWS credentials.")
+            return {}
+        except ClientError as e:
+            logger.error(f"AWS Client Error: {e}")
+            return {}
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return {}
