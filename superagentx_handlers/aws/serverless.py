@@ -148,8 +148,8 @@ class AWSLambdaHandler(BaseHandler):
         try:
             # Get attached managed policies
             attached_policies = await sync_to_async(self.iam_client.list_attached_role_policies, RoleName=role_name)
-            for policy in attached_policies['AttachedPolicies']:
-                policy_arn = policy['PolicyArn']
+            for policy in attached_policies.get("AttachedPolicies"):
+                policy_arn = policy.get("PolicyArn")
                 try:
                     # Get policy version
                     policy_info = await sync_to_async(self.iam_client.get_policy, PolicyArn=policy_arn)
@@ -158,10 +158,11 @@ class AWSLambdaHandler(BaseHandler):
                                                          VersionId=policy_info['Policy']['DefaultVersionId']
                                                          )
                     policies['AttachedPolicies'].append({
-                        'PolicyName': policy['PolicyName'],
+                        'PolicyName': policy.get('PolicyName'),
                         'PolicyArn': policy_arn,
-                        'PolicyDocument': policy_version['PolicyVersion']['Document']
+                        'PolicyDocument': policy_version.get('PolicyVersion', {}).get('Document')
                     })
+
                 except ClientError as e:
                     logger.warning(f"Error getting policy {policy_arn}: {e}")
 
@@ -192,12 +193,12 @@ class AWSLambdaHandler(BaseHandler):
             security_groups = []
             async for sg in iter_to_aiter(response['SecurityGroups']):
                 security_groups.append({
-                    'GroupId': sg['GroupId'],
-                    'GroupName': sg['GroupName'],
-                    'Description': sg['Description'],
-                    'VpcId': sg['VpcId'],
-                    'InboundRules': sg['IpPermissions'],
-                    'OutboundRules': sg['IpPermissionsEgress']
+                    'GroupId': sg.get('GroupId'),
+                    'GroupName': sg.get('GroupName'),
+                    'Description': sg.get('Description'),
+                    'VpcId': sg.get('VpcId'),
+                    'InboundRules': sg.get('IpPermissions', []),
+                    'OutboundRules': sg.get('IpPermissionsEgress', [])
                 })
 
             return security_groups
