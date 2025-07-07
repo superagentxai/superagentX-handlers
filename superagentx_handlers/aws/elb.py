@@ -4,7 +4,7 @@ from typing import Optional
 
 import boto3
 from botocore.exceptions import ClientError
-
+from superagentx.utils.helper import sync_to_async, iter_to_aiter
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
@@ -27,10 +27,10 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
     """
 
     def __init__(
-        self,
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
-        region_name: Optional[str] = None
+            self,
+            aws_access_key_id: Optional[str] = None,
+            aws_secret_access_key: Optional[str] = None,
+            region_name: Optional[str] = None
     ):
         """
         Initialize the AWS ELBv2 client using provided credentials or environment variables.
@@ -110,8 +110,8 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
 
         logger.info("Fetching Application Load Balancers...")
         try:
-            response = self.elbv2_client.describe_load_balancers()
-            albs = [lb for lb in response['LoadBalancers'] if lb['Type'] == 'application']
+            response = await sync_to_async(self.elbv2_client.describe_load_balancers)
+            albs = [lb for lb in response.get('LoadBalancers', []) if lb.get('Type') == 'application']
         except ClientError as e:
             logger.error(f"Failed to describe load balancers: {e}")
             return {}
@@ -122,15 +122,17 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
 
         logger.info(f"Found {len(albs)} Application Load Balancer(s)")
 
-        for alb in albs:
-            alb_name = alb['LoadBalancerName']
+        async for alb in iter_to_aiter(albs):
+            alb_name = alb.get('LoadBalancerName', 'UnknownName')
             alb_info[alb_name] = {
-                'arn': alb['LoadBalancerArn'],
-                'dns_name': alb['DNSName'],
-                'state': alb['State']['Code'],
-                'scheme': alb['Scheme'],
-                'vpc_id': alb['VpcId'],
-                'availability_zones': [az['ZoneName'] for az in alb['AvailabilityZones']],
+                'arn': alb.get('LoadBalancerArn'),
+                'dns_name': alb.get('DNSName'),
+                'state': alb.get('State', {}).get('Code'),
+                'scheme': alb.get('Scheme'),
+                'vpc_id': alb.get('VpcId'),
+                'availability_zones': [
+                    az.get('ZoneName') for az in alb.get('AvailabilityZones', [])
+                ],
                 'security_groups': alb.get('SecurityGroups', []),
                 'listeners': {}
             }
@@ -139,18 +141,24 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
                 listeners = self.elbv2_client.describe_listeners(
                     LoadBalancerArn=alb['LoadBalancerArn']
                 )['Listeners']
+
+                response = await sync_to_async(self.elbv2_client.describe_listeners,
+                                               LoadBalancerArn=alb['LoadBalancerArn']
+                                               )
+                listeners = response.get('Listeners', [])
+
             except ClientError as e:
                 logger.error(f"Error fetching listeners for ALB {alb_name}: {e}")
                 continue
 
             logger.debug(f"{alb_name}: Found {len(listeners)} listener(s)")
 
-            for listener in listeners:
-                listener_key = f"{listener['Protocol']}:{listener['Port']}"
+            async for listener in iter_to_aiter(listeners):
+                listener_key = f"{listener.get('Protocol', 'UNKNOWN')}:{listener.get('Port', 0)}"
                 alb_info[alb_name]['listeners'][listener_key] = {
-                    'arn': listener['ListenerArn'],
-                    'port': listener['Port'],
-                    'protocol': listener['Protocol'],
+                    'arn': listener.get('ListenerArn'),
+                    'port': listener.get('Port'),
+                    'protocol': listener.get('Protocol'),
                     'ssl_policy': listener.get('SslPolicy'),
                     'certificates': listener.get('Certificates', []),
                     'default_actions': listener.get('DefaultActions', []),
@@ -169,9 +177,13 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
                                 target_group_arns.add(tg['TargetGroupArn'])
 
                 try:
-                    rules = self.elbv2_client.describe_rules(ListenerArn=listener['ListenerArn'])['Rules']
-                    for rule in rules:
-                        for action in rule.get('Actions', []):
+                    response = await sync_to_async(self.elbv2_client.describe_rules,
+                                                   ListenerArn=listener['ListenerArn']
+                                                   )
+                    rules = response.get('Rules', [])
+
+                    async for rule in iter_to_aiter(rules):
+                        async for action in iter_to_aiter(rule.get('Actions', [])):
                             if action['Type'] == 'forward':
                                 if 'TargetGroupArn' in action:
                                     target_group_arns.add(action['TargetGroupArn'])
@@ -184,41 +196,45 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
                 # Fetch detailed target group info
                 if target_group_arns:
                     try:
-                        tg_response = self.elbv2_client.describe_target_groups(
-                            TargetGroupArns=list(target_group_arns)
-                        )
-                        for tg in tg_response['TargetGroups']:
+                        tg_response = await sync_to_async(self.elbv2_client.describe_target_groups,
+                                                          TargetGroupArns=list(target_group_arns)
+                                                          )
+                        async for tg in iter_to_aiter(tg_response.get('TargetGroups', [])):
                             tg_info = {
-                                'arn': tg['TargetGroupArn'],
-                                'name': tg['TargetGroupName'],
-                                'protocol': tg['Protocol'],
-                                'port': tg['Port'],
-                                'vpc_id': tg['VpcId'],
-                                'health_check_protocol': tg['HealthCheckProtocol'],
-                                'health_check_port': tg['HealthCheckPort'],
-                                'health_check_path': tg.get('HealthCheckPath'),
-                                'health_check_interval': tg['HealthCheckIntervalSeconds'],
-                                'health_check_timeout': tg['HealthCheckTimeoutSeconds'],
-                                'healthy_threshold': tg['HealthyThresholdCount'],
-                                'unhealthy_threshold': tg['UnhealthyThresholdCount'],
-                                'target_type': tg['TargetType'],
+                                'arn': tg.get('TargetGroupArn'),
+                                'name': tg.get('TargetGroupName'),
+                                'protocol': tg.get('Protocol'),
+                                'port': tg.get('Port'),
+                                'vpc_id': tg.get('VpcId'),
+                                'health_check_protocol': tg.get('HealthCheckProtocol'),
+                                'health_check_port': tg.get('HealthCheckPort'),
+                                'health_check_path': tg.get('HealthCheckPath', '/'),
+                                'health_check_interval': tg.get('HealthCheckIntervalSeconds', 30),
+                                'health_check_timeout': tg.get('HealthCheckTimeoutSeconds', 5),
+                                'healthy_threshold': tg.get('HealthyThresholdCount', 5),
+                                'unhealthy_threshold': tg.get('UnhealthyThresholdCount', 2),
+                                'target_type': tg.get('TargetType', 'instance'),
                                 'matcher': tg.get('Matcher', {}),
                                 'targets': []
                             }
 
                             try:
-                                health_desc = self.elbv2_client.describe_target_health(
-                                    TargetGroupArn=tg['TargetGroupArn']
-                                )['TargetHealthDescriptions']
-                                for target_health in health_desc:
-                                    target = target_health['Target']
+                                health_desc_response = await sync_to_async(self.elbv2_client.describe_target_health,
+                                                                           TargetGroupArn=tg['TargetGroupArn']
+                                                                           )
+                                health_desc = health_desc_response.get("TargetHealthDescriptions")
+                                async for target_health in iter_to_aiter(health_desc):
+                                    target = target_health.get('Target', {})
+                                    target_health_state = target_health.get('TargetHealth', {})
+
                                     tg_info['targets'].append({
-                                        'id': target['Id'],
+                                        'id': target.get('Id', 'N/A'),
                                         'port': target.get('Port'),
                                         'availability_zone': target.get('AvailabilityZone'),
-                                        'health_state': target_health['TargetHealth']['State'],
-                                        'health_description': target_health['TargetHealth'].get('Description', '')
+                                        'health_state': target_health_state.get('State', 'unknown'),
+                                        'health_description': target_health_state.get('Description', '')
                                     })
+
                             except ClientError as e:
                                 logger.info(f"Could not get target health for {tg['TargetGroupName']}: {e}")
 
