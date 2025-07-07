@@ -1,10 +1,13 @@
 import pytest
+import logging
 from superagentx.agent import Agent
 from superagentx.engine import Engine
 from superagentx.llm import LLMClient
 from superagentx.agentxpipe import AgentXPipe
 from superagentx.prompt import PromptTemplate
 from superagentx_handlers import AWSLambdaHandler
+
+logger = logging.getLogger(__name__)
 
 '''
  Run Pytest:  
@@ -30,7 +33,7 @@ class TestAWSLambdaPipe:
             aws_secret_access_key="<SECRET_ACCESS_KEY",
             region_name="<REGION>"
         )
-        prompt_template = PromptTemplate(system_message=f"You are an AWS Lambda.")
+        prompt_template = PromptTemplate(system_message=f"You are an AWS Lambda for GRC")
         engine = Engine(
             llm=llm_client,
             prompt_template=prompt_template,
@@ -38,8 +41,8 @@ class TestAWSLambdaPipe:
         )
         ec2_agent = Agent(
             name=f"AWS Lambda Agent",
-            goal="Summarize the data based on the user input.",
-            role=f"You are a Summarizer for AWS Lambda",
+            goal="Generate the response and data based on the user input.",
+            role=f"You are a GRC Evidence Collection Expert.",
             llm=llm_client,
             prompt_template=prompt_template,
             max_retry=2,
@@ -48,7 +51,11 @@ class TestAWSLambdaPipe:
         pipe = AgentXPipe(
             agents=[ec2_agent]
         )
+        prompt = f"""
+                        If the task has implementing or creating, you just collect evidence the data implemented or created not try to implement.
+                        """
+        query_instruct = "Are Lambda functions exposed to public (anonymous) access via API Gateway or AWS services?"
         result = await pipe.flow(
-            query_instruction="list out the instances and configured security group"
+            query_instruction=f"{prompt}\n\nTool:AWS Lambda\n\nTask:{query_instruct}"
         )
-        print(result)
+        logger.info(result)

@@ -1,3 +1,6 @@
+import os
+import logging
+
 import pytest
 from superagentx.agent import Agent
 from superagentx.engine import Engine
@@ -5,6 +8,8 @@ from superagentx.llm import LLMClient
 from superagentx.agentxpipe import AgentXPipe
 from superagentx.prompt import PromptTemplate
 from superagentx_handlers import AWSElastiCacheHandler
+
+logger = logging.getLogger(__name__)
 
 '''
  Run Pytest:  
@@ -30,7 +35,7 @@ class TestAWSElasticachePipe:
             aws_secret_access_key="<SECRET_ACCESS_KEY",
             region_name="<REGION>"
         )
-        prompt_template = PromptTemplate(system_message=f"You are an AWS Elasticache.")
+        prompt_template = PromptTemplate(system_message=f"You are an AWS Elasticache for GRC")
         engine = Engine(
             llm=llm_client,
             prompt_template=prompt_template,
@@ -38,8 +43,8 @@ class TestAWSElasticachePipe:
         )
         ec2_agent = Agent(
             name=f"AWS Elasticache Agent",
-            goal="Summarize the data based on the user input.",
-            role=f"You are a Summarizer for Elasticache",
+            goal="Generate the response and data based on the user input.",
+            role=f"You are a GRC Evidence Collection Expert.",
             llm=llm_client,
             prompt_template=prompt_template,
             max_retry=2,
@@ -48,7 +53,11 @@ class TestAWSElasticachePipe:
         pipe = AgentXPipe(
             agents=[ec2_agent]
         )
+        prompt = f"""
+                If the task has implementing or creating, you just collect evidence the data implemented or created not try to implement.
+                """
+        query_instruct = "Is access to ElastiCache restricted using security groups or VPC subnet controls?"
         result = await pipe.flow(
-            query_instruction="list out the instances and configured security group"
+            query_instruction=f"{prompt}\n\nTool:AWS Elasticache\n\nTask:{query_instruct}"
         )
-        print(result)
+        logger.info(result)

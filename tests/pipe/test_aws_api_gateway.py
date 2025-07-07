@@ -1,10 +1,13 @@
 import pytest
+import logging
 from superagentx.agent import Agent
 from superagentx.engine import Engine
 from superagentx.llm import LLMClient
 from superagentx.agentxpipe import AgentXPipe
 from superagentx.prompt import PromptTemplate
 from superagentx_handlers import AWSAPIGatewayHandler
+
+logger = logging.getLogger(__name__)
 
 '''
  Run Pytest:  
@@ -30,7 +33,7 @@ class TestAWSAPIGatewayPipe:
             aws_secret_access_key="<SECRET_ACCESS_KEY",
             region_name="<REGION>"
         )
-        prompt_template = PromptTemplate(system_message=f"You are an AWS API Gateway.")
+        prompt_template = PromptTemplate(system_message=f"You are an AWS API Gateway for GRC")
         engine = Engine(
             llm=llm_client,
             prompt_template=prompt_template,
@@ -38,8 +41,8 @@ class TestAWSAPIGatewayPipe:
         )
         ec2_agent = Agent(
             name=f"AWS API Gateway Agent",
-            goal="Summarize the data based on the user input.",
-            role=f"You are a Summarizer for AWS API Gateway",
+            goal="Generate the response and data based on the user input.",
+            role=f"You are a GRC Evidence Collection Expert.",
             llm=llm_client,
             prompt_template=prompt_template,
             max_retry=2,
@@ -48,7 +51,11 @@ class TestAWSAPIGatewayPipe:
         pipe = AgentXPipe(
             agents=[ec2_agent]
         )
+        prompt = f"""
+        If the task has implementing or creating, you just collect evidence the data implemented or created not try to implement.
+        """
+        query_instruct = "Are API Gateway policies periodically reviewed and updated?"
         result = await pipe.flow(
-            query_instruction="list out the instances and configured security group"
+            query_instruction=f"{prompt}\n\nTool:AWS API Gateway\n\nTask:{query_instruct}"
         )
-        print(result)
+        logger.info(result)
