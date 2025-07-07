@@ -43,9 +43,9 @@ class AWSAPIGatewayHandler(BaseHandler):
 
     def __init__(
         self,
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
-        region_name: Optional[str] = None
+        aws_access_key_id: str | None = None,
+        aws_secret_access_key: str | None = None,
+        region_name: str | None = None
     ):
         """
         Retrieve comprehensive information about all API Gateways, their APIs, and VPC links.
