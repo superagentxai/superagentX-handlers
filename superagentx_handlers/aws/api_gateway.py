@@ -73,7 +73,7 @@ class AWSAPIGatewayHandler(BaseHandler):
         )
 
     @tool
-    async def get_all_api_gateways_info(self) -> Dict[str, Any]:
+    async def get_all_api_gateways_info(self) -> dict:
         """
         Retrieve comprehensive information about all API Gateways in the AWS account.
 
