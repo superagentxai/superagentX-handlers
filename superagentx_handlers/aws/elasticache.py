@@ -192,7 +192,7 @@ class AWSElastiCacheHandler(BaseHandler):
                         result['security_groups'].append(sg_info)
 
                 except ClientError as e:
-                    print(f"Error fetching security groups: {e}")
+                    logger.error(f"Error fetching security groups: {e}")
 
             # Get unique VPC IDs
             vpc_ids = set()
@@ -217,15 +217,15 @@ class AWSElastiCacheHandler(BaseHandler):
                         result['vpcs'].append(vpc_info)
 
                 except ClientError as e:
-                    print(f"Error fetching VPCs: {e}")
+                    logger.error(f"Error fetching VPCs: {e}")
 
             # Print summary
-            print(f"\nSummary:")
-            print(f"- Found {len(result['clusters'])} ElastiCache clusters")
-            print(f"- Found {len(result['replication_groups'])} replication groups")
-            print(f"- Found {len(result['subnet_groups'])} subnet groups")
-            print(f"- Found {len(result['security_groups'])} security groups")
-            print(f"- Found {len(result['vpcs'])} VPCs")
+            logger.debug(f"\nSummary:")
+            logger.debug(f"- Found {len(result['clusters'])} ElastiCache clusters")
+            logger.debug(f"- Found {len(result['replication_groups'])} replication groups")
+            logger.debug(f"- Found {len(result['subnet_groups'])} subnet groups")
+            logger.debug(f"- Found {len(result['security_groups'])} security groups")
+            logger.debug(f"- Found {len(result['vpcs'])} VPCs")
 
             return result
 
