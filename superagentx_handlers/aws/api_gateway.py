@@ -3,7 +3,7 @@ import os
 from typing import Optional
 
 import boto3
-from botocore.exceptions import ClientError
+from superagentx.utils.helper import sync_to_async, iter_to_aiter
 from botocore.exceptions import ClientError, NoCredentialsError
 from typing import Dict, Any
 
@@ -111,24 +111,6 @@ class AWSAPIGatewayHandler(BaseHandler):
             print(result['summary'])
         """
         try:
-            # Initialize AWS clients
-            region = os.getenv("AWS_REGION")
-            aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-            aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-
-            apigw_client = boto3.client(
-                'apigateway',
-                region_name=region,
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key
-            )
-
-            apigwv2_client = boto3.client(
-                'apigatewayv2',
-                region_name=region,
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key
-            )
 
             result = {
                 'rest_apis': [],
@@ -148,11 +130,11 @@ class AWSAPIGatewayHandler(BaseHandler):
             }
 
             # Get REST APIs (API Gateway v1)
-            print("Fetching REST APIs...")
+            logger.info(f"Fetching REST APIs...")
             try:
-                rest_apis_response = apigw_client.get_rest_apis()
+                rest_apis_response = await sync_to_async(self.apigw_client.get_rest_apis)
 
-                for api in rest_apis_response.get('items', []):
+                async for api in iter_to_aiter(rest_apis_response.get('items', [])):
                     api_id = api['id']
                     api_info = {
                         'id': api_id,
@@ -173,8 +155,8 @@ class AWSAPIGatewayHandler(BaseHandler):
 
                     # Get resources for each API
                     try:
-                        resources_response = apigw_client.get_resources(restApiId=api_id)
-                        for resource in resources_response.get('items', []):
+                        resources_response = await sync_to_async(self.apigw_client.get_resources,restApiId=api_id)
+                        async for resource in iter_to_aiter(resources_response.get('items', [])):
                             resource_info = {
                                 'id': resource.get('id'),
                                 'parent_id': resource.get('parentId'),
@@ -185,12 +167,12 @@ class AWSAPIGatewayHandler(BaseHandler):
                             }
                             api_info['resources'].append(resource_info)
                     except ClientError as e:
-                        print(f"Error getting resources for REST API {api_id}: {e}")
+                        logger.error(f"Error getting resources for REST API {api_id}: {e}")
 
                     # Get stages for each API
                     try:
-                        stages_response = apigw_client.get_stages(restApiId=api_id)
-                        for stage in stages_response.get('item', []):
+                        stages_response = await sync_to_async(self.apigw_client.get_stages,restApiId=api_id)
+                        async for stage in iter_to_aiter(stages_response.get('item', [])):
                             stage_info = {
                                 'stage_name': stage.get('stageName'),
                                 'deployment_id': stage.get('deploymentId'),
@@ -205,12 +187,12 @@ class AWSAPIGatewayHandler(BaseHandler):
                             }
                             api_info['stages'].append(stage_info)
                     except ClientError as e:
-                        print(f"Error getting stages for REST API {api_id}: {e}")
+                        logger.error(f"Error getting stages for REST API {api_id}: {e}")
 
                     # Get deployments for each API
                     try:
-                        deployments_response = apigw_client.get_deployments(restApiId=api_id)
-                        for deployment in deployments_response.get('items', []):
+                        deployments_response = await sync_to_async(self.apigw_client.get_deployments,restApiId=api_id)
+                        async for deployment in iter_to_aiter(deployments_response.get('items', [])):
                             deployment_info = {
                                 'id': deployment.get('id'),
                                 'description': deployment.get('description'),
@@ -219,19 +201,19 @@ class AWSAPIGatewayHandler(BaseHandler):
                             }
                             api_info['deployments'].append(deployment_info)
                     except ClientError as e:
-                        print(f"Error getting deployments for REST API {api_id}: {e}")
+                        logger.error(f"Error getting deployments for REST API {api_id}: {e}")
 
                     result['rest_apis'].append(api_info)
 
             except ClientError as e:
-                print(f"Error fetching REST APIs: {e}")
+                logger.error(f"Error fetching REST APIs: {e}")
 
             # Get HTTP APIs (API Gateway v2)
             print("Fetching HTTP APIs...")
             try:
-                http_apis_response = apigwv2_client.get_apis()
+                http_apis_response = await sync_to_async(self.apigwv2_client.get_apis)
 
-                for api in http_apis_response.get('Items', []):
+                async for api in iter_to_aiter(http_apis_response.get('Items', [])):
                     if api.get('ProtocolType') == 'HTTP':
                         api_id = api['ApiId']
                         api_info = {
@@ -254,8 +236,8 @@ class AWSAPIGatewayHandler(BaseHandler):
 
                         # Get routes for each HTTP API
                         try:
-                            routes_response = apigwv2_client.get_routes(ApiId=api_id)
-                            for route in routes_response.get('Items', []):
+                            routes_response = await sync_to_async(self.apigwv2_client.get_routes,ApiId=api_id)
+                            async for route in iter_to_aiter(routes_response.get('Items', [])):
                                 route_info = {
                                     'route_id': route.get('RouteId'),
                                     'route_key': route.get('RouteKey'),
@@ -270,12 +252,12 @@ class AWSAPIGatewayHandler(BaseHandler):
                                 }
                                 api_info['routes'].append(route_info)
                         except ClientError as e:
-                            print(f"Error getting routes for HTTP API {api_id}: {e}")
+                            logger.error(f"Error getting routes for HTTP API {api_id}: {e}")
 
                         # Get stages for each HTTP API
                         try:
-                            stages_response = apigwv2_client.get_stages(ApiId=api_id)
-                            for stage in stages_response.get('Items', []):
+                            stages_response = await sync_to_async(self.apigwv2_client.get_stages,ApiId=api_id)
+                            async for stage in iter_to_aiter(stages_response.get('Items', [])):
                                 stage_info = {
                                     'stage_name': stage.get('StageName'),
                                     'deployment_id': stage.get('DeploymentId'),
@@ -291,12 +273,12 @@ class AWSAPIGatewayHandler(BaseHandler):
                                 }
                                 api_info['stages'].append(stage_info)
                         except ClientError as e:
-                            print(f"Error getting stages for HTTP API {api_id}: {e}")
+                            logger.error(f"Error getting stages for HTTP API {api_id}: {e}")
 
                         # Get integrations for each HTTP API
                         try:
-                            integrations_response = apigwv2_client.get_integrations(ApiId=api_id)
-                            for integration in integrations_response.get('Items', []):
+                            integrations_response = await sync_to_async(self.apigwv2_client.get_integrations,ApiId=api_id)
+                            async for integration in iter_to_aiter(integrations_response.get('Items', [])):
                                 integration_info = {
                                     'integration_id': integration.get('IntegrationId'),
                                     'integration_type': integration.get('IntegrationType'),
@@ -316,19 +298,18 @@ class AWSAPIGatewayHandler(BaseHandler):
                                 }
                                 api_info['integrations'].append(integration_info)
                         except ClientError as e:
-                            print(f"Error getting integrations for HTTP API {api_id}: {e}")
+                            logger.error(f"Error getting integrations for HTTP API {api_id}: {e}")
 
                         result['http_apis'].append(api_info)
 
             except ClientError as e:
-                print(f"Error fetching HTTP APIs: {e}")
+                logger.error(f"Error fetching HTTP APIs: {e}")
 
             # Get WebSocket APIs (API Gateway v2)
-            print("Fetching WebSocket APIs...")
+            logger.error("Fetching WebSocket APIs...")
             try:
-                websocket_apis_response = apigwv2_client.get_apis()
-
-                for api in websocket_apis_response.get('Items', []):
+                websocket_apis_response = await sync_to_async(self.apigwv2_client.get_apis)
+                async for api in iter_to_aiter(websocket_apis_response.get('Items', [])):
                     if api.get('ProtocolType') == 'WEBSOCKET':
                         api_id = api['ApiId']
                         api_info = {
@@ -349,8 +330,8 @@ class AWSAPIGatewayHandler(BaseHandler):
                         # Get routes, stages, and integrations (same as HTTP APIs)
                         # Routes
                         try:
-                            routes_response = apigwv2_client.get_routes(ApiId=api_id)
-                            for route in routes_response.get('Items', []):
+                            routes_response = await sync_to_async(self.apigwv2_client.get_routes,ApiId=api_id)
+                            async for route in iter_to_aiter(routes_response.get('Items', [])):
                                 route_info = {
                                     'route_id': route.get('RouteId'),
                                     'route_key': route.get('RouteKey'),
@@ -365,12 +346,12 @@ class AWSAPIGatewayHandler(BaseHandler):
                                 }
                                 api_info['routes'].append(route_info)
                         except ClientError as e:
-                            print(f"Error getting routes for WebSocket API {api_id}: {e}")
+                            logger.error(f"Error getting routes for WebSocket API {api_id}: {e}")
 
                         # Stages
                         try:
-                            stages_response = apigwv2_client.get_stages(ApiId=api_id)
-                            for stage in stages_response.get('Items', []):
+                            stages_response = await sync_to_async(self.apigwv2_client.get_stages,ApiId=api_id)
+                            async for stage in iter_to_aiter(stages_response.get('Items', [])):
                                 stage_info = {
                                     'stage_name': stage.get('StageName'),
                                     'deployment_id': stage.get('DeploymentId'),
@@ -386,12 +367,12 @@ class AWSAPIGatewayHandler(BaseHandler):
                                 }
                                 api_info['stages'].append(stage_info)
                         except ClientError as e:
-                            print(f"Error getting stages for WebSocket API {api_id}: {e}")
+                            logger.error(f"Error getting stages for WebSocket API {api_id}: {e}")
 
                         # Integrations
                         try:
-                            integrations_response = apigwv2_client.get_integrations(ApiId=api_id)
-                            for integration in integrations_response.get('Items', []):
+                            integrations_response = await sync_to_async(self.apigwv2_client.get_integrations,ApiId=api_id)
+                            async for integration in iter_to_aiter(integrations_response.get('Items', [])):
                                 integration_info = {
                                     'integration_id': integration.get('IntegrationId'),
                                     'integration_type': integration.get('IntegrationType'),
@@ -411,19 +392,18 @@ class AWSAPIGatewayHandler(BaseHandler):
                                 }
                                 api_info['integrations'].append(integration_info)
                         except ClientError as e:
-                            print(f"Error getting integrations for WebSocket API {api_id}: {e}")
+                            logger.error(f"Error getting integrations for WebSocket API {api_id}: {e}")
 
                         result['websocket_apis'].append(api_info)
 
             except ClientError as e:
-                print(f"Error fetching WebSocket APIs: {e}")
+                logger.error(f"Error fetching WebSocket APIs: {e}")
 
             # Get VPC Links v1 (for REST APIs)
-            print("Fetching VPC Links v1...")
+            logger.debug(f"Fetching VPC Links v1...")
             try:
-                vpc_links_v1_response = apigw_client.get_vpc_links()
-
-                for vpc_link in vpc_links_v1_response.get('items', []):
+                vpc_links_v1_response = await sync_to_async(self.apigw_client.get_vpc_links)
+                async for vpc_link in iter_to_aiter(vpc_links_v1_response.get('items', [])):
                     vpc_link_info = {
                         'id': vpc_link.get('id'),
                         'name': vpc_link.get('name'),
@@ -436,14 +416,13 @@ class AWSAPIGatewayHandler(BaseHandler):
                     result['vpc_links']['v1'].append(vpc_link_info)
 
             except ClientError as e:
-                print(f"Error fetching VPC Links v1: {e}")
+                logger.error(f"Error fetching VPC Links v1: {e}")
 
             # Get VPC Links v2 (for HTTP/WebSocket APIs)
-            print("Fetching VPC Links v2...")
+            logger.debug(f"Fetching VPC Links v2...")
             try:
-                vpc_links_v2_response = apigwv2_client.get_vpc_links()
-
-                for vpc_link in vpc_links_v2_response.get('Items', []):
+                vpc_links_v2_response = await sync_to_async(self.apigwv2_client.get_vpc_links)
+                async for vpc_link in iter_to_aiter(vpc_links_v2_response.get('items', [])):
                     vpc_link_info = {
                         'vpc_link_id': vpc_link.get('VpcLinkId'),
                         'name': vpc_link.get('Name'),
@@ -458,7 +437,7 @@ class AWSAPIGatewayHandler(BaseHandler):
                     result['vpc_links']['v2'].append(vpc_link_info)
 
             except ClientError as e:
-                print(f"Error fetching VPC Links v2: {e}")
+                logger.error(f"Error fetching VPC Links v2: {e}")
 
             # Update summary
             result['summary']['total_rest_apis'] = len(result['rest_apis'])
@@ -470,8 +449,8 @@ class AWSAPIGatewayHandler(BaseHandler):
             return result
 
         except NoCredentialsError:
-            print("Error: AWS credentials not found. Please configure your credentials.")
+            logger.error("Error: AWS credentials not found. Please configure your credentials.")
             return {'error': 'AWS credentials not found'}
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            logger.error(f"Unexpected error: {e}")
             return {'error': str(e)}
