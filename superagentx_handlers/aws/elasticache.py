@@ -6,6 +6,7 @@ import boto3
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from botocore.exceptions import ClientError, NoCredentialsError
+from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +53,14 @@ class AWSElastiCacheHandler(BaseHandler):
                 'subnet_groups': [],
                 'security_groups': [],
                 'vpcs': []
-             }
+            }
 
             # Get all ElasticCache clusters
             logger.info(f"Fetching ElastiCache clusters...")
-            clusters_response = self.elasticache_client.describe_cache_clusters(ShowCacheNodeInfo=True)
+            clusters_response = await sync_to_async(self.elasticache_client.describe_cache_clusters,
+                                                    ShowCacheNodeInfo=True)
 
-            for cluster in clusters_response['CacheClusters']:
+            async for cluster in iter_to_aiter(clusters_response['CacheClusters']):
                 cluster_info = {
                     'cluster_id': cluster['CacheClusterId'],
                     'engine': cluster['Engine'],
@@ -76,9 +78,9 @@ class AWSElastiCacheHandler(BaseHandler):
 
             # Get all ElastiCache replication groups
             logger.info(f"Fetching ElastiCache replication groups...")
-            replication_groups_response = self.elasticache_client.describe_replication_groups()
+            replication_groups_response = await sync_to_async(self.elasticache_client.describe_replication_groups)
 
-            for rep_group in replication_groups_response['ReplicationGroups']:
+            async for rep_group in iter_to_aiter(replication_groups_response['ReplicationGroups']):
                 rep_group_info = {
                     'replication_group_id': rep_group['ReplicationGroupId'],
                     'description': rep_group['Description'],
@@ -95,10 +97,10 @@ class AWSElastiCacheHandler(BaseHandler):
 
             # Get all cache subnet groups to determine VPC information
             logger.info(f"Fetching ElastiCache subnet groups...")
-            subnet_groups_response = self.elasticache_client.describe_cache_subnet_groups()
+            subnet_groups_response = await sync_to_async(self.elasticache_client.describe_cache_subnet_groups)
 
             subnet_group_vpc_mapping = {}
-            for subnet_group in subnet_groups_response['CacheSubnetGroups']:
+            async for subnet_group in iter_to_aiter(subnet_groups_response['CacheSubnetGroups']):
                 subnet_group_info = {
                     'name': subnet_group['CacheSubnetGroupName'],
                     'description': subnet_group['CacheSubnetGroupDescription'],
@@ -106,7 +108,7 @@ class AWSElastiCacheHandler(BaseHandler):
                     'subnets': []
                 }
 
-                for subnet in subnet_group['Subnets']:
+                async for subnet in iter_to_aiter(subnet_group['Subnets']):
                     subnet_info = {
                         'subnet_id': subnet['SubnetIdentifier'],
                         'availability_zone': subnet['SubnetAvailabilityZone']['Name']
@@ -117,33 +119,32 @@ class AWSElastiCacheHandler(BaseHandler):
                 subnet_group_vpc_mapping[subnet_group['CacheSubnetGroupName']] = subnet_group['VpcId']
 
             # Update clusters and replication groups with VPC information
-            for cluster in result['clusters']:
+            async for cluster in iter_to_aiter(result['clusters']):
                 if cluster['cache_subnet_group_name']:
                     cluster['vpc_id'] = subnet_group_vpc_mapping.get(cluster['cache_subnet_group_name'])
 
-            for rep_group in result['replication_groups']:
+            async for rep_group in iter_to_aiter(result['replication_groups']):
                 if rep_group['cache_subnet_group_name']:
                     rep_group['vpc_id'] = subnet_group_vpc_mapping.get(rep_group['cache_subnet_group_name'])
 
             # Get unique security group IDs
             security_group_ids = set()
-            for cluster in result['clusters']:
+            async for cluster in iter_to_aiter(result['clusters']):
                 for sg in cluster['security_groups']:
                     security_group_ids.add(sg['SecurityGroupId'])
 
-            for rep_group in result['replication_groups']:
-                for sg in rep_group['security_groups']:
+            async for rep_group in iter_to_aiter(result['replication_groups']):
+                async for sg in iter_to_aiter(rep_group['security_groups']):
                     security_group_ids.add(sg['SecurityGroupId'])
 
             # Get security group details
             if security_group_ids:
                 logger.info(f"Fetching security groups information...")
                 try:
-                    security_groups_response = self.ec2_client.describe_security_groups(
-                        GroupIds=list(security_group_ids)
-                    )
-
-                    for sg in security_groups_response['SecurityGroups']:
+                    security_groups_response = await sync_to_async(self.ec2_client.describe_security_groups,
+                                                                   GroupIds=list(security_group_ids)
+                                                                   )
+                    async for sg in iter_to_aiter(security_groups_response['SecurityGroups']):
                         sg_info = {
                             'group_id': sg['GroupId'],
                             'group_name': sg['GroupName'],
@@ -154,7 +155,7 @@ class AWSElastiCacheHandler(BaseHandler):
                         }
 
                         # Process inbound rules
-                        for rule in sg.get('IpPermissions', []):
+                        async for rule in iter_to_aiter(sg.get('IpPermissions', [])):
                             rule_info = {
                                 'protocol': rule.get('IpProtocol'),
                                 'from_port': rule.get('FromPort'),
@@ -162,16 +163,16 @@ class AWSElastiCacheHandler(BaseHandler):
                                 'sources': []
                             }
 
-                            for ip_range in rule.get('IpRanges', []):
+                            async for ip_range in iter_to_aiter(rule.get('IpRanges', [])):
                                 rule_info['sources'].append({'type': 'cidr', 'value': ip_range.get('CidrIp')})
 
-                            for sg_ref in rule.get('UserIdGroupPairs', []):
+                            async for sg_ref in iter_to_aiter(rule.get('UserIdGroupPairs', [])):
                                 rule_info['sources'].append({'type': 'security_group', 'value': sg_ref.get('GroupId')})
 
                             sg_info['inbound_rules'].append(rule_info)
 
                         # Process outbound rules
-                        for rule in sg.get('IpPermissionsEgress', []):
+                        async for rule in iter_to_aiter(sg.get('IpPermissionsEgress', [])):
                             rule_info = {
                                 'protocol': rule.get('IpProtocol'),
                                 'from_port': rule.get('FromPort'),
@@ -179,10 +180,10 @@ class AWSElastiCacheHandler(BaseHandler):
                                 'destinations': []
                             }
 
-                            for ip_range in rule.get('IpRanges', []):
+                            async for ip_range in iter_to_aiter(rule.get('IpRanges', [])):
                                 rule_info['destinations'].append({'type': 'cidr', 'value': ip_range.get('CidrIp')})
 
-                            for sg_ref in rule.get('UserIdGroupPairs', []):
+                            async for sg_ref in iter_to_aiter(rule.get('UserIdGroupPairs', [])):
                                 rule_info['destinations'].append(
                                     {'type': 'security_group', 'value': sg_ref.get('GroupId')})
 
@@ -195,7 +196,7 @@ class AWSElastiCacheHandler(BaseHandler):
 
             # Get unique VPC IDs
             vpc_ids = set()
-            for subnet_group in result['subnet_groups']:
+            async for subnet_group in iter_to_aiter(result['subnet_groups']):
                 if subnet_group['vpc_id']:
                     vpc_ids.add(subnet_group['vpc_id'])
 
@@ -203,9 +204,9 @@ class AWSElastiCacheHandler(BaseHandler):
             if vpc_ids:
                 logger.info(f"Fetching VPC information...")
                 try:
-                    vpcs_response = self.ec2_client.describe_vpcs(VpcIds=list(vpc_ids))
+                    vpcs_response = await sync_to_async(self.ec2_client.describe_vpcs,VpcIds=list(vpc_ids))
 
-                    for vpc in vpcs_response['Vpcs']:
+                    async for vpc in iter_to_aiter(vpcs_response['Vpcs']):
                         vpc_info = {
                             'vpc_id': vpc['VpcId'],
                             'cidr_block': vpc['CidrBlock'],
