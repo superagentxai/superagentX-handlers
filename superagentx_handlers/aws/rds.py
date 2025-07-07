@@ -4,7 +4,7 @@ import os
 import boto3
 
 from botocore.exceptions import ClientError
-from datetime import datetime
+from superagentx.utils.helper import sync_to_async, iter_to_aiter
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
@@ -93,8 +93,8 @@ class AWSRDSHandler(BaseHandler):
     async def get_rds_instances(self):
         """Get all RDS instances"""
         try:
-            response = self.rds_client.describe_db_instances()
-            return response['DBInstances']
+            response = await sync_to_async(self.rds_client.describe_db_instances)
+            return response.get("DBInstances", [])
         except ClientError as e:
             print(f"Error getting RDS instances: {e}")
             return []
@@ -102,8 +102,8 @@ class AWSRDSHandler(BaseHandler):
     async def get_rds_clusters(self):
         """Get all RDS clusters"""
         try:
-            response = self.rds_client.describe_db_clusters()
-            return response['DBClusters']
+            response = await sync_to_async(self.rds_client.describe_db_clusters)
+            return response.get("DBClusters", [])
         except ClientError as e:
             print(f"Error getting RDS clusters: {e}")
             return []
@@ -111,8 +111,8 @@ class AWSRDSHandler(BaseHandler):
     async def get_rds_proxies(self):
         """Get all RDS proxies"""
         try:
-            response = self.rds_client.describe_db_proxies()
-            return response['DBProxies']
+            response = await sync_to_async(self.rds_client.describe_db_proxies)
+            return response.get("DBProxies", [])
         except ClientError as e:
             print(f"Error getting RDS proxies: {e}")
             return []
@@ -120,8 +120,8 @@ class AWSRDSHandler(BaseHandler):
     async def get_proxy_targets(self, proxy_name):
         """Get targets for a specific RDS proxy"""
         try:
-            response = self.rds_client.describe_db_proxy_targets(DBProxyName=proxy_name)
-            return response['Targets']
+            response = await sync_to_async(self.rds_client.describe_db_proxy_targets,DBProxyName=proxy_name)
+            return response.get("Targets", [])
         except ClientError as e:
             print(f"Error getting proxy targets for {proxy_name}: {e}")
             return []
@@ -129,10 +129,10 @@ class AWSRDSHandler(BaseHandler):
     async def get_ec2_associations(self):
         """Get EC2 instances to check for RDS associations"""
         try:
-            response = self.ec2_client.describe_instances()
+            response = await sync_to_async(self.ec2_client.describe_instances)
             instances = []
-            for reservation in response['Reservations']:
-                for instance in reservation['Instances']:
+            async for reservation in iter_to_aiter(response.get("Reservations")):
+                async for instance in iter_to_aiter(reservation.get("Instances")):
                     instances.append({
                         'InstanceId': instance['InstanceId'],
                         'InstanceType': instance['InstanceType'],
@@ -150,8 +150,13 @@ class AWSRDSHandler(BaseHandler):
         """Get backup configuration for RDS instance or cluster"""
         try:
             if is_cluster:
-                response = self.rds_client.describe_db_clusters(DBClusterIdentifier=db_identifier)
-                cluster = response['DBClusters'][0]
+                response = await sync_to_async(self.rds_client.describe_db_clusters,DBClusterIdentifier=db_identifier)
+                clusters = response.get("DBClusters", [])
+                if clusters:
+                    cluster = clusters[0]
+                else:
+                    # handle case (log or raise a custom error)
+                    cluster = None
                 return {
                     'BackupRetentionPeriod': cluster.get('BackupRetentionPeriod', 0),
                     'PreferredBackupWindow': cluster.get('PreferredBackupWindow', 'N/A'),
@@ -159,8 +164,13 @@ class AWSRDSHandler(BaseHandler):
                     'BackupType': 'Cluster'
                 }
             else:
-                response = self.rds_client.describe_db_instances(DBInstanceIdentifier=db_identifier)
-                instance = response['DBInstances'][0]
+                response = await sync_to_async(self.rds_client.describe_db_instances,DBInstanceIdentifier=db_identifier)
+                instances = response.get("DBInstances", [])
+                if instances:
+                    instance = instances[0]
+                else:
+                    # handle case (log or raise a custom error)
+                    instance = None
                 return {
                     'BackupRetentionPeriod': instance.get('BackupRetentionPeriod', 0),
                     'PreferredBackupWindow': instance.get('PreferredBackupWindow', 'N/A'),
