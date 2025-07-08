@@ -472,6 +472,63 @@ class AWSS3Handler(BaseHandler):
             return {}
 
     @tool
+    async def list_files(
+            self,
+            bucket_name: str,
+            prefix: str = '',
+            delimiter: str = '/'
+    ):
+        """
+        Lists files (objects) in a S3 bucket under a specified prefix.
+
+        Args:
+            bucket_name (str): The name of the S3 bucket.
+            prefix (str, optional): Limits the response to keys that begin with specified prefix. Defaults to ''.
+            delimiter (str, optional): A delimiter is used to groups keys. Defaults to '/'.
+
+        Returns:
+            list: A list of object keys that match the specific prefix and delimiter.
+        """
+        try:
+            return await sync_to_async(
+                self._storage.list_objects_v2,
+                Bucket=bucket_name,
+                Prefix=prefix,
+                Delimiter=delimiter
+            )
+        except (NoCredentialsError, ClientError) as ex:
+            _msg = 'Error list files!'
+            logger.error(_msg, exc_info=ex)
+            return {}
+
+    @tool
+    async def get_file_info(
+            self,
+            bucket_name: str,
+            file_name: str
+    ):
+        """
+        Retrieves metadata and properties for the specific file (object) in the S3 bucket.
+
+        Args:
+            bucket_name (str): The name of the S3 bucket.
+            file_name (str): The key (name) of the file in the bucket.
+
+        Returns:
+            dict: Metadata and properties of the specified file, such as size, content type and last modified date etc.
+        """
+        try:
+            return await sync_to_async(
+                self._storage.head_object,
+                Bucket=bucket_name,
+                Key=file_name
+            )
+        except (NoCredentialsError, ClientError) as ex:
+            _msg = 'Error get file info!'
+            logger.error(_msg, exc_info=ex)
+            return {}
+
+    @tool
     async def upload_file(
             self,
             file_name: str,
