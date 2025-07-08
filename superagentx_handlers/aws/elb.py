@@ -153,13 +153,10 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
             }
 
             try:
-                listeners = self.elbv2_client.describe_listeners(
+                response = await sync_to_async(
+                    self.elbv2_client.describe_listeners,
                     LoadBalancerArn=alb['LoadBalancerArn']
-                )['Listeners']
-
-                response = await sync_to_async(self.elbv2_client.describe_listeners,
-                                               LoadBalancerArn=alb['LoadBalancerArn']
-                                               )
+                )
                 listeners = response.get('Listeners', [])
 
             except ClientError as e:
@@ -192,9 +189,10 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
                                 target_group_arns.add(tg['TargetGroupArn'])
 
                 try:
-                    response = await sync_to_async(self.elbv2_client.describe_rules,
-                                                   ListenerArn=listener['ListenerArn']
-                                                   )
+                    response = await sync_to_async(
+                        self.elbv2_client.describe_rules,
+                        ListenerArn=listener['ListenerArn']
+                    )
                     rules = response.get('Rules', [])
 
                     async for rule in iter_to_aiter(rules):
@@ -211,9 +209,10 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
                 # Fetch detailed target group info
                 if target_group_arns:
                     try:
-                        tg_response = await sync_to_async(self.elbv2_client.describe_target_groups,
-                                                          TargetGroupArns=list(target_group_arns)
-                                                          )
+                        tg_response = await sync_to_async(
+                            self.elbv2_client.describe_target_groups,
+                            TargetGroupArns=list(target_group_arns)
+                        )
                         async for tg in iter_to_aiter(tg_response.get('TargetGroups', [])):
                             tg_info = {
                                 'arn': tg.get('TargetGroupArn'),
@@ -234,9 +233,10 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
                             }
 
                             try:
-                                health_desc_response = await sync_to_async(self.elbv2_client.describe_target_health,
-                                                                           TargetGroupArn=tg['TargetGroupArn']
-                                                                           )
+                                health_desc_response = await sync_to_async(
+                                    self.elbv2_client.describe_target_health,
+                                    TargetGroupArn=tg['TargetGroupArn']
+                                )
                                 health_desc = health_desc_response.get("TargetHealthDescriptions")
                                 async for target_health in iter_to_aiter(health_desc):
                                     target = target_health.get('Target', {})
