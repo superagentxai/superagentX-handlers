@@ -42,8 +42,8 @@ def get_nested_attr(obj: Any, path: List[str], default: Any = None) -> Any:
 class GCPCloudRunHandler(BaseHandler):
     def __init__(
             self,
-            scope: Optional[List[str]] = None,
-            creds: Optional[str | dict] = None
+            scope: List[str] | None = None,
+            creds: str | dict | None = None
     ):
         super().__init__()
         self.scope = scope or ["https://www.googleapis.com/auth/cloud-platform"]
@@ -77,7 +77,21 @@ class GCPCloudRunHandler(BaseHandler):
         ]
 
     @tool
-    async def get_gcp_cloud_run_details(self) -> Dict[str, Any]:
+    async def get_gcp_cloud_run_details(self) -> dict:
+        """
+            List all Cloud Run services with their container images and return a comprehensive dictionary.
+
+            **Prerequisites:**
+            - Install required package: `pip install google-cloud-run`
+            - Set up authentication with one of:
+            - `export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"`
+            - `export GOOGLE_CLOUD_PROJECT="your-project-id"` <<Optional>>
+
+            **Required IAM permissions:**
+            - `run.services.list`
+            - `run.services.get`
+            - `run.locations.list`
+        """
         all_services = {}
 
         async for location in iter_to_aiter(self.locations):
