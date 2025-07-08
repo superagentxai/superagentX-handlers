@@ -499,7 +499,7 @@ class AWSS3Handler(BaseHandler):
         except (NoCredentialsError, ClientError) as ex:
             _msg = 'Error list files!'
             logger.error(_msg, exc_info=ex)
-            return {}
+            return []
 
     @tool
     async def get_file_info(
