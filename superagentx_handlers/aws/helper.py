@@ -1,11 +1,12 @@
 import boto3
-import os
 
 
-def generate_aws_sts_token(region_name: str,
-                           aws_access_key_id: str,
-                           aws_secret_access_key: str,
-                           duration_seconds=3600):
+def generate_aws_sts_token(
+        region_name: str,
+        aws_access_key_id: str,
+        aws_secret_access_key: str,
+        duration_seconds=3600
+):
     """
     Generate AWS STS temporary credentials.
     :param region_name: AWS Region Name
@@ -15,11 +16,12 @@ def generate_aws_sts_token(region_name: str,
     :return: Dictionary with AccessKeyId, SecretAccessKey, SessionToken, and Expiration
     """
     # Create a boto3 STS client (uses environment credentials or IAM role by default)
-    sts_client = boto3.client('sts',
-                              region_name=region_name,
-                              aws_access_key_id=aws_access_key_id,
-                              aws_secret_access_key=aws_secret_access_key
-                              )
+    sts_client = boto3.client(
+        'sts',
+        region_name=region_name,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key
+    )
 
     # Get session token
     response = sts_client.get_session_token(DurationSeconds=duration_seconds)
