@@ -1,4 +1,3 @@
-import os
 import logging
 
 import pytest
@@ -30,11 +29,7 @@ class TestAWSElasticachePipe:
 
     async def test_aws_elasticache_pipe(self, pipe_client_init: dict):
         llm_client: LLMClient = pipe_client_init.get('llm')
-        aws_ec2_handler = AWSElastiCacheHandler(
-            aws_access_key_id="<ACCESS_KEY>",
-            aws_secret_access_key="<SECRET_ACCESS_KEY",
-            region_name="<REGION>"
-        )
+        aws_ec2_handler = AWSElastiCacheHandler()
         prompt_template = PromptTemplate(system_message=f"You are an AWS Elasticache for GRC")
         engine = Engine(
             llm=llm_client,

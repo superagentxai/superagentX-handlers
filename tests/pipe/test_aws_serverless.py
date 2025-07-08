@@ -28,11 +28,7 @@ class TestAWSLambdaPipe:
 
     async def test_aws_lambda_pipe(self, pipe_client_init: dict):
         llm_client: LLMClient = pipe_client_init.get('llm')
-        aws_ec2_handler = AWSLambdaHandler(
-            aws_access_key_id="<ACCESS_KEY>",
-            aws_secret_access_key="<SECRET_ACCESS_KEY",
-            region_name="<REGION>"
-        )
+        aws_ec2_handler = AWSLambdaHandler()
         prompt_template = PromptTemplate(system_message=f"You are an AWS Lambda for GRC")
         engine = Engine(
             llm=llm_client,

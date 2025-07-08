@@ -43,10 +43,10 @@ class AWSAPIGatewayHandler(BaseHandler):
         """
 
     def __init__(
-        self,
-        aws_access_key_id: str | None = None,
-        aws_secret_access_key: str | None = None,
-        region_name: str | None = None
+            self,
+            aws_access_key_id: str | None = None,
+            aws_secret_access_key: str | None = None,
+            region_name: str | None = None
     ):
         """
         Retrieve comprehensive information about all API Gateways, their APIs, and VPC links.
@@ -67,7 +67,7 @@ class AWSAPIGatewayHandler(BaseHandler):
             **self.credentials
         )
 
-        self. apigwv2_client = boto3.client(
+        self.apigwv2_client = boto3.client(
             'apigatewayv2',
             **self.credentials
         )
@@ -137,25 +137,32 @@ class AWSAPIGatewayHandler(BaseHandler):
                 async for api in iter_to_aiter(rest_apis_response.get('items', [])):
                     api_id = api['id']
                     api_info = {
-                        'id': api_id,
-                        'name': api.get('name', 'N/A'),
-                        'description': api.get('description', 'N/A'),
-                        'version': api.get('version', 'N/A'),
-                        'created_date': str(api.get('createdDate', 'N/A')),
-                        'api_key_source': api.get('apiKeySource', 'N/A'),
-                        'endpoint_configuration': api.get('endpointConfiguration', {}),
-                        'policy': api.get('policy', 'N/A'),
-                        'minimum_compression_size': api.get('minimumCompressionSize', 'N/A'),
-                        'binary_media_types': api.get('binaryMediaTypes', []),
-                        'tags': api.get('tags', {}),
+                        "response": api,
+                        "authorizers": await sync_to_async(self.apigw_client.get_authorizers, restApiId=api_id),
                         'resources': [],
                         'stages': [],
                         'deployments': []
                     }
+                    # api_info = {
+                    #     'id': api_id,
+                    #     'name': api.get('name', 'N/A'),
+                    #     'description': api.get('description', 'N/A'),
+                    #     'version': api.get('version', 'N/A'),
+                    #     'created_date': str(api.get('createdDate', 'N/A')),
+                    #     'api_key_source': api.get('apiKeySource', 'N/A'),
+                    #     'endpoint_configuration': api.get('endpointConfiguration', {}),
+                    #     'policy': api.get('policy', 'N/A'),
+                    #     'minimum_compression_size': api.get('minimumCompressionSize', 'N/A'),
+                    #     'binary_media_types': api.get('binaryMediaTypes', []),
+                    #     'tags': api.get('tags', {}),
+                    #     'resources': [],
+                    #     'stages': [],
+                    #     'deployments': []
+                    # }
 
                     # Get resources for each API
                     try:
-                        resources_response = await sync_to_async(self.apigw_client.get_resources,restApiId=api_id)
+                        resources_response = await sync_to_async(self.apigw_client.get_resources, restApiId=api_id)
                         async for resource in iter_to_aiter(resources_response.get('items', [])):
                             resource_info = {
                                 'id': resource.get('id'),
@@ -171,7 +178,7 @@ class AWSAPIGatewayHandler(BaseHandler):
 
                     # Get stages for each API
                     try:
-                        stages_response = await sync_to_async(self.apigw_client.get_stages,restApiId=api_id)
+                        stages_response = await sync_to_async(self.apigw_client.get_stages, restApiId=api_id)
                         async for stage in iter_to_aiter(stages_response.get('item', [])):
                             stage_info = {
                                 'stage_name': stage.get('stageName'),
@@ -191,7 +198,7 @@ class AWSAPIGatewayHandler(BaseHandler):
 
                     # Get deployments for each API
                     try:
-                        deployments_response = await sync_to_async(self.apigw_client.get_deployments,restApiId=api_id)
+                        deployments_response = await sync_to_async(self.apigw_client.get_deployments, restApiId=api_id)
                         async for deployment in iter_to_aiter(deployments_response.get('items', [])):
                             deployment_info = {
                                 'id': deployment.get('id'),
@@ -217,26 +224,30 @@ class AWSAPIGatewayHandler(BaseHandler):
                     if api.get('ProtocolType') == 'HTTP':
                         api_id = api['ApiId']
                         api_info = {
-                            'api_id': api_id,
-                            'name': api.get('Name', 'N/A'),
-                            'description': api.get('Description', 'N/A'),
-                            'version': api.get('Version', 'N/A'),
-                            'protocol_type': api.get('ProtocolType'),
-                            'route_selection_expression': api.get('RouteSelectionExpression'),
-                            'api_endpoint': api.get('ApiEndpoint'),
-                            'api_gateway_managed': api.get('ApiGatewayManaged', False),
-                            'created_date': str(api.get('CreatedDate', 'N/A')),
-                            'cors_configuration': api.get('CorsConfiguration', {}),
-                            'import_info': api.get('ImportInfo', []),
-                            'tags': api.get('Tags', {}),
-                            'routes': [],
-                            'stages': [],
-                            'integrations': []
+                            "response": api,
+                            "authorizers": await sync_to_async(self.apigwv2_client.get_authorizers, ApiId=api_id)
                         }
+                        # api_info = {
+                        #     'api_id': api_id,
+                        #     'name': api.get('Name', 'N/A'),
+                        #     'description': api.get('Description', 'N/A'),
+                        #     'version': api.get('Version', 'N/A'),
+                        #     'protocol_type': api.get('ProtocolType'),
+                        #     'route_selection_expression': api.get('RouteSelectionExpression'),
+                        #     'api_endpoint': api.get('ApiEndpoint'),
+                        #     'api_gateway_managed': api.get('ApiGatewayManaged', False),
+                        #     'created_date': str(api.get('CreatedDate', 'N/A')),
+                        #     'cors_configuration': api.get('CorsConfiguration', {}),
+                        #     'import_info': api.get('ImportInfo', []),
+                        #     'tags': api.get('Tags', {}),
+                        #     'routes': [],
+                        #     'stages': [],
+                        #     'integrations': [],
+                        # }
 
                         # Get routes for each HTTP API
                         try:
-                            routes_response = await sync_to_async(self.apigwv2_client.get_routes,ApiId=api_id)
+                            routes_response = await sync_to_async(self.apigwv2_client.get_routes, ApiId=api_id)
                             async for route in iter_to_aiter(routes_response.get('Items', [])):
                                 route_info = {
                                     'route_id': route.get('RouteId'),
@@ -256,7 +267,7 @@ class AWSAPIGatewayHandler(BaseHandler):
 
                         # Get stages for each HTTP API
                         try:
-                            stages_response = await sync_to_async(self.apigwv2_client.get_stages,ApiId=api_id)
+                            stages_response = await sync_to_async(self.apigwv2_client.get_stages, ApiId=api_id)
                             async for stage in iter_to_aiter(stages_response.get('Items', [])):
                                 stage_info = {
                                     'stage_name': stage.get('StageName'),
@@ -277,7 +288,8 @@ class AWSAPIGatewayHandler(BaseHandler):
 
                         # Get integrations for each HTTP API
                         try:
-                            integrations_response = await sync_to_async(self.apigwv2_client.get_integrations,ApiId=api_id)
+                            integrations_response = await sync_to_async(self.apigwv2_client.get_integrations,
+                                                                        ApiId=api_id)
                             async for integration in iter_to_aiter(integrations_response.get('Items', [])):
                                 integration_info = {
                                     'integration_id': integration.get('IntegrationId'),
@@ -306,7 +318,7 @@ class AWSAPIGatewayHandler(BaseHandler):
                 logger.error(f"Error fetching HTTP APIs: {e}")
 
             # Get WebSocket APIs (API Gateway v2)
-            logger.error("Fetching WebSocket APIs...")
+            logger.info("Fetching WebSocket APIs...")
             try:
                 websocket_apis_response = await sync_to_async(self.apigwv2_client.get_apis)
                 async for api in iter_to_aiter(websocket_apis_response.get('Items', [])):
@@ -330,7 +342,7 @@ class AWSAPIGatewayHandler(BaseHandler):
                         # Get routes, stages, and integrations (same as HTTP APIs)
                         # Routes
                         try:
-                            routes_response = await sync_to_async(self.apigwv2_client.get_routes,ApiId=api_id)
+                            routes_response = await sync_to_async(self.apigwv2_client.get_routes, ApiId=api_id)
                             async for route in iter_to_aiter(routes_response.get('Items', [])):
                                 route_info = {
                                     'route_id': route.get('RouteId'),
@@ -350,7 +362,7 @@ class AWSAPIGatewayHandler(BaseHandler):
 
                         # Stages
                         try:
-                            stages_response = await sync_to_async(self.apigwv2_client.get_stages,ApiId=api_id)
+                            stages_response = await sync_to_async(self.apigwv2_client.get_stages, ApiId=api_id)
                             async for stage in iter_to_aiter(stages_response.get('Items', [])):
                                 stage_info = {
                                     'stage_name': stage.get('StageName'),
@@ -371,7 +383,8 @@ class AWSAPIGatewayHandler(BaseHandler):
 
                         # Integrations
                         try:
-                            integrations_response = await sync_to_async(self.apigwv2_client.get_integrations,ApiId=api_id)
+                            integrations_response = await sync_to_async(self.apigwv2_client.get_integrations,
+                                                                        ApiId=api_id)
                             async for integration in iter_to_aiter(integrations_response.get('Items', [])):
                                 integration_info = {
                                     'integration_id': integration.get('IntegrationId'),

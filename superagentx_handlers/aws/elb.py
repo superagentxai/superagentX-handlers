@@ -7,6 +7,7 @@ from botocore.exceptions import ClientError
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx_handlers.aws.ec2 import AWSEC2Handler
 
 from superagentx_handlers.aws.helper import generate_aws_sts_token
 
@@ -54,6 +55,12 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
         self.elbv2_client = boto3.client(
             'elbv2',
             **self.credentials
+        )
+
+        self.ec2_handler = AWSEC2Handler(
+            region_name=region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
         )
 
     @tool
@@ -137,7 +144,9 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
                 'availability_zones': [
                     az.get('ZoneName') for az in alb.get('AvailabilityZones', [])
                 ],
-                'security_groups': alb.get('SecurityGroups', []),
+                'security_groups': await self.ec2_handler.get_ec2_security_groups(
+                    group_ids=alb.get('SecurityGroups', [])
+                ),
                 'listeners': {}
             }
 

@@ -53,7 +53,8 @@ class AWSElastiCacheHandler(BaseHandler):
                 'replication_groups': [],
                 'subnet_groups': [],
                 'security_groups': [],
-                'vpcs': []
+                'vpcs': [],
+                'serverless': []
             }
 
             # Get all ElasticCache clusters
@@ -219,6 +220,12 @@ class AWSElastiCacheHandler(BaseHandler):
 
                 except ClientError as e:
                     logger.error(f"Error fetching VPCs: {e}")
+
+            try:
+                response = await sync_to_async(self.elasticache_client.describe_serverless_caches)
+                result['serverless'].append(response)
+            except ClientError as e:
+                logger.error(f"Serverless Error: {e}")
 
             # Print summary
             logger.debug(f"\nSummary:")

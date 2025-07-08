@@ -78,14 +78,17 @@ class AWSEC2Handler(BaseHandler):
             return []
 
     @tool
-    async def get_ec2_security_groups(self):
+    async def get_ec2_security_groups(self, group_ids: list | None = None):
         """
         Collects for EC2 Security Groups, including inbound and outbound rules.
         """
         logger.info("Collecting EC2 Security Group...")
         security_groups_data = []
         try:
-            response = await sync_to_async(self.ec2_client.describe_security_groups)
+            if group_ids:
+                response = await sync_to_async(self.ec2_client.describe_security_groups, GroupIds=group_ids)
+            else:
+                response = await sync_to_async(self.ec2_client.describe_security_groups)
             for sg in response['SecurityGroups']:
                 sg_info = {
                     'GroupId': sg.get('GroupId'),

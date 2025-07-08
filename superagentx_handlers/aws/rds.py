@@ -7,6 +7,7 @@ from botocore.exceptions import ClientError
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx_handlers.aws.ec2 import AWSEC2Handler
 
 from superagentx_handlers.aws.helper import generate_aws_sts_token
 
@@ -47,6 +48,10 @@ class AWSRDSHandler(BaseHandler):
             'ec2',
             **self.credentials
         )
+
+        self.ec2_handlers = AWSEC2Handler(region_name=region,
+                                          aws_access_key_id=aws_access_key_id,
+                                          aws_secret_access_key=aws_secret_access_key)
 
     @tool
     async def get_rds_association_details(self) -> dict:
@@ -140,7 +145,9 @@ class AWSRDSHandler(BaseHandler):
                         'State': instance['State']['Name'],
                         'VpcId': instance.get('VpcId', 'N/A'),
                         'SubnetId': instance.get('SubnetId', 'N/A'),
-                        'SecurityGroups': [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
+                        'SecurityGroups': await self.ec2_handlers.get_ec2_security_groups(
+                            group_ids=[sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
+                        )
                     })
             return instances
         except ClientError as e:

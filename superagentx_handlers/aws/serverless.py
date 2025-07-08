@@ -132,7 +132,7 @@ class AWSLambdaHandler(BaseHandler):
                 except ClientError as e:
                     logger.error(f"Error processing function {function_name}: {e}")
                     continue
-
+        logger.info(all_functions)
         return all_functions
 
     async def get_role_policies(self, role_name):

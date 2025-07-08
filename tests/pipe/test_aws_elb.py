@@ -29,9 +29,7 @@ class TestAWSElasticLoadBalancerPipe:
     async def test_aws_elb_pipe(self, pipe_client_init: dict):
         llm_client: LLMClient = pipe_client_init.get('llm')
         aws_ec2_handler = AWSElasticLoadBalancerHandler(
-            aws_access_key_id="<ACCESS_KEY>",
-            aws_secret_access_key="<SECRET_ACCESS_KEY",
-            region_name="<REGION>"
+
         )
         prompt_template = PromptTemplate(system_message=f"You are an AWS ElasticLoadBalancer for GRC")
         engine = Engine(
@@ -54,7 +52,7 @@ class TestAWSElasticLoadBalancerPipe:
         prompt = f"""
                 If the task has implementing or creating, you just collect evidence the data implemented or created not try to implement.
                 """
-        query_instruct = "Who has permission to create, modify, or delete ELBs (ALB/NLB/CLB)?"
+        query_instruct = "Are security groups attached to ELBs properly restricted?"
         result = await pipe.flow(
             query_instruction=f"{prompt}\n\nTool:AWS ElasticLoadBalancer\n\nTask:{query_instruct}"
         )

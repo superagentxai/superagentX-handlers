@@ -28,11 +28,7 @@ class TestAWSAPIGatewayPipe:
 
     async def test_aws_api_gateway_pipe(self, pipe_client_init: dict):
         llm_client: LLMClient = pipe_client_init.get('llm')
-        aws_ec2_handler = AWSAPIGatewayHandler(
-            aws_access_key_id="<ACCESS_KEY>",
-            aws_secret_access_key="<SECRET_ACCESS_KEY",
-            region_name="<REGION>"
-        )
+        aws_ec2_handler = AWSAPIGatewayHandler()
         prompt_template = PromptTemplate(system_message=f"You are an AWS API Gateway for GRC")
         engine = Engine(
             llm=llm_client,
@@ -54,7 +50,7 @@ class TestAWSAPIGatewayPipe:
         prompt = f"""
         If the task has implementing or creating, you just collect evidence the data implemented or created not try to implement.
         """
-        query_instruct = "Are API Gateway policies periodically reviewed and updated?"
+        query_instruct = "Are any APIs publicly accessible without authentication or authorization?"
         result = await pipe.flow(
             query_instruction=f"{prompt}\n\nTool:AWS API Gateway\n\nTask:{query_instruct}"
         )

@@ -28,11 +28,7 @@ class TestAWSRDSPipe:
 
     async def test_aws_rds_pipe(self, pipe_client_init: dict):
         llm_client: LLMClient = pipe_client_init.get('llm')
-        aws_ec2_handler = AWSRDSHandler(
-            aws_access_key_id="<ACCESS_KEY>",
-            aws_secret_access_key="<SECRET_ACCESS_KEY",
-            region_name="<REGION>"
-        )
+        aws_ec2_handler = AWSRDSHandler()
         prompt_template = PromptTemplate(system_message=f"You are an AWS RDS for GRC")
         engine = Engine(
             llm=llm_client,
@@ -52,10 +48,10 @@ class TestAWSRDSPipe:
             agents=[ec2_agent]
         )
         prompt = f"""
-                        If the task has implementing or creating, you just collect evidence the data implemented or created not try to implement.
-                        """
-        query_instruct = "Is encryption in transit (SSL/TLS) enforced for client connections?"
+        If the task has implementing or creating, you just collect evidence the data implemented or created not try to implement.
+        """
+        query_instruct = "Encrypting sensitive data at rest"
         result = await pipe.flow(
-            query_instruction=f"{prompt}\n\nTool:AWS Elasticache\n\nTask:{query_instruct}"
+            query_instruction=f"{prompt}\n\nTool:AWS RDS\n\nTask:{query_instruct}"
         )
         logger.info(result)
