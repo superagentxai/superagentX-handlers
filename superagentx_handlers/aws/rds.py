@@ -8,6 +8,8 @@ from superagentx.utils.helper import sync_to_async, iter_to_aiter
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
+from superagentx_handlers.aws.helper import generate_aws_sts_token
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,20 +33,19 @@ class AWSRDSHandler(BaseHandler):
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
 
+        self.credentials = generate_aws_sts_token(region_name=region,
+                                                  aws_access_key_id=aws_access_key_id,
+                                                  aws_secret_access_key=aws_secret_access_key)
         # Initialize AWS IAM client
         self.rds_client = boto3.client(
             'rds',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            **self.credentials
         )
 
         # Initialize AWS EC2 client
         self.ec2_client = boto3.client(
             'ec2',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            **self.credentials
         )
 
     @tool
@@ -120,7 +121,7 @@ class AWSRDSHandler(BaseHandler):
     async def get_proxy_targets(self, proxy_name):
         """Get targets for a specific RDS proxy"""
         try:
-            response = await sync_to_async(self.rds_client.describe_db_proxy_targets,DBProxyName=proxy_name)
+            response = await sync_to_async(self.rds_client.describe_db_proxy_targets, DBProxyName=proxy_name)
             return response.get("Targets", [])
         except ClientError as e:
             print(f"Error getting proxy targets for {proxy_name}: {e}")
@@ -150,7 +151,7 @@ class AWSRDSHandler(BaseHandler):
         """Get backup configuration for RDS instance or cluster"""
         try:
             if is_cluster:
-                response = await sync_to_async(self.rds_client.describe_db_clusters,DBClusterIdentifier=db_identifier)
+                response = await sync_to_async(self.rds_client.describe_db_clusters, DBClusterIdentifier=db_identifier)
                 clusters = response.get("DBClusters", [])
                 if clusters:
                     cluster = clusters[0]
@@ -164,7 +165,8 @@ class AWSRDSHandler(BaseHandler):
                     'BackupType': 'Cluster'
                 }
             else:
-                response = await sync_to_async(self.rds_client.describe_db_instances,DBInstanceIdentifier=db_identifier)
+                response = await sync_to_async(self.rds_client.describe_db_instances,
+                                               DBInstanceIdentifier=db_identifier)
                 instances = response.get("DBInstances", [])
                 if instances:
                     instance = instances[0]

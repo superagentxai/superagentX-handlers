@@ -3,6 +3,7 @@ import os
 
 import boto3
 
+from superagentx_handlers.aws.helper import generate_aws_sts_token
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from botocore.exceptions import ClientError, NoCredentialsError
@@ -24,20 +25,20 @@ class AWSElastiCacheHandler(BaseHandler):
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
 
+        self.credentials = generate_aws_sts_token(region_name=region,
+                                                  aws_access_key_id=aws_access_key_id,
+                                                  aws_secret_access_key=aws_secret_access_key)
+
         # Initialize ElastiCache client
         self.elasticache_client = boto3.client(
             'elasticache',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            **self.credentials
         )
 
         # Initialize AWS EC2 client
         self.ec2_client = boto3.client(
             'ec2',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            **self.credentials
         )
 
     @tool
@@ -204,7 +205,7 @@ class AWSElastiCacheHandler(BaseHandler):
             if vpc_ids:
                 logger.info(f"Fetching VPC information...")
                 try:
-                    vpcs_response = await sync_to_async(self.ec2_client.describe_vpcs,VpcIds=list(vpc_ids))
+                    vpcs_response = await sync_to_async(self.ec2_client.describe_vpcs, VpcIds=list(vpc_ids))
 
                     async for vpc in iter_to_aiter(vpcs_response['Vpcs']):
                         vpc_info = {

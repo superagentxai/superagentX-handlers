@@ -9,6 +9,8 @@ from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
+from superagentx_handlers.aws.helper import generate_aws_sts_token
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,28 +27,25 @@ class AWSLambdaHandler(BaseHandler):
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
 
+        self.credentials = generate_aws_sts_token(region_name=region,
+                                                  aws_access_key_id=aws_access_key_id,
+                                                  aws_secret_access_key=aws_secret_access_key)
         # Initialize AWS Lambda client
         self.lambda_client = boto3.client(
             'lambda',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            **self.credentials
         )
 
         # Initialize AWS IAM client
         self.iam_client = boto3.client(
             'iam',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            **self.credentials
         )
 
         # Initialize AWS IAM client
         self.ec2_client = boto3.client(
             'ec2',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            **self.credentials
         )
 
     @tool

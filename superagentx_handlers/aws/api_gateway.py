@@ -5,8 +5,9 @@ from typing import Optional
 import boto3
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 from botocore.exceptions import ClientError, NoCredentialsError
-from typing import Dict, Any
+from typing import Dict
 
+from superagentx_handlers.aws.helper import generate_aws_sts_token
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
@@ -58,18 +59,17 @@ class AWSAPIGatewayHandler(BaseHandler):
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
 
+        self.credentials = generate_aws_sts_token(region_name=region,
+                                                  aws_access_key_id=aws_access_key_id,
+                                                  aws_secret_access_key=aws_secret_access_key)
         self.apigw_client = boto3.client(
             'apigateway',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            **self.credentials
         )
 
         self. apigwv2_client = boto3.client(
             'apigatewayv2',
-            region_name=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            **self.credentials
         )
 
     @tool
