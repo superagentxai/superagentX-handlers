@@ -27,37 +27,37 @@ def ec2_handler_init() -> AWSEC2Handler:
 class TestAWSEC2GRCHandler:
 
     async def test_get_ec2_instances(self, ec2_handler_init: AWSEC2Handler):
-        result = await ec2_handler_init.get_ec2_instances()
+        result = await ec2_handler_init.get_instances()
         logger.info(f"Instances: {result}")
         assert isinstance(result, list)
 
     async def test_get_ec2_security_groups(self, ec2_handler_init: AWSEC2Handler):
-        result = await ec2_handler_init.get_ec2_security_groups()
+        result = await ec2_handler_init.get_security_groups()
         logger.info(f"Security Groups: {result}")
         assert isinstance(result, list)
 
     async def test_get_ec2_volumes(self, ec2_handler_init: AWSEC2Handler):
-        result = await ec2_handler_init.get_ec2_volumes()
+        result = await ec2_handler_init.get_volumes()
         logger.info(f"EBS Volumes: {result}")
         assert isinstance(result, list)
 
     async def test_get_ec2_amis(self, ec2_handler_init: AWSEC2Handler):
-        result = await ec2_handler_init.get_ec2_amis()
+        result = await ec2_handler_init.get_amis()
         logger.info(f"AMIs: {result}")
         assert isinstance(result, list)
 
     async def test_get_ec2_snapshots(self, ec2_handler_init: AWSEC2Handler):
-        result = await ec2_handler_init.get_ec2_snapshots()
+        result = await ec2_handler_init.get_snapshots()
         logger.info(f"Snapshots: {result}")
         assert isinstance(result, list)
 
     async def test_get_ec2_key_pairs(self, ec2_handler_init: AWSEC2Handler):
-        result = await ec2_handler_init.get_ec2_key_pairs()
+        result = await ec2_handler_init.get_key_pairs()
         logger.info(f"Key Pairs: {result}")
         assert isinstance(result, list)
 
     async def test_get_ec2_network_interfaces(self, ec2_handler_init: AWSEC2Handler):
-        result = await ec2_handler_init.get_ec2_network_interfaces()
+        result = await ec2_handler_init.get_network_interfaces()
         logger.info(f"Network Interfaces: {result}")
         assert isinstance(result, list)
 
