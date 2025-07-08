@@ -145,7 +145,7 @@ class AWSRDSHandler(BaseHandler):
                         'State': instance['State']['Name'],
                         'VpcId': instance.get('VpcId', 'N/A'),
                         'SubnetId': instance.get('SubnetId', 'N/A'),
-                        'SecurityGroups': await self.ec2_handlers.get_ec2_security_groups(
+                        'SecurityGroups': await self.ec2_handlers.get_security_groups(
                             group_ids=[sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
                         )
                     })

@@ -32,7 +32,7 @@ class AWSEC2Handler(BaseHandler):
             aws_secret_access_key=aws_secret_access_key
         )
     @tool
-    async def get_ec2_instances(self):
+    async def get_instances(self):
         """
         Collects EC2 instances, including details like state, type, AMI, tags,
         security groups, and IP addresses.
@@ -72,17 +72,32 @@ class AWSEC2Handler(BaseHandler):
             return instances_data
         except ClientError as e:
             logger.error(f"Error collecting EC2 instance: {e}")
-            return []
         except Exception as e:
             logger.error(f"Unexpected error during EC2 instance collection: {e}")
-            return []
+        return []
 
     @tool
-    async def get_ec2_security_groups(self, group_ids: list | None = None):
+    async def get_security_groups(
+            self,
+            group_ids: list = None,
+            group_names: list = None
+    ):
         """
-        Collects for EC2 Security Groups, including inbound and outbound rules.
+        Retrieves information about specified EC2 security groups by ID or name.
+
+        Args:
+            group_ids (list, optional): A list of security group IDs to retrieve. Defaults to all.
+            group_names (list, optional): A list of security group names to retrieve. Defaults to all.
+
+        Returns:
+            list: Details of the matching security groups.
         """
         logger.info("Collecting EC2 Security Group...")
+        kwargs = {}
+        if group_ids:
+            kwargs['GroupIds'] = group_ids
+        if group_names:
+            kwargs['GroupNames'] = group_names
         security_groups_data = []
         try:
             if group_ids:
@@ -101,16 +116,14 @@ class AWSEC2Handler(BaseHandler):
                 }
                 security_groups_data.append(sg_info)
             logger.info(f"Collected for {len(security_groups_data)} Security Groups.")
-            return security_groups_data
         except ClientError as e:
             logger.error(f"Error collecting EC2 security group: {e}")
-            return []
         except Exception as e:
             logger.error(f"Unexpected error during EC2 security group collection: {e}")
-            return []
+        return security_groups_data
 
     @tool
-    async def get_ec2_volumes(self):
+    async def get_volumes(self):
         """
         Collects for EBS Volumes, including size, type, attachment info, and encryption status.
         """
@@ -140,13 +153,12 @@ class AWSEC2Handler(BaseHandler):
             return volumes_data
         except ClientError as e:
             logger.error(f"Error collecting EBS volume: {e}")
-            return []
         except Exception as e:
             logger.error(f"Unexpected error during EBS volume collection: {e}")
-            return []
+        return []
 
     @tool
-    async def get_ec2_amis(self):
+    async def get_amis(self):
         """
         Collects for AMIs (Amazon Machine Images) owned by the account.
         """
@@ -177,7 +189,7 @@ class AWSEC2Handler(BaseHandler):
             return []
 
     @tool
-    async def get_ec2_snapshots(self):
+    async def get_snapshots(self):
         """
         Collects for EBS Snapshots owned by the account.
         """
@@ -210,7 +222,7 @@ class AWSEC2Handler(BaseHandler):
             return []
 
     @tool
-    async def get_ec2_key_pairs(self):
+    async def get_key_pairs(self):
         """
         Collects for EC2 Key Pairs.
         """
@@ -237,7 +249,7 @@ class AWSEC2Handler(BaseHandler):
             return []
 
     @tool
-    async def get_ec2_network_interfaces(self):
+    async def get_network_interfaces(self):
         """
         Collects for Network Interfaces, including associated instances and security groups.
         """
@@ -284,14 +296,6 @@ class AWSEC2Handler(BaseHandler):
         """
         logger.debug("Starting collection of all comprehensive EC2 ...")
         try:
-            # Concurrently collect different categories of EC2
-            instances_task = self.get_ec2_instances()
-            security_groups_task = self.get_ec2_security_groups()
-            volumes_task = self.get_ec2_volumes()
-            amis_task = self.get_ec2_amis()
-            snapshots_task = self.get_ec2_snapshots()
-            key_pairs_task = self.get_ec2_key_pairs()
-            network_interfaces_task = self.get_ec2_network_interfaces()
 
             (
                 ec2_instances,
@@ -302,17 +306,17 @@ class AWSEC2Handler(BaseHandler):
                 ec2_key_pairs,
                 ec2_network_interfaces,
             ) = await asyncio.gather(
-                instances_task,
-                security_groups_task,
-                volumes_task,
-                amis_task,
-                snapshots_task,
-                key_pairs_task,
-                network_interfaces_task,
-                return_exceptions=True # Allows other tasks to complete even if one fails
+                self.get_instances(),
+                self.get_security_groups(),
+                self.get_volumes(),
+                self.get_amis(),
+                self.get_snapshots(),
+                self.get_key_pairs(),
+                self.get_network_interfaces(),
+                # return_exceptions=True # Allows other tasks to complete even if one fails
             )
-
-            data = {
+            logger.debug("Finished collecting all comprehensive EC2.")
+            return {
                 'ec2_instances': ec2_instances if not isinstance(ec2_instances, Exception) else [],
                 'ec2_security_groups': ec2_security_groups if not isinstance(ec2_security_groups, Exception) else [],
                 'ec2_volumes': ec2_volumes if not isinstance(ec2_volumes, Exception) else [],
@@ -321,9 +325,6 @@ class AWSEC2Handler(BaseHandler):
                 'ec2_key_pairs': ec2_key_pairs if not isinstance(ec2_key_pairs, Exception) else [],
                 'ec2_network_interfaces': ec2_network_interfaces if not isinstance(ec2_network_interfaces, Exception) else [],
             }
-
-            logger.debug("Finished collecting all comprehensive EC2.")
-            return data
         except Exception as e:
             logger.error(f"Error during overall EC2  collection: {e}")
             return {}

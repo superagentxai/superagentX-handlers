@@ -144,7 +144,7 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
                 'availability_zones': [
                     az.get('ZoneName') for az in alb.get('AvailabilityZones', [])
                 ],
-                'security_groups': await self.ec2_handler.get_ec2_security_groups(
+                'security_groups': await self.ec2_handler.get_security_groups(
                     group_ids=alb.get('SecurityGroups', [])
                 ),
                 'listeners': {}
