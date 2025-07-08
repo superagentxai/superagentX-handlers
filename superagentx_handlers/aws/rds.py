@@ -34,9 +34,11 @@ class AWSRDSHandler(BaseHandler):
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
 
-        self.credentials = generate_aws_sts_token(region_name=region,
-                                                  aws_access_key_id=aws_access_key_id,
-                                                  aws_secret_access_key=aws_secret_access_key)
+        self.credentials = generate_aws_sts_token(
+            region_name=region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
         # Initialize AWS IAM client
         self.rds_client = boto3.client(
             'rds',
@@ -49,9 +51,11 @@ class AWSRDSHandler(BaseHandler):
             **self.credentials
         )
 
-        self.ec2_handlers = AWSEC2Handler(region_name=region,
-                                          aws_access_key_id=aws_access_key_id,
-                                          aws_secret_access_key=aws_secret_access_key)
+        self.ec2_handlers = AWSEC2Handler(
+            region_name=region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
 
     @tool
     async def get_rds_association_details(self) -> dict:
@@ -123,10 +127,16 @@ class AWSRDSHandler(BaseHandler):
             logger.error(f"Error getting RDS proxies: {e}")
             return []
 
-    async def get_proxy_targets(self, proxy_name: str):
+    async def get_proxy_targets(
+            self,
+            proxy_name: str
+    ):
         """Get targets for a specific RDS proxy"""
         try:
-            response = await sync_to_async(self.rds_client.describe_db_proxy_targets, DBProxyName=proxy_name)
+            response = await sync_to_async(
+                self.rds_client.describe_db_proxy_targets,
+                DBProxyName=proxy_name
+            )
             return response.get("Targets", [])
         except ClientError as e:
             logger.error(f"Error getting proxy targets for {proxy_name}: {e}")
@@ -136,29 +146,36 @@ class AWSRDSHandler(BaseHandler):
         """Get EC2 instances to check for RDS associations"""
         try:
             response = await sync_to_async(self.ec2_client.describe_instances)
-            instances = []
-            async for reservation in iter_to_aiter(response.get("Reservations")):
-                async for instance in iter_to_aiter(reservation.get("Instances")):
-                    instances.append({
-                        'InstanceId': instance['InstanceId'],
-                        'InstanceType': instance['InstanceType'],
-                        'State': instance['State']['Name'],
-                        'VpcId': instance.get('VpcId', 'N/A'),
-                        'SubnetId': instance.get('SubnetId', 'N/A'),
-                        'SecurityGroups': await self.ec2_handlers.get_security_groups(
-                            group_ids=[sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
-                        )
-                    })
-            return instances
+            return [
+                {
+                    'InstanceId': instance['InstanceId'],
+                    'InstanceType': instance['InstanceType'],
+                    'State': instance['State']['Name'],
+                    'VpcId': instance.get('VpcId', 'N/A'),
+                    'SubnetId': instance.get('SubnetId', 'N/A'),
+                    'SecurityGroups': await self.ec2_handlers.get_security_groups(
+                        group_ids=[sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
+                    )
+                }
+                async for reservation in iter_to_aiter(response.get("Reservations"))
+                async for instance in iter_to_aiter(reservation.get("Instances"))
+            ]
         except ClientError as e:
             logger.error(f"Error getting EC2 instances: {e}")
             return []
 
-    async def get_backup_config(self, db_identifier: str, is_cluster=False):
+    async def get_backup_config(
+            self,
+            db_identifier: str,
+            is_cluster=False
+    ):
         """Get backup configuration for RDS instance or cluster"""
         try:
             if is_cluster:
-                response = await sync_to_async(self.rds_client.describe_db_clusters, DBClusterIdentifier=db_identifier)
+                response = await sync_to_async(
+                    self.rds_client.describe_db_clusters,
+                    DBClusterIdentifier=db_identifier
+                )
                 clusters = response.get("DBClusters", [])
                 if clusters:
                     cluster = clusters[0]
@@ -172,14 +189,16 @@ class AWSRDSHandler(BaseHandler):
                     'BackupType': 'Cluster'
                 }
             else:
-                response = await sync_to_async(self.rds_client.describe_db_instances,
-                                               DBInstanceIdentifier=db_identifier)
+                response = await sync_to_async(
+                    self.rds_client.describe_db_instances,
+                    DBInstanceIdentifier=db_identifier
+                )
                 instances = response.get("DBInstances", [])
                 if instances:
                     instance = instances[0]
                 else:
                     # handle case (log or raise a custom error)
-                    instance = None
+                    instance = {}
                 return {
                     'BackupRetentionPeriod': instance.get('BackupRetentionPeriod', 0),
                     'PreferredBackupWindow': instance.get('PreferredBackupWindow', 'N/A'),

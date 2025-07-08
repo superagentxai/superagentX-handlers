@@ -27,9 +27,11 @@ class AWSLambdaHandler(BaseHandler):
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
 
-        self.credentials = generate_aws_sts_token(region_name=region,
-                                                  aws_access_key_id=aws_access_key_id,
-                                                  aws_secret_access_key=aws_secret_access_key)
+        self.credentials = generate_aws_sts_token(
+            region_name=region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
         # Initialize AWS Lambda client
         self.lambda_client = boto3.client(
             'lambda',
@@ -56,7 +58,10 @@ class AWSLambdaHandler(BaseHandler):
         all_functions = []
 
         # Get all Lambda functions
-        paginator = await sync_to_async(self.lambda_client.get_paginator, 'list_functions')
+        paginator = await sync_to_async(
+            self.lambda_client.get_paginator,
+            'list_functions'
+        )
         async for page in iter_to_aiter(paginator.paginate()):
             for function in page['Functions']:
                 function_name = function['FunctionName']
@@ -64,12 +69,18 @@ class AWSLambdaHandler(BaseHandler):
 
                 try:
                     # Get detailed function configuration
-                    function_config = await sync_to_async(self.lambda_client.get_function, FunctionName=function_name)
+                    function_config = await sync_to_async(
+                        self.lambda_client.get_function,
+                        FunctionName=function_name
+                    )
 
                     # Get function policy (resource-based policy)
                     function_policy = None
                     try:
-                        policy_response = await sync_to_async(self.lambda_client.get_policy, FunctionName=function_name)
+                        policy_response = await sync_to_async(
+                            self.lambda_client.get_policy,
+                            FunctionName=function_name
+                        )
                         function_policy = json.loads(policy_response['Policy'])
                     except ClientError as e:
                         if e.response['Error']['Code'] != 'ResourceNotFoundException':
@@ -132,7 +143,6 @@ class AWSLambdaHandler(BaseHandler):
                 except ClientError as e:
                     logger.error(f"Error processing function {function_name}: {e}")
                     continue
-        logger.info(all_functions)
         return all_functions
 
     async def get_role_policies(self, role_name):
@@ -146,16 +156,23 @@ class AWSLambdaHandler(BaseHandler):
 
         try:
             # Get attached managed policies
-            attached_policies = await sync_to_async(self.iam_client.list_attached_role_policies, RoleName=role_name)
+            attached_policies = await sync_to_async(
+                self.iam_client.list_attached_role_policies,
+                RoleName=role_name
+            )
             for policy in attached_policies.get("AttachedPolicies"):
                 policy_arn = policy.get("PolicyArn")
                 try:
                     # Get policy version
-                    policy_info = await sync_to_async(self.iam_client.get_policy, PolicyArn=policy_arn)
-                    policy_version = await sync_to_async(self.iam_client.get_policy_version,
-                                                         PolicyArn=policy_arn,
-                                                         VersionId=policy_info['Policy']['DefaultVersionId']
-                                                         )
+                    policy_info = await sync_to_async(
+                        self.iam_client.get_policy,
+                        PolicyArn=policy_arn
+                    )
+                    policy_version = await sync_to_async(
+                        self.iam_client.get_policy_version,
+                        PolicyArn=policy_arn,
+                        VersionId=policy_info['Policy']['DefaultVersionId']
+                    )
                     policies['AttachedPolicies'].append({
                         'PolicyName': policy.get('PolicyName'),
                         'PolicyArn': policy_arn,
@@ -166,10 +183,17 @@ class AWSLambdaHandler(BaseHandler):
                     logger.warning(f"Error getting policy {policy_arn}: {e}")
 
             # Get inline policies
-            inline_policies = await sync_to_async(self.iam_client.list_role_policies,RoleName=role_name)
+            inline_policies = await sync_to_async(
+                self.iam_client.list_role_policies,
+                RoleName=role_name
+            )
             async for policy_name in iter_to_aiter(inline_policies['PolicyNames']):
                 try:
-                    policy_doc = await sync_to_async(self.iam_client.get_role_policy,RoleName=role_name, PolicyName=policy_name)
+                    policy_doc = await sync_to_async(
+                        self.iam_client.get_role_policy,
+                        RoleName=role_name,
+                        PolicyName=policy_name
+                    )
                     policies['InlinePolicies'].append({
                         'PolicyName': policy_name,
                         'PolicyDocument': policy_doc['PolicyDocument']
@@ -187,7 +211,10 @@ class AWSLambdaHandler(BaseHandler):
         Get details of security groups
         """
         try:
-            response = await sync_to_async(self.ec2_client.describe_security_groups,GroupIds=security_group_ids)
+            response = await sync_to_async(
+                self.ec2_client.describe_security_groups,
+                GroupIds=security_group_ids
+            )
 
             security_groups = []
             async for sg in iter_to_aiter(response['SecurityGroups']):
