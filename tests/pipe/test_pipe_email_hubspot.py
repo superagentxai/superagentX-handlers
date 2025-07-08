@@ -4,7 +4,7 @@ import os
 import pytest
 from superagentx.agent import Agent
 from superagentx.engine import Engine
-from superagentx_handlers.google.gmail import GmailHandler
+from superagentx_handlers.gcp.gmail import GmailHandler
 from superagentx_handlers.crm.hubspot_crm import HubSpotHandler
 from superagentx.llm import LLMClient
 from superagentx.agentxpipe import AgentXPipe

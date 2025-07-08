@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from superagentx_handlers.google.calender import CalenderHandler
+from superagentx_handlers.gcp.calender import CalenderHandler
 
 logger = logging.getLogger(__name__)
 

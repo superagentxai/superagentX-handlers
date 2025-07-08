@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from superagentx_handlers.google.gmail import GmailHandler
+from superagentx_handlers.gcp.gmail import GmailHandler
 
 logger = logging.getLogger(__name__)
 
