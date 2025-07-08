@@ -1,15 +1,13 @@
 import logging
 import os
-from typing import Optional
 
 import boto3
-from superagentx.utils.helper import sync_to_async, iter_to_aiter
 from botocore.exceptions import ClientError, NoCredentialsError
-from typing import Dict
-
-from superagentx_handlers.aws.helper import generate_aws_sts_token
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.utils.helper import sync_to_async, iter_to_aiter
+
+from superagentx_handlers.aws.helper import generate_aws_sts_token
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +109,6 @@ class AWSAPIGatewayHandler(BaseHandler):
             print(result['summary'])
         """
         try:
-
             result = {
                 'rest_apis': [],
                 'http_apis': [],
@@ -130,7 +127,7 @@ class AWSAPIGatewayHandler(BaseHandler):
             }
 
             # Get REST APIs (API Gateway v1)
-            logger.info(f"Fetching REST APIs...")
+            logger.debug(f"Fetching REST APIs...")
             try:
                 rest_apis_response = await sync_to_async(self.apigw_client.get_rest_apis)
 
@@ -143,22 +140,6 @@ class AWSAPIGatewayHandler(BaseHandler):
                         'stages': [],
                         'deployments': []
                     }
-                    # api_info = {
-                    #     'id': api_id,
-                    #     'name': api.get('name', 'N/A'),
-                    #     'description': api.get('description', 'N/A'),
-                    #     'version': api.get('version', 'N/A'),
-                    #     'created_date': str(api.get('createdDate', 'N/A')),
-                    #     'api_key_source': api.get('apiKeySource', 'N/A'),
-                    #     'endpoint_configuration': api.get('endpointConfiguration', {}),
-                    #     'policy': api.get('policy', 'N/A'),
-                    #     'minimum_compression_size': api.get('minimumCompressionSize', 'N/A'),
-                    #     'binary_media_types': api.get('binaryMediaTypes', []),
-                    #     'tags': api.get('tags', {}),
-                    #     'resources': [],
-                    #     'stages': [],
-                    #     'deployments': []
-                    # }
 
                     # Get resources for each API
                     try:
@@ -169,8 +150,11 @@ class AWSAPIGatewayHandler(BaseHandler):
                                 'parent_id': resource.get('parentId'),
                                 'path_part': resource.get('pathPart'),
                                 'path': resource.get('path'),
-                                'resource_methods': list(resource.get('resourceMethods', {}).keys()) if resource.get(
-                                    'resourceMethods') else []
+                                'resource_methods': list(
+                                    resource.get(
+                                        'resourceMethods',
+                                        {}
+                                    ).keys()) if resource.get('resourceMethods') else []
                             }
                             api_info['resources'].append(resource_info)
                     except ClientError as e:
@@ -216,7 +200,7 @@ class AWSAPIGatewayHandler(BaseHandler):
                 logger.error(f"Error fetching REST APIs: {e}")
 
             # Get HTTP APIs (API Gateway v2)
-            print("Fetching HTTP APIs...")
+            logger.debug("Fetching HTTP APIs...")
             try:
                 http_apis_response = await sync_to_async(self.apigwv2_client.get_apis)
 
@@ -227,23 +211,6 @@ class AWSAPIGatewayHandler(BaseHandler):
                             "response": api,
                             "authorizers": await sync_to_async(self.apigwv2_client.get_authorizers, ApiId=api_id)
                         }
-                        # api_info = {
-                        #     'api_id': api_id,
-                        #     'name': api.get('Name', 'N/A'),
-                        #     'description': api.get('Description', 'N/A'),
-                        #     'version': api.get('Version', 'N/A'),
-                        #     'protocol_type': api.get('ProtocolType'),
-                        #     'route_selection_expression': api.get('RouteSelectionExpression'),
-                        #     'api_endpoint': api.get('ApiEndpoint'),
-                        #     'api_gateway_managed': api.get('ApiGatewayManaged', False),
-                        #     'created_date': str(api.get('CreatedDate', 'N/A')),
-                        #     'cors_configuration': api.get('CorsConfiguration', {}),
-                        #     'import_info': api.get('ImportInfo', []),
-                        #     'tags': api.get('Tags', {}),
-                        #     'routes': [],
-                        #     'stages': [],
-                        #     'integrations': [],
-                        # }
 
                         # Get routes for each HTTP API
                         try:
@@ -453,11 +420,13 @@ class AWSAPIGatewayHandler(BaseHandler):
                 logger.error(f"Error fetching VPC Links v2: {e}")
 
             # Update summary
-            result['summary']['total_rest_apis'] = len(result['rest_apis'])
-            result['summary']['total_http_apis'] = len(result['http_apis'])
-            result['summary']['total_websocket_apis'] = len(result['websocket_apis'])
-            result['summary']['total_vpc_links_v1'] = len(result['vpc_links']['v1'])
-            result['summary']['total_vpc_links_v2'] = len(result['vpc_links']['v2'])
+            result['summary'] = {
+                'total_rest_apis': len(result['rest_apis']),
+                'total_http_apis': len(result['http_apis']),
+                'total_websocket_apis': len(result['websocket_apis']),
+                'total_vpc_links_v1': len(result['vpc_links']['v1']),
+                'total_vpc_links_v2': len(result['vpc_links']['v2'])
+            }
 
             return result
 
