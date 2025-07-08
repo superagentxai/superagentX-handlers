@@ -97,7 +97,7 @@ class AWSRDSHandler(BaseHandler):
             response = await sync_to_async(self.rds_client.describe_db_instances)
             return response.get("DBInstances", [])
         except ClientError as e:
-            print(f"Error getting RDS instances: {e}")
+            logger.error(f"Error getting RDS instances: {e}")
             return []
 
     async def get_rds_clusters(self):
@@ -106,7 +106,7 @@ class AWSRDSHandler(BaseHandler):
             response = await sync_to_async(self.rds_client.describe_db_clusters)
             return response.get("DBClusters", [])
         except ClientError as e:
-            print(f"Error getting RDS clusters: {e}")
+            logger.error(f"Error getting RDS clusters: {e}")
             return []
 
     async def get_rds_proxies(self):
@@ -115,16 +115,16 @@ class AWSRDSHandler(BaseHandler):
             response = await sync_to_async(self.rds_client.describe_db_proxies)
             return response.get("DBProxies", [])
         except ClientError as e:
-            print(f"Error getting RDS proxies: {e}")
+            logger.error(f"Error getting RDS proxies: {e}")
             return []
 
-    async def get_proxy_targets(self, proxy_name):
+    async def get_proxy_targets(self, proxy_name: str):
         """Get targets for a specific RDS proxy"""
         try:
             response = await sync_to_async(self.rds_client.describe_db_proxy_targets, DBProxyName=proxy_name)
             return response.get("Targets", [])
         except ClientError as e:
-            print(f"Error getting proxy targets for {proxy_name}: {e}")
+            logger.error(f"Error getting proxy targets for {proxy_name}: {e}")
             return []
 
     async def get_ec2_associations(self):
@@ -144,10 +144,10 @@ class AWSRDSHandler(BaseHandler):
                     })
             return instances
         except ClientError as e:
-            print(f"Error getting EC2 instances: {e}")
+            logger.error(f"Error getting EC2 instances: {e}")
             return []
 
-    async def get_backup_config(self, db_identifier, is_cluster=False):
+    async def get_backup_config(self, db_identifier: str, is_cluster=False):
         """Get backup configuration for RDS instance or cluster"""
         try:
             if is_cluster:
@@ -180,5 +180,5 @@ class AWSRDSHandler(BaseHandler):
                     'BackupType': 'Instance'
                 }
         except ClientError as e:
-            print(f"Error getting backup config for {db_identifier}: {e}")
+            logger.error(f"Error getting backup config for {db_identifier}: {e}")
             return {}
