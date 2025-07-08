@@ -48,9 +48,11 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
 
-        self.credentials = generate_aws_sts_token(region_name=region,
-                                                  aws_access_key_id=aws_access_key_id,
-                                                  aws_secret_access_key=aws_secret_access_key)
+        self.credentials = generate_aws_sts_token(
+            region_name=region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
 
         self.elbv2_client = boto3.client(
             'elbv2',
