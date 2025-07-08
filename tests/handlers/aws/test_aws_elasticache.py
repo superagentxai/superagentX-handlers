@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from superagentx_handlers.aws.elasticache import AWSElastiCacheHandler
+from superagentx_handlers.aws.elasticache import AWSElasticCacheHandler
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def elasticache_handler_init() -> AWSElastiCacheHandler:
-    return AWSElastiCacheHandler()
+def elasticache_handler_init() -> AWSElasticCacheHandler:
+    return AWSElasticCacheHandler()
 
 
 class TestAWSElastiCacheHandler:
 
-    async def test_get_elasticache_functions_info(self, elasticache_handler_init: AWSElastiCacheHandler):
+    async def test_get_elasticache_functions_info(self, elasticache_handler_init: AWSElasticCacheHandler):
         result = await elasticache_handler_init.get_elastic_cache_details()
         logger.info(f"AWS ElastiCache Results: {result}")
         assert isinstance(result, dict)

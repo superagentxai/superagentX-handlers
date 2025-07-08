@@ -3,7 +3,7 @@ from .ec2 import AWSEC2Handler
 from .iam import AWSIAMHandler
 from .api_gateway import AWSAPIGatewayHandler
 from .cloudwatch import AWSCloudWatchHandler
-from .elasticache import AWSElastiCacheHandler
+from .elasticache import AWSElasticCacheHandler
 from .elb import AWSElasticLoadBalancerHandler
 from .rds import AWSRDSHandler
 from .serverless import AWSLambdaHandler

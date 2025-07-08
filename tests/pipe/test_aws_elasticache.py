@@ -6,7 +6,7 @@ from superagentx.engine import Engine
 from superagentx.llm import LLMClient
 from superagentx.agentxpipe import AgentXPipe
 from superagentx.prompt import PromptTemplate
-from superagentx_handlers import AWSElastiCacheHandler
+from superagentx_handlers import AWSElasticCacheHandler
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class TestAWSElasticachePipe:
 
     async def test_aws_elasticache_pipe(self, pipe_client_init: dict):
         llm_client: LLMClient = pipe_client_init.get('llm')
-        aws_ec2_handler = AWSElastiCacheHandler()
+        aws_ec2_handler = AWSElasticCacheHandler()
         prompt_template = PromptTemplate(system_message=f"You are an AWS Elasticache for GRC")
         engine = Engine(
             llm=llm_client,

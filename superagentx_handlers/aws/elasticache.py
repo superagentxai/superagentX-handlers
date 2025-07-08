@@ -12,7 +12,7 @@ from superagentx.utils.helper import sync_to_async, iter_to_aiter
 logger = logging.getLogger(__name__)
 
 
-class AWSElastiCacheHandler(BaseHandler):
+class AWSElasticCacheHandler(BaseHandler):
 
     def __init__(
             self,
@@ -25,11 +25,13 @@ class AWSElastiCacheHandler(BaseHandler):
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
 
-        self.credentials = generate_aws_sts_token(region_name=region,
-                                                  aws_access_key_id=aws_access_key_id,
-                                                  aws_secret_access_key=aws_secret_access_key)
+        self.credentials = generate_aws_sts_token(
+            region_name=region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
 
-        # Initialize ElastiCache client
+        # Initialize ElasticCache client
         self.elasticache_client = boto3.client(
             'elasticache',
             **self.credentials
@@ -59,8 +61,10 @@ class AWSElastiCacheHandler(BaseHandler):
 
             # Get all ElasticCache clusters
             logger.info(f"Fetching ElastiCache clusters...")
-            clusters_response = await sync_to_async(self.elasticache_client.describe_cache_clusters,
-                                                    ShowCacheNodeInfo=True)
+            clusters_response = await sync_to_async(
+                self.elasticache_client.describe_cache_clusters,
+                ShowCacheNodeInfo=True
+            )
 
             async for cluster in iter_to_aiter(clusters_response['CacheClusters']):
                 cluster_info = {
