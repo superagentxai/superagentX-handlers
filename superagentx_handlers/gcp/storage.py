@@ -1,5 +1,6 @@
 import json
 import logging  # Import the logging module
+import os
 
 from google.api_core import iam
 from google.cloud import exceptions as gc_exc
@@ -85,12 +86,17 @@ class GCPStorageHandler(BaseHandler):
 
     def __init__(
             self,
-            service_account_info : dict | str,
+            service_account_info : dict | str | None = None,
     ):
         super().__init__()
-        if isinstance(service_account_info, str):
-            service_account_info = json.loads(service_account_info)
-        _credentials = service_account.Credentials.from_service_account_info(service_account_info)
+        if service_account_info:
+            if isinstance(service_account_info, str):
+                service_account_info = json.loads(service_account_info)
+            _credentials = service_account.Credentials.from_service_account_info(info=service_account_info)
+        else:
+            _creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+            _credentials = service_account.Credentials.from_service_account_file(filename=_creds_path)
+
         self._storage = storage.Client(
             project=service_account_info.get('project_id'),
             credentials=_credentials
