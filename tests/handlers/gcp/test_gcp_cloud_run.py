@@ -22,5 +22,8 @@ class TestGCPCloudRunHandler:
 
     async def test_get_cloud_run_info(self, cloud_run_handler_init: GCPCloudRunHandler):
         result = await cloud_run_handler_init.get_gcp_cloud_run_details()
+        assert result is not None
+        assert 'services' in result
+        assert 'summary' in result
+        assert 'project_id' in result
         logger.info(f"GCP Cloud Run Results: {result}")
-        assert isinstance(result, dict)
