@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from superagentx_handlers.gcp.gcp_cloud_run import GCPCloudRunHandler
+from superagentx_handlers.gcp.cloud_run import GCPCloudRunHandler
 
 logger = logging.getLogger(__name__)
 
