@@ -40,18 +40,14 @@ class GCPFirewallHandler(BaseHandler):
 
         self.credentials = credentials
 
-        # Determine project ID
-        self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
-
-        if not self.project_id:
-            if isinstance(creds, str):
-                path = pathlib.Path(creds)
-                if path.is_file():
-                    with open(creds, 'r') as f:
-                        creds_info = json.load(f)
-                        self.project_id = creds_info.get('project_id')
-            elif isinstance(creds, dict):
-                self.project_id = creds.get('project_id')
+        if isinstance(creds, str):
+            path = pathlib.Path(creds)
+            if path.is_file():
+                with open(creds, 'r') as f:
+                    creds_info = json.load(f)
+                    self.project_id = creds_info.get('project_id')
+        elif isinstance(creds, dict):
+            self.project_id = creds.get('project_id')
 
         self.client = compute_v1.FirewallsClient(credentials=credentials)
 
