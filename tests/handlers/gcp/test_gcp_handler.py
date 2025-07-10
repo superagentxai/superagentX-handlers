@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from gcp.gcp_iam import GCPIAMHandler
+from superagentx_handlers import GCPIAMHandler
 
 logger = logging.getLogger(__name__)
 
