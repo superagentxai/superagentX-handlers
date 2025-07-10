@@ -36,16 +36,33 @@ class AWSS3Handler(BaseHandler):
     @tool
     async def list_buckets(self):
         """
-        Asynchronously retrieves a list of all objects in the specified S3 bucket.
-        This method provides an overview of the contents stored in the bucket, facilitating data management
-        and organization.
+        Asynchronously retrieves a list of all buckets in the specified AWS S3 account.
         """
         try:
             return await sync_to_async(self._storage.list_buckets)
         except (NoCredentialsError, ClientError) as ex:
-            _msg = "Error listing files"
-            logger.error(_msg, exc_info=ex)
+            logger.error("Error listing files!", exc_info=ex)
             return []
+
+    @tool
+    async def get_bucket(self, bucket_name: str):
+        """
+        Retrieves the bucket information for the specified S3 bucket.
+
+        Args:
+            bucket_name (str): The name of the S3 bucket.
+
+        Returns:
+            dict: The bucket information if available.
+        """
+        try:
+            return await sync_to_async(
+                self._storage.head_bucket,
+                Bucket=bucket_name
+            )
+        except  (NoCredentialsError, ClientError) as ex:
+            logger.error('Error get bucket!', exc_info=ex)
+            return {}
 
     @tool
     async def get_bucket_accelerate_config(self, bucket_name: str):
@@ -64,8 +81,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket accelerate config!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket accelerate config!', exc_info=ex)
             return {}
 
     @tool
@@ -85,8 +101,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket acl!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket acl!', exc_info=ex)
             return {}
 
     @tool
@@ -112,8 +127,7 @@ class AWSS3Handler(BaseHandler):
                 Id=analytics_config_id
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket analytics configuration!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket analytics configuration!', exc_info=ex)
             return {}
 
     @tool
@@ -133,8 +147,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket cors!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket cors!', exc_info=ex)
             return {}
 
     @tool
@@ -154,8 +167,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket encryption!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket encryption!', exc_info=ex)
             return {}
 
     @tool
@@ -181,8 +193,7 @@ class AWSS3Handler(BaseHandler):
                 Id=intelli_tier_config_id
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket intelli tier config!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket intelli tier config!', exc_info=ex)
             return {}
 
     @tool
@@ -208,8 +219,7 @@ class AWSS3Handler(BaseHandler):
                 Id=inventory_config_id
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket inventory config!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket inventory config!', exc_info=ex)
             return {}
 
     @tool
@@ -229,8 +239,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket lifecycle config!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket lifecycle config!', exc_info=ex)
             return {}
 
     @tool
@@ -250,8 +259,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket location!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket location!', exc_info=ex)
             return {}
 
     @tool
@@ -271,8 +279,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket logging!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket logging!', exc_info=ex)
             return {}
 
     @tool
@@ -292,8 +299,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket metadata table config!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket metadata table config!', exc_info=ex)
             return {}
 
     @tool
@@ -320,8 +326,7 @@ class AWSS3Handler(BaseHandler):
                 Id=metrics_config_id
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket metrics config!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket metrics config!', exc_info=ex)
             return {}
 
     @tool
@@ -341,8 +346,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket notification config!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket notification config!', exc_info=ex)
             return {}
 
     @tool
@@ -362,8 +366,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except  (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket ownership controls!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket ownership controls!', exc_info=ex)
             return {}
 
     @tool
@@ -383,8 +386,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket policy!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket policy!', exc_info=ex)
             return {}
 
     @tool
@@ -404,8 +406,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket policy status!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket policy status!', exc_info=ex)
             return {}
 
     @tool
@@ -425,8 +426,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket replication!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket replication!', exc_info=ex)
             return {}
 
     @tool
@@ -446,8 +446,7 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket request payment!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket request payment!', exc_info=ex)
             return {}
 
     @tool
@@ -467,24 +466,23 @@ class AWSS3Handler(BaseHandler):
                 Bucket=bucket_name
             )
         except (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get bucket tagging!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get bucket tagging!', exc_info=ex)
             return {}
 
     @tool
     async def list_files(
             self,
             bucket_name: str,
-            prefix: str = '',
-            delimiter: str = '/'
+            prefix: str = None,
+            delimiter: str = None
     ):
         """
         Lists files (objects) in a S3 bucket under a specified prefix.
 
         Args:
             bucket_name (str): The name of the S3 bucket.
-            prefix (str, optional): Limits the response to keys that begin with specified prefix. Defaults to ''.
-            delimiter (str, optional): A delimiter is used to groups keys. Defaults to '/'.
+            prefix (str, optional): Limits the response to keys that begin with specified prefix. Defaults to None.
+            delimiter (str, optional): A delimiter is used to groups keys. Defaults to None.
 
         Returns:
             list: A list of object keys that match the specific prefix and delimiter.
@@ -497,8 +495,7 @@ class AWSS3Handler(BaseHandler):
                 Delimiter=delimiter
             )
         except (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error list files!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error list files!', exc_info=ex)
             return []
 
     @tool
@@ -524,8 +521,7 @@ class AWSS3Handler(BaseHandler):
                 Key=file_name
             )
         except (NoCredentialsError, ClientError) as ex:
-            _msg = 'Error get file info!'
-            logger.error(_msg, exc_info=ex)
+            logger.error('Error get file info!', exc_info=ex)
             return {}
 
     @tool
@@ -554,8 +550,7 @@ class AWSS3Handler(BaseHandler):
             )
             logger.info(f"File '{file_name}' uploaded to '{self.bucket_name}/{object_name}'.")
         except (FileNotFoundError, NoCredentialsError, ClientError) as ex:
-            _msg = f'File {file_name} upload failed!'
-            logger.error(_msg, exc_info=ex)
+            logger.error(f'File {file_name} upload failed!', exc_info=ex)
 
     @tool
     async def download_file(
@@ -582,5 +577,4 @@ class AWSS3Handler(BaseHandler):
             )
             logger.info(f"File '{file_name}' downloaded from '{self.bucket_name}/{object_name}'.")
         except (NoCredentialsError, ClientError) as ex:
-            _msg = f'File {file_name} download failed!'
-            logger.error(_msg, exc_info=ex)
+            logger.error(f'File {file_name} download failed!', exc_info=ex)
