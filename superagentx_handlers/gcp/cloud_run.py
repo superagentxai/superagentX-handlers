@@ -47,7 +47,7 @@ class GCPCloudRunHandler(BaseHandler):
             creds: str | dict | None = None
     ):
         super().__init__()
-        self.scope = scope or ["https://www.googleapis.com/auth/cloud-platform"]
+        self.scope = scope
 
         creds = creds or os.getenv("GCP_AGENT_CREDENTIALS")
         if isinstance(creds, str):
