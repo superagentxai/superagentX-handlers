@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from superagentx_handlers.gcp.gcp_iam import GCPIAMHandler
+from superagentx_handlers.gcp.iam import GCPIAMHandler
 from superagentx.agent import Agent
 from superagentx.agentxpipe import AgentXPipe
 from superagentx.engine import Engine
