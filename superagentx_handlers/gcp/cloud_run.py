@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import pathlib
 from typing import Any, List
 
 from google.cloud import run_v2
@@ -40,6 +41,7 @@ def get_nested_attr(obj: Any, path: List[str], default: Any = None) -> Any:
     return obj
 
 
+
 class GCPCloudRunHandler(BaseHandler):
     def __init__(
             self,
@@ -47,27 +49,37 @@ class GCPCloudRunHandler(BaseHandler):
             creds: str | dict | None = None
     ):
         super().__init__()
+
         self.scope = scope or ["https://www.googleapis.com/auth/cloud-platform"]
 
-        creds = creds or os.getenv("GCP_AGENT_CREDENTIALS")
+        # Load credentials from path or dict
+        creds = creds or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         if isinstance(creds, str):
             credentials = service_account.Credentials.from_service_account_file(
-                creds, scopes=self.scope)
+                creds, scopes=self.scope
+            )
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds
         elif isinstance(creds, dict):
             credentials = service_account.Credentials.from_service_account_info(
-                creds, scopes=self.scope)
+                creds, scopes=self.scope
+            )
         else:
-            raise ValueError("Invalid credentials")
+            raise ValueError("Invalid credentials: must be a file path or a dictionary.")
 
+        self.credentials = credentials
+
+        # Determine project ID
         self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
+
         if not self.project_id:
-            credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS') or creds
-            if credentials_path:
-                with open(credentials_path, 'r') as f:
-                    creds_info = json.load(f)
-                    self.project_id = creds_info.get('project_id')
-        if not self.project_id:
-            raise ValueError("Project ID not found. Set GOOGLE_CLOUD_PROJECT or provide project_id in service account.")
+            if isinstance(creds, str):
+                path = pathlib.Path(creds)
+                if path.is_file():
+                    with open(creds, 'r') as f:
+                        creds_info = json.load(f)
+                        self.project_id = creds_info.get('project_id')
+            elif isinstance(creds, dict):
+                self.project_id = creds.get('project_id')
 
         # Store credentials for lazy client initialization
         self.credentials = credentials

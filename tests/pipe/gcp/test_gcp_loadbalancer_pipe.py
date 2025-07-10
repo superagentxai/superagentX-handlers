@@ -48,7 +48,7 @@ class TestGCPLBPipe:
         prompt = f"""
         If the task has implementing or creating, you just collect evidence the data implemented or created not try to implement.
         """
-        query_instruct = "Are shared VPC permissions and cross-project bindings securely scoped?"
+        query_instruct = "Is HTTPS or SSL enforced for all external-facing LBs (HTTP(S), SSL proxy)?"
         result = await pipe.flow(
             query_instruction=f"{prompt}\n\nTool:GCP LoadBalancer\n\nTask:{query_instruct}"
         )
