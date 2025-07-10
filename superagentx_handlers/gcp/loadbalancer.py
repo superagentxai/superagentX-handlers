@@ -23,7 +23,7 @@ class GCPLoadBalancerHandler(BaseHandler):
         super().__init__()
         self.scope = scope or ["https://www.googleapis.com/auth/cloud-platform"]
 
-        creds = creds or os.getenv("GCP_AGENT_CREDENTIALS")
+        creds = creds or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         if isinstance(creds, str):
             credentials = service_account.Credentials.from_service_account_file(
                 creds, scopes=self.scope)
