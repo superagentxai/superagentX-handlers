@@ -23,7 +23,7 @@ class GCPLoadBalancerHandler(BaseHandler):
     ):
         super().__init__()
 
-        self.scope = scope or ["https://www.googleapis.com/auth/cloud-platform"]
+        self.scope = scope
 
         # Load credentials from path or dict
         creds = creds or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
