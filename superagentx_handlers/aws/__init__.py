@@ -8,3 +8,4 @@ from .elb import AWSElasticLoadBalancerHandler
 from .rds import AWSRDSHandler
 from .serverless import AWSLambdaHandler
 from .security_groups import AWSSecurityGroupsHandler
+from .ecs import AWSECSHandler

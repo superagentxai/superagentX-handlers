@@ -48,6 +48,7 @@ azure-mgmt-storage = "^23.0.1"
 google-cloud-storage = "^3.2.0"
 google-cloud-compute = "^1.31.0"
 google-cloud-run = "^0.10.18"
+azure-storage-blob = "^12.25.1"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"
