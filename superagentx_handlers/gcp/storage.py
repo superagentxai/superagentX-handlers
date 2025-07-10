@@ -329,6 +329,27 @@ class GCPStorageHandler(BaseHandler):
             return {}
 
     @tool
+    async def get_all_buckets_info(self):
+        """
+        Retrieves a list of all buckets and its properties in the specified Google Storage account.
+
+        Returns:
+            list: List of buckets and its properties.
+        """
+        buckets_info = []
+        async for bucket in iter_to_aiter(await self.list_buckets()):
+            bucket_name = bucket.get('name')
+            bucket.update({
+                'acl': await self.get_bucket_acl(bucket_name=bucket_name),
+                'encryption': await self.get_bucket_encryption(bucket_name=bucket_name),
+                'logging': await self.get_bucket_logging(bucket_name=bucket_name),
+                'notification_configuration': await self.get_bucket_notification_config(bucket_name=bucket_name),
+                'iam': await self.get_bucket_iam_policy(bucket_name=bucket_name)
+            })
+            buckets_info.append(bucket)
+        return buckets_info
+
+    @tool
     async def list_files(
             self,
             bucket_name: str,
