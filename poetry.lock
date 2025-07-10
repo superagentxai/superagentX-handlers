@@ -398,6 +398,18 @@ tests = ["cloudpickle ; platform_python_implementation == \"CPython\"", "hypothe
 tests-mypy = ["mypy (>=1.11.1) ; platform_python_implementation == \"CPython\" and python_version >= \"3.10\"", "pytest-mypy-plugins ; platform_python_implementation == \"CPython\" and python_version >= \"3.10\""]
 
 [[package]]
+name = "azure-common"
+version = "1.1.28"
+description = "Microsoft Azure Client Library for Python (Common)"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "azure-common-1.1.28.zip", hash = "sha256:4ac0cd3214e36b6a1b6a442686722a5d8cc449603aa833f3f0f40bda836704a3"},
+    {file = "azure_common-1.1.28-py2.py3-none-any.whl", hash = "sha256:5c12d3dcf4ec20599ca6b0d3e09e86e146353d443e7fcc050c9a19c1f9df20ad"},
+]
+
+[[package]]
 name = "azure-core"
 version = "1.34.0"
 description = "Microsoft Azure Core Library for Python"
@@ -436,6 +448,57 @@ cryptography = ">=2.5"
 msal = ">=1.30.0"
 msal-extensions = ">=1.2.0"
 typing-extensions = ">=4.0.0"
+
+[[package]]
+name = "azure-mgmt-compute"
+version = "34.1.0"
+description = "Microsoft Azure Compute Management Client Library for Python"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "azure_mgmt_compute-34.1.0-py3-none-any.whl", hash = "sha256:5de9c4ba12a79c69e2db3d880f93869a0a80e5c99d8232dbebf6c19b1ada3638"},
+    {file = "azure_mgmt_compute-34.1.0.tar.gz", hash = "sha256:cd9d35d1cc1b8cb0bd241ad55c91b77d14e04ae73c632ada1140135f9c217fe1"},
+]
+
+[package.dependencies]
+azure-common = ">=1.1"
+azure-mgmt-core = ">=1.3.2"
+isodate = ">=0.6.1"
+typing-extensions = ">=4.6.0"
+
+[[package]]
+name = "azure-mgmt-core"
+version = "1.6.0"
+description = "Microsoft Azure Management Core Library for Python"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "azure_mgmt_core-1.6.0-py3-none-any.whl", hash = "sha256:0460d11e85c408b71c727ee1981f74432bc641bb25dfcf1bb4e90a49e776dbc4"},
+    {file = "azure_mgmt_core-1.6.0.tar.gz", hash = "sha256:b26232af857b021e61d813d9f4ae530465255cb10b3dde945ad3743f7a58e79c"},
+]
+
+[package.dependencies]
+azure-core = ">=1.32.0"
+
+[[package]]
+name = "azure-mgmt-storage"
+version = "23.0.1"
+description = "Microsoft Azure Storage Management Client Library for Python"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "azure_mgmt_storage-23.0.1-py3-none-any.whl", hash = "sha256:c74d4ecb5100685b639506d61d7913ab8e940ae898fb0997ad13b34ed2212b43"},
+    {file = "azure_mgmt_storage-23.0.1.tar.gz", hash = "sha256:c3ab2ac9352d1c01d85b56d6716dcce1e4680f920b148a24b4369bb91b9223b4"},
+]
+
+[package.dependencies]
+azure-common = ">=1.1"
+azure-mgmt-core = ">=1.5.0"
+isodate = ">=0.6.1"
+typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "beautifulsoup4"
@@ -1755,6 +1818,18 @@ groups = ["test"]
 files = [
     {file = "iniconfig-2.1.0-py3-none-any.whl", hash = "sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760"},
     {file = "iniconfig-2.1.0.tar.gz", hash = "sha256:3abbd2e30b36733fee78f9c7f7308f2d0050e88f0087fd25c2645f63c773e1c7"},
+]
+
+[[package]]
+name = "isodate"
+version = "0.7.2"
+description = "An ISO 8601 date/time/duration parser and formatter"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "isodate-0.7.2-py3-none-any.whl", hash = "sha256:28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15"},
+    {file = "isodate-0.7.2.tar.gz", hash = "sha256:4cd1aa0f43ca76f4a6c6c0292a85f40b35ec2e43e315b59f06e6d32171a953e6"},
 ]
 
 [[package]]
@@ -5182,4 +5257,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<=3.13"
-content-hash = "a0661aee8f214d2f22d105f3eb836c92d06c57691645e0b0f5134bfbd6119c49"
+content-hash = "5640567829f3b3201cf60e936468f9d7ec36972593dd693fe875dc39b8bca8d5"
