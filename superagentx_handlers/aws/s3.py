@@ -503,8 +503,8 @@ class AWSS3Handler(BaseHandler):
         _list_buckets = await self.list_buckets()
         buckets = _list_buckets.get('Buckets') if _list_buckets else []
 
-        async for bucket_info in iter_to_aiter(buckets):
-            bucket_name = bucket_info.get('Name')
+        async for bucket in iter_to_aiter(buckets):
+            bucket_name = bucket.get('Name')
             buckets_info.append({
                 'accelerate_configuration': await self.get_bucket_accelerate_config(bucket_name=bucket_name),
                 'acl': await self.get_bucket_acl(bucket_name=bucket_name),
