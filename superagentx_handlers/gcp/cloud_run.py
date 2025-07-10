@@ -61,7 +61,7 @@ class GCPCloudRunHandler(BaseHandler):
 
         self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
         if not self.project_id:
-            credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+            credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS') or creds
             if credentials_path:
                 with open(credentials_path, 'r') as f:
                     creds_info = json.load(f)
