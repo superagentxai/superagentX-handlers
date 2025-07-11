@@ -583,7 +583,7 @@ class AWSS3Handler(BaseHandler):
     async def upload_file(
             self,
             file_name: str,
-            object_name: str | None = None
+            object_name: str = None
     ):
         """
         Asynchronously uploads a file to an S3 bucket, specifying the file name and optional object name in the bucket.
@@ -611,7 +611,7 @@ class AWSS3Handler(BaseHandler):
     async def download_file(
             self,
             object_name: str,
-            file_name: str | None = None
+            file_name: str = None
     ):
         """
         Asynchronously downloads a file from an S3 bucket to a local path.
