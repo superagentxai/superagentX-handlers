@@ -1,12 +1,11 @@
 import logging
+import os
 
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
-
-from tests.handlers.test_amazon_web_crawler import aws_client_init
 
 logger = logging.getLogger(__name__)
 
@@ -20,19 +19,19 @@ class AWSS3Handler(BaseHandler):
 
     def __init__(
             self,
-            aws_access_key_id: str,
-            aws_secret_access_key: str,
+            aws_access_key_id: str | None = None,
+            aws_secret_access_key: str | None = None,
             bucket_name: str | None = None,
             region_name: str | None = None
     ):
         super().__init__()
         self.bucket_name = bucket_name
-        self.region = region_name
+        self.region = region_name or os.getenv("AWS_REGION")
         self._storage = boto3.client(
            's3',
             region_name=self.region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            aws_access_key_id=aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
         )
 
     @tool
@@ -584,7 +583,7 @@ class AWSS3Handler(BaseHandler):
     async def upload_file(
             self,
             file_name: str,
-            object_name: str | None = None
+            object_name: str = None
     ):
         """
         Asynchronously uploads a file to an S3 bucket, specifying the file name and optional object name in the bucket.
@@ -612,7 +611,7 @@ class AWSS3Handler(BaseHandler):
     async def download_file(
             self,
             object_name: str,
-            file_name: str | None = None
+            file_name: str = None
     ):
         """
         Asynchronously downloads a file from an S3 bucket to a local path.
