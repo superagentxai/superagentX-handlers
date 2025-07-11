@@ -1,7 +1,9 @@
-import requests
+import os
 from datetime import datetime
-from typing import Union, List, Dict, Optional
+from typing import List, Dict
 
+import aiohttp
+import requests
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
@@ -16,9 +18,7 @@ class GitHubHandler(BaseHandler):
 
     def __init__(self, github_token: str = None):
         super().__init__()
-        self.github_token = github_token
-        if not self.github_token:
-            print("WARNING: GitHub token not provided. API calls may fail.")
+        self.github_token = github_token or os.getenv('GITHUB_TOKEN')
 
     @tool
     async def common_headers(self) -> dict:
@@ -31,45 +31,51 @@ class GitHubHandler(BaseHandler):
         }
 
     @tool
-    async def fetch_all_pages(self, url: str, headers: dict, params: Optional[Dict] = None) -> List[Dict]:
+    async def fetch_all_pages(self, url: str, headers: dict, params: dict = None):
         """Fetches all pages from a paginated GitHub API endpoint."""
         all_data: List[Dict] = []
         current_url = url
         current_params = params if params is not None else {}
 
         while current_url:
-            response = requests.get(current_url, headers=headers, params=current_params)
-            response.raise_for_status()
-            page_data = response.json()
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url=current_url,
+                    headers=headers,
+                    params=current_params
+                ) as resp:
+                    await resp.raise_for_status()
+                    page_data = await resp.json()
 
-            # Handle different API response structures
-            if isinstance(page_data, list):
-                all_data.extend(page_data)
-            elif isinstance(page_data, dict):
-                # Check common keys for lists within dicts
-                found_list = False
-                for key in ["items", "workflow_runs", "jobs", "artifacts", "secrets", "repositories", "packages"]:
-                    if key in page_data and isinstance(page_data[key], list):
-                        all_data.extend(page_data[key])
-                        found_list = True
-                        break
-                if not found_list and page_data:  # If it's a single object response
-                    all_data.append(page_data)
+                    # Handle different API response structures
+                    if isinstance(page_data, list):
+                        all_data.extend(page_data)
+                    elif isinstance(page_data, dict):
+                        # Check common keys for lists within dicts
+                        found_list = False
+                        for key in ["items", "workflow_runs", "jobs", "artifacts", "secrets", "repositories", "packages"]:
+                            if key in page_data and isinstance(page_data[key], list):
+                                all_data.extend(page_data[key])
+                                found_list = True
+                                break
+                        if not found_list and page_data:  # If it's a single object response
+                            all_data.append(page_data)
 
-            # Get next page URL from 'link' header
-            next_url = None
-            if 'link' in response.headers:
-                links = response.headers['link'].split(',')
-                for link in links:
-                    if 'rel="next"' in link:
-                        next_url = link.split(';')[0].strip('<>')
-                        break
-            current_url = next_url
-            current_params = {}  # Clear params for subsequent paginated requests
+                    # Get next page URL from 'link' header
+                    next_url = None
+                    _link = resp.headers.get('link')
+                    if _link:
+                        links = _link.split(',')
+                        for link in links:
+                            if 'rel="next"' in link:
+                                next_url = link.split(';')[0].strip('<>')
+                                break
+                    current_url = next_url
+                    current_params = {}  # Clear params for subsequent paginated requests
         return all_data
 
     @tool
-    async def organization_details(self, org_name: Optional[str] = None) -> Union[dict, List[dict]]:
+    async def organization_details(self, org_name: str = None):
         """
         Retrieves details for a specific GitHub organization, or all organizations
         associated with the authenticated user if no org_name is provided.
@@ -80,24 +86,34 @@ class GitHubHandler(BaseHandler):
             return headers
 
         try:
-            if org_name:
-                org_url = f"{GITHUB_API_BASE_URL}/orgs/{org_name}"
-                response = requests.get(org_url, headers=headers)
-                response.raise_for_status()
-                return response.json()
-            else:
-                orgs = await self.fetch_all_pages(f"{GITHUB_API_BASE_URL}/user/orgs", headers)
-                all_org_details = []
-                for org_data in orgs:
-                    details = await self.organization_details(org_name=org_data.get("login"))
-                    all_org_details.append(details)
-                return {"organizations": all_org_details, "total_organizations_found": len(all_org_details)}
-        except requests.exceptions.RequestException as e:
+            async with aiohttp.ClientSession() as session:
+                if org_name:
+                    org_url = f"{GITHUB_API_BASE_URL}/orgs/{org_name}"
+                    async with session.get(org_url, headers=headers) as resp:
+                        resp.raise_for_status()
+                        return await resp.json()
+                else:
+                    orgs = await self.fetch_all_pages(f"{GITHUB_API_BASE_URL}/user/orgs", headers)
+                    all_org_details = []
+                    for org_data in orgs:
+                        # Reusing the same session for performance
+                        details = await self.organization_details(org_name=org_data.get("login"), session=session)
+                        all_org_details.append(details)
+                    return {
+                        "organizations": all_org_details,
+                        "total_organizations_found": len(all_org_details)
+                    }
+        except aiohttp.ClientResponseError as e:
             return {
-                "error": f"Error fetching organization details: {e.response.status_code if hasattr(e.response, 'status_code') else 'N/A'} - {e.response.text if hasattr(e.response, 'text') else str(e)}"}
+                "error": f"Error fetching organization details: {e.status} - {e.message}"
+            }
+        except Exception as e:
+            return {
+                "error": f"Unexpected error: {str(e)}"
+            }
 
     @tool
-    async def user_details(self, username: Optional[str] = None) -> dict:
+    async def user_details(self, username: str = None):
         """
         Retrieves profile information for a GitHub user.
         If no username is provided, retrieves details for the authenticated user.
@@ -108,16 +124,24 @@ class GitHubHandler(BaseHandler):
             return headers
 
         user_url = f"{GITHUB_API_BASE_URL}/users/{username}" if username else f"{GITHUB_API_BASE_URL}/user"
+
         try:
-            response = requests.get(user_url, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(user_url, headers=headers) as resp:
+                    resp.raise_for_status()
+                    return await resp.json()
+
+        except aiohttp.ClientResponseError as e:
             return {
-                "error": f"Error fetching user details: {e.response.status_code if hasattr(e.response, 'status_code') else 'N/A'} - {e.response.text if hasattr(e.response, 'text') else str(e)}"}
+                "error": f"Error fetching user details: {e.status} - {e.message}"
+            }
+        except Exception as e:
+            return {
+                "error": f"Unexpected error: {str(e)}"
+            }
 
     @tool
-    async def mfa_evidence(self, org_name: Optional[str] = None) -> dict:
+    async def mfa_evidence(self, org_name: str = None):
         """
         Collects MFA compliance evidence and organizational details.
         If org_name is not provided, it collects evidence for all organizations
@@ -129,7 +153,7 @@ class GitHubHandler(BaseHandler):
             return headers
 
         @tool
-        async def single_mfa_evidence(current_org_name: str, common_headers: dict) -> dict:
+        async def single_mfa_evidence(current_org_name: str = None, common_headers: dict = None):
             evidence = {
                 "organization": current_org_name,
                 "timestamp": datetime.now().isoformat(),
@@ -185,9 +209,14 @@ class GitHubHandler(BaseHandler):
                             {"login": member_basic["login"], "id": member_basic["id"]})
                     evidence["all_members_details"].append(detailed_info)
 
-            except requests.exceptions.RequestException as e:
+            except aiohttp.ClientResponseError as e:
                 evidence["errors"].append(
-                    f"Error processing organization '{current_org_name}': {e.response.status_code if hasattr(e.response, 'status_code') else 'N/A'} - {e.response.text if hasattr(e.response, 'text') else str(e)}")
+                    f"Error processing organization '{current_org_name}': {e.status} - {e.message}"
+                )
+            except Exception as e:
+                evidence["errors"].append(
+                    f"Error processing organization '{current_org_name}': {str(e)}"
+                )
 
             return evidence
 
@@ -217,7 +246,7 @@ class GitHubHandler(BaseHandler):
             return all_evidence
 
     @tool
-    async def repository_summary(self, entity_name: Optional[str] = None) -> dict:
+    async def repository_summary(self, entity_name: str= None):
         """
         Retrieves a summary of repositories for a specific user or organization.
         If no entity_name is provided, it fetches repositories for the authenticated user
@@ -233,7 +262,7 @@ class GitHubHandler(BaseHandler):
         processed_repo_full_names = set()
 
         @tool
-        async def process_repositories(repos_list: List[Dict], source_type: str, source_name: str):
+        async def process_repositories(repos_list: List[Dict], source_type: str, source_name: str=None):
             for repo_data in repos_list:
                 full_name = repo_data.get("full_name")
                 if full_name and full_name not in processed_repo_full_names:
@@ -285,7 +314,7 @@ class GitHubHandler(BaseHandler):
                             errors.append(f"Skipping organization entry with missing login: {org_data}")
                 else:
                     errors.append(f"Error fetching organizations for authenticated user: {all_orgs_response['error']}")
-        except requests.exceptions.RequestException as e:
+        except aiohttp.clientRequestException as e:
             errors.append(
                 f"Network or API error during repository fetching: {e.response.status_code if hasattr(e.response, 'status_code') else 'N/A'} - {e.response.text if hasattr(e.response, 'text') else str(e)}")
 
@@ -296,8 +325,8 @@ class GitHubHandler(BaseHandler):
         }
 
     @tool
-    async def list_organization_members(self, org_name: Optional[str] = None, role: Optional[str] = None,
-                                        filter_2fa: Optional[bool] = False) -> Dict[str, Dict]:
+    async def list_organization_members(self, org_name: str = None, role: str= None,
+                                        filter_2fa: bool = False):
         """
         Retrieves a list of members for a given GitHub organization(s),
         returning only member ID, name (login), and total count per organization.
@@ -362,7 +391,7 @@ class GitHubHandler(BaseHandler):
                     "count": len(filtered_members)
                 }
 
-            except requests.exceptions.RequestException as e:
+            except aiohttp.ClientRequestException as e:
                 all_organization_members[current_org_name] = {
                     "error": f"Error fetching members for {current_org_name}: {e.response.status_code if hasattr(e.response, 'status_code') else 'N/A'} - {e.response.text if hasattr(e.response, 'text') else str(e)}"
                 }
@@ -372,9 +401,10 @@ class GitHubHandler(BaseHandler):
                 "error": "No organizations found for the authenticated user, or the provided organization does not exist."
             }
         return all_organization_members
+
     @tool
-    async def repository_branches(self, username: Optional[str] = None,
-                                  repository_name: Optional[str] = None) -> dict:
+    async def repository_branches(self, username: str= None,
+                                  repository_name: str = None) -> dict:
         """
         Retrieves a list of branches for a specified GitHub repository.
         If no username and repository_name are provided, it fetches branches for all
@@ -396,7 +426,7 @@ class GitHubHandler(BaseHandler):
                     "total_branches": len(simplified_branches),
                     "branches": simplified_branches, "errors": []
                 }
-            except requests.exceptions.RequestException as e:
+            except aiohttp.clientRequestException as e:
                 return {
                     "owner": owner, "repository": repo, "total_branches": 0, "branches": [],
                     "errors": [
@@ -435,8 +465,8 @@ class GitHubHandler(BaseHandler):
             }
 
     @tool
-    async def branch_protection(self, username: Optional[str] = None, repository_name: Optional[str] = None,
-                                branch_name: Optional[str] = None) -> dict:
+    async def branch_protection(self, username: str = None, repository_name: str = None,
+                                branch_name: str = None):
         """
         Retrieves branch protection rules for a specific branch in a repository,
         for all branches in a specific repository, or for all branches across
@@ -448,7 +478,7 @@ class GitHubHandler(BaseHandler):
             return headers
 
         @tool
-        async def single_branch_protection(owner: str, repository: str, branch: str) -> dict:
+        async def single_branch_protection(owner: str, repository: str, branch: str):
             try:
                 protection_url = f"{GITHUB_API_BASE_URL}/repos/{owner}/{repository}/branches/{branch}/protection"
                 response = requests.get(protection_url, headers=headers)
@@ -457,7 +487,7 @@ class GitHubHandler(BaseHandler):
                 response.raise_for_status()
                 return {"branch": branch, "protection_enabled": True, "protection_details": response.json(),
                         "errors": []}
-            except requests.exceptions.RequestException as e:
+            except aiohttp.clientRequestException as e:
                 return {
                     "branch": branch, "protection_enabled": False, "protection_details": None,
                     "errors": [
@@ -531,7 +561,7 @@ class GitHubHandler(BaseHandler):
         return all_protection_data
 
     @tool
-    async def pull_requests(self, username: Optional[str] = None, repository_name: Optional[str] = None,
+    async def pull_requests(self, username: str = None, repository_name: str = None,
                             state: str = "all") -> dict:
         """
         Retrieves a list of pull requests for a specified GitHub repository.
@@ -544,7 +574,7 @@ class GitHubHandler(BaseHandler):
             return headers
 
         @tool
-        async def _fetch_pull_requests_for_repo(owner: str, repo: str, pr_state: str) -> dict:
+        async def _fetch_pull_requests_for_repo(owner: str, repo: str, pr_state: str):
             try:
                 pulls_url = f"{GITHUB_API_BASE_URL}/repos/{owner}/{repo}/pulls"
                 params = {"state": pr_state}
@@ -561,7 +591,7 @@ class GitHubHandler(BaseHandler):
                     "total_pull_requests": len(simplified_pulls),
                     "pull_requests": simplified_pulls, "errors": []
                 }
-            except requests.exceptions.RequestException as e:
+            except aiohttp.clientRequestException as e:
                 return {
                     "owner": owner, "repository": repo, "state_requested": pr_state,
                     "total_pull_requests": 0, "pull_requests": [],
@@ -605,8 +635,8 @@ class GitHubHandler(BaseHandler):
         return all_prs_data
 
     @tool
-    async def get_dependabot_alerts(self, username: Optional[str] = None, repository_name: Optional[str] = None,
-                                    state: str = "open") -> dict:
+    async def get_dependabot_alerts(self, username: str = None, repository_name: str = None,
+                                    state: str = "open"):
         """
         Retrieves Dependabot alerts for a specified GitHub repository.
         If no username and repository_name are provided, it fetches alerts for all
@@ -617,7 +647,7 @@ class GitHubHandler(BaseHandler):
         if "error" in headers:
             return headers
 
-        async def _fetch_dependabot_alerts_for_repo(owner: str, repo: str, alert_state: str) -> dict:
+        async def _fetch_dependabot_alerts_for_repo(owner: str, repo: str, alert_state: str):
             try:
                 alerts_url = f"{GITHUB_API_BASE_URL}/repos/{owner}/{repo}/dependabot/alerts"
                 params = {"state": alert_state}
@@ -641,7 +671,7 @@ class GitHubHandler(BaseHandler):
                     "total_alerts": len(simplified_alerts),
                     "alerts": simplified_alerts, "errors": []
                 }
-            except requests.exceptions.RequestException as e:
+            except aiohttp.clientRequestException as e:
                 status_code = getattr(e.response, 'status_code', 'N/A')
                 error_text = getattr(e.response, 'text', str(e))
                 return {
@@ -687,8 +717,8 @@ class GitHubHandler(BaseHandler):
         return all_alerts_data
 
     @tool
-    async def get_repository_dependabot_secrets(self, username: Optional[str] = None,
-                                                repository_name: Optional[str] = None) -> dict:
+    async def get_repository_dependabot_secrets(self, username: str = None,
+                                                repository_name: str= None):
         """
         Retrieves a list of Dependabot secrets (names and metadata, not values) for a specified GitHub repository.
         If no username and repository_name are provided, it fetches secrets for all
@@ -700,66 +730,80 @@ class GitHubHandler(BaseHandler):
             return headers
 
         @tool
-        async def _fetch_secrets_for_repo(owner: str, repo: str) -> dict:
+        async def _fetch_secrets_for_repo(owner: str, repo: str, headers: dict):
             try:
                 secrets_url = f"{GITHUB_API_BASE_URL}/repos/{owner}/{repo}/dependabot/secrets"
-                response = requests.get(secrets_url, headers=headers)
-                response.raise_for_status()
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(secrets_url, headers=headers) as response:
+                        if response.status == 404:
+                            return {
+                                "owner": owner, "repository": repo, "total_secrets": 0, "secrets": [],
+                                "errors": [
+                                    f"No Dependabot secrets found or repository '{owner}/{repo}' does not exist or is inaccessible."]
+                            }
+                        elif response.status == 403:
+                            return {
+                                "owner": owner, "repository": repo, "total_secrets": 0, "secrets": [],
+                                "errors": [
+                                    f"Permission denied to access Dependabot secrets for '{owner}/{repo}'. Check token scopes (requires 'repo' scope)."]
+                            }
 
-                secrets_data = response.json()
-                simplified_secrets = []
-                if "secrets" in secrets_data and isinstance(secrets_data["secrets"], list):
-                    for secret in secrets_data["secrets"]:
-                        simplified_secrets.append({
-                            "name": secret.get("name"),
-                            "created_at": secret.get("created_at"),
-                            "updated_at": secret.get("updated_at")
-                        })
+                        response.raise_for_status()
+                        secrets_data = await response.json()
 
+                        simplified_secrets = []
+                        if "secrets" in secrets_data and isinstance(secrets_data["secrets"], list):
+                            for secret in secrets_data["secrets"]:
+                                simplified_secrets.append({
+                                    "name": secret.get("name"),
+                                    "created_at": secret.get("created_at"),
+                                    "updated_at": secret.get("updated_at")
+                                })
+
+                        return {
+                            "owner": owner, "repository": repo,
+                            "total_secrets": len(simplified_secrets),
+                            "secrets": simplified_secrets,
+                            "errors": []
+                        }
+
+            except aiohttp.ClientResponseError as e:
                 return {
-                    "owner": owner, "repository": repo,
-                    "total_secrets": len(simplified_secrets),
-                    "secrets": simplified_secrets, "errors": []
+                    "owner": owner, "repository": repo, "total_secrets": 0, "secrets": [],
+                    "errors": [f"Error fetching Dependabot secrets for '{owner}/{repo}': {e.status} - {e.message}"]
                 }
-            except requests.exceptions.RequestException as e:
-                status_code = e.response.status_code if hasattr(e.response, 'status_code') else 'N/A'
-                error_message = e.response.text if hasattr(e.response, 'text') else str(e)
+            except Exception as e:
+                return {
+                    "owner": owner, "repository": repo, "total_secrets": 0, "secrets": [],
+                    "errors": [f"Unexpected error fetching secrets for '{owner}/{repo}': {str(e)}"]
+                }
 
-                if status_code == 404:
-                    return {
-                        "owner": owner, "repository": repo, "total_secrets": 0, "secrets": [],
-                        "errors": [
-                            f"No Dependabot secrets found or repository '{owner}/{repo}' does not exist or is inaccessible."]
-                    }
-                elif status_code == 403:
-                    return {
-                        "owner": owner, "repository": repo, "total_secrets": 0, "secrets": [],
-                        "errors": [
-                            f"Permission denied to access Dependabot secrets for '{owner}/{repo}'. Check token scopes (requires 'repo' scope)."]
-                    }
-                else:
-                    return {
-                        "owner": owner, "repository": repo, "total_secrets": 0, "secrets": [],
-                        "errors": [
-                            f"Error fetching Dependabot secrets for '{owner}/{repo}': {status_code} - {error_message}"]
-                    }
+        # Main logic
+        headers = await self.common_headers()
+        if "error" in headers:
+            return {"error": headers["error"]}
 
         all_secrets_data = {
-            "timestamp": datetime.now().isoformat(), "total_repositories_processed": 0,
-            "total_dependabot_secrets_found_overall": 0, "repositories_dependabot_secrets": [], "overall_errors": []
+            "timestamp": datetime.now().isoformat(),
+            "total_repositories_processed": 0,
+            "total_dependabot_secrets_found_overall": 0,
+            "repositories_dependabot_secrets": [],
+            "overall_errors": []
         }
 
         repositories_to_process = []
+
         if username and repository_name:
             repositories_to_process.append({"owner_name": username, "name": repository_name})
             all_secrets_data["total_repositories_processed"] = 1
         else:
-            # Fetch all accessible repositories
             all_repos_summary_response = await self.repository_summary(entity_name=None)
             if "error" in all_repos_summary_response and all_repos_summary_response["errors"] != "None":
                 all_secrets_data["overall_errors"].append(
                     f"Failed to retrieve repository summary: {all_repos_summary_response['errors']}")
+                all_secrets_data["overall_errors"] = all_secrets_data["overall_errors"] or "None"
                 return all_secrets_data
+
             repositories_to_process = all_repos_summary_response.get("repositories", [])
             all_secrets_data["total_repositories_processed"] = len(repositories_to_process)
 
@@ -771,19 +815,18 @@ class GitHubHandler(BaseHandler):
                     f"Skipping repository entry with missing owner or name: {repo_summary}")
                 continue
 
-            secret_result = await _fetch_secrets_for_repo(owner_name, repo_name)
+            secret_result = await _fetch_secrets_for_repo(owner_name, repo_name, headers)
             all_secrets_data["repositories_dependabot_secrets"].append(secret_result)
             all_secrets_data["total_dependabot_secrets_found_overall"] += secret_result["total_secrets"]
             if secret_result["errors"]:
                 all_secrets_data["overall_errors"].extend(secret_result["errors"])
 
-        all_secrets_data["overall_errors"] = all_secrets_data["overall_errors"] if all_secrets_data[
-            "overall_errors"] else "None"
+        all_secrets_data["overall_errors"] = all_secrets_data["overall_errors"] or "None"
         return all_secrets_data
 
     @tool
-    async def list_repository_dependencies(self, username: Optional[str] = None,
-                                           repository_name: Optional[str] = None) -> dict:
+    async def list_repository_dependencies(self, username: str = None,
+                                           repository_name:str = None):
         """
         Retrieves a list of dependencies for a specified GitHub repository using the dependency manifests API.
         If no username and repository_name are provided, it fetches dependencies for all
@@ -795,57 +838,70 @@ class GitHubHandler(BaseHandler):
             return headers
 
         @tool
-        async def _fetch_dependencies_for_repo(owner: str, repo: str) -> dict:
+        async def _fetch_dependencies_for_repo(owner: str, repo: str, headers: dict):
             try:
                 dependencies_url = f"{GITHUB_API_BASE_URL}/repos/{owner}/{repo}/dependency-graph/sbom"
                 sbom_headers = headers.copy()
                 sbom_headers["Accept"] = "application/vnd.github.sbom+json"
 
-                response = requests.get(dependencies_url, headers=sbom_headers)
-                response.raise_for_status()
-                sbom_data = response.json()
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(dependencies_url, headers=sbom_headers) as response:
+                        if response.status == 404:
+                            return {
+                                "owner": owner, "repository": repo, "total_dependencies_found": 0, "dependencies": [],
+                                "errors": [
+                                    f"Dependency graph for '{owner}/{repo}' not found or feature not enabled. Enable Dependency Graph on the repository settings."]
+                            }
+                        elif response.status == 403:
+                            return {
+                                "owner": owner, "repository": repo, "total_dependencies_found": 0, "dependencies": [],
+                                "errors": [
+                                    f"Permission denied to access dependency graph for '{owner}/{repo}'. Check token scopes (requires 'repo' scope)."]
+                            }
 
-                dependencies_list = []
-                if "sbom" in sbom_data and "packages" in sbom_data["sbom"] and isinstance(sbom_data["sbom"]["packages"],
-                                                                                          list):
-                    for package in sbom_data["sbom"]["packages"]:
-                        dependencies_list.append({
-                            "name": package.get("name"),
-                            "version": package.get("version"),
-                            "spdx_id": package.get("SPDXID"),  # SPDX Identifier if available
-                            "license": package.get("licenseConcluded"),  # Concluded license
-                            "purl": package.get("externalRefs", [])[0].get("locator") if package.get(
-                                "externalRefs") else None  # Package URL (PURL)
-                        })
+                        response.raise_for_status()
+                        sbom_data = await response.json()
 
+                        dependencies_list = []
+                        if (
+                                "sbom" in sbom_data and
+                                "packages" in sbom_data["sbom"] and
+                                isinstance(sbom_data["sbom"]["packages"], list)
+                        ):
+                            for package in sbom_data["sbom"]["packages"]:
+                                dependencies_list.append({
+                                    "name": package.get("name"),
+                                    "version": package.get("version"),
+                                    "spdx_id": package.get("SPDXID"),
+                                    "license": package.get("licenseConcluded"),
+                                    "purl": (
+                                        package.get("externalRefs", [])[0].get("locator")
+                                        if package.get("externalRefs") else None
+                                    )
+                                })
+
+                        return {
+                            "owner": owner, "repository": repo,
+                            "total_dependencies_found": len(dependencies_list),
+                            "dependencies": dependencies_list,
+                            "errors": []
+                        }
+
+            except aiohttp.ClientResponseError as e:
                 return {
-                    "owner": owner, "repository": repo,
-                    "total_dependencies_found": len(dependencies_list),
-                    "dependencies": dependencies_list, "errors": []
+                    "owner": owner, "repository": repo, "total_dependencies_found": 0, "dependencies": [],
+                    "errors": [f"Error fetching dependencies for '{owner}/{repo}': {e.status} - {e.message}"]
                 }
-            except requests.exceptions.RequestException as e:
-                status_code = getattr(e.response, 'status_code', 'N/A')
-                error_text = getattr(e.response, 'text', str(e))
+            except Exception as e:
+                return {
+                    "owner": owner, "repository": repo, "total_dependencies_found": 0, "dependencies": [],
+                    "errors": [f"Unexpected error fetching dependencies for '{owner}/{repo}': {str(e)}"]
+                }
 
-                # Specific error handling for dependency graph access
-                if status_code == 404:
-                    return {
-                        "owner": owner, "repository": repo, "total_dependencies_found": 0, "dependencies": [],
-                        "errors": [
-                            f"Dependency graph for '{owner}/{repo}' not found or feature not enabled. Enable Dependency Graph on the repository settings."]
-                    }
-                elif status_code == 403:
-                    return {
-                        "owner": owner, "repository": repo, "total_dependencies_found": 0, "dependencies": [],
-                        "errors": [
-                            f"Permission denied to access dependency graph for '{owner}/{repo}'. Check token scopes (requires 'repo' scope)."]
-                    }
-                else:
-                    return {
-                        "owner": owner, "repository": repo, "total_dependencies_found": 0, "dependencies": [],
-                        "errors": [
-                            f"Error fetching dependencies for '{owner}/{repo}': {status_code} - {error_text}"]
-                    }
+        # ---- Main logic to process all repositories ----
+        headers = await self.common_headers()
+        if "error" in headers:
+            return {"error": headers["error"]}
 
         all_dependencies_data = {
             "timestamp": datetime.now().isoformat(),
@@ -856,6 +912,7 @@ class GitHubHandler(BaseHandler):
         }
 
         repositories_to_process = []
+
         if username and repository_name:
             repositories_to_process.append({"owner_name": username, "name": repository_name})
             all_dependencies_data["total_repositories_processed"] = 1
@@ -864,7 +921,9 @@ class GitHubHandler(BaseHandler):
             if "error" in all_repos_summary_response and all_repos_summary_response["errors"] != "None":
                 all_dependencies_data["overall_errors"].append(
                     f"Failed to retrieve repository summary: {all_repos_summary_response['errors']}")
+                all_dependencies_data["overall_errors"] = all_dependencies_data["overall_errors"] or "None"
                 return all_dependencies_data
+
             repositories_to_process = all_repos_summary_response.get("repositories", [])
             all_dependencies_data["total_repositories_processed"] = len(repositories_to_process)
 
@@ -876,18 +935,17 @@ class GitHubHandler(BaseHandler):
                     f"Skipping repository entry with missing owner or name: {repo_summary}")
                 continue
 
-            dependency_result = await _fetch_dependencies_for_repo(owner_name, repo_name)
+            dependency_result = await _fetch_dependencies_for_repo(owner_name, repo_name, headers)
             all_dependencies_data["repositories_dependencies"].append(dependency_result)
             all_dependencies_data["total_dependencies_found_overall"] += dependency_result["total_dependencies_found"]
             if dependency_result["errors"]:
                 all_dependencies_data["overall_errors"].extend(dependency_result["errors"])
 
-        all_dependencies_data["overall_errors"] = all_dependencies_data["overall_errors"] if all_dependencies_data[
-            "overall_errors"] else "None"
+        all_dependencies_data["overall_errors"] = all_dependencies_data["overall_errors"] or "None"
         return all_dependencies_data
 
     @tool
-    async def get_packages(self, username: Optional[str] = None) -> dict:
+    async def get_packages(self, username: str = None):
         """
         Retrieves a list of packages for a specified GitHub user.
         If no username is provided, it fetches packages for the authenticated user.
@@ -929,7 +987,7 @@ class GitHubHandler(BaseHandler):
             all_packages_data["packages_data"] = simplified_packages
             all_packages_data["total_packages_found_overall"] = len(simplified_packages)
 
-        except requests.exceptions.RequestException as e:
+        except aiohttp.clientRequestException as e:
             status_code = getattr(e.response, 'status_code', 'N/A')
             error_text = getattr(e.response, 'text', str(e))
 
