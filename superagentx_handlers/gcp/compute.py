@@ -12,9 +12,8 @@ from superagentx.utils.helper import sync_to_async
 
 logger = logging.getLogger(__name__)
 
-# Extensive comments are required!
 
-class GcpComputeInfoCollector(BaseHandler):
+class GcpComputeHandler(BaseHandler):
     """
     A handler class to collect comprehensive information about GCP Compute Engine
     resources. This class extends BaseHandler and provides methods for retrieving
