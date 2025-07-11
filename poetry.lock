@@ -484,6 +484,24 @@ files = [
 azure-core = ">=1.32.0"
 
 [[package]]
+name = "azure-mgmt-network"
+version = "29.0.0"
+description = "Microsoft Azure Network Management Client Library for Python"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "azure_mgmt_network-29.0.0-py3-none-any.whl", hash = "sha256:c04dc0d9f6b936abe4ec7c5fa9cee1514795b1f84d2742dead2115dcde33476c"},
+    {file = "azure_mgmt_network-29.0.0.tar.gz", hash = "sha256:577fbc76a195f744b97bac4275e11279f7f3e63c659d98773f3b4a9a6e0943b9"},
+]
+
+[package.dependencies]
+azure-common = ">=1.1"
+azure-mgmt-core = ">=1.5.0"
+isodate = ">=0.6.1"
+typing-extensions = ">=4.6.0"
+
+[[package]]
 name = "azure-mgmt-storage"
 version = "23.0.1"
 description = "Microsoft Azure Storage Management Client Library for Python"
@@ -5520,4 +5538,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<=3.13"
-content-hash = "d9b9ca318d1b48dd0ed7601c25a9f07d69f8d8ab502ab705e442a9cd4866a895"
+content-hash = "754c93363ac2e8873b830a695a9ae75e8e5734f853099b6eeacb9f6a5a50a0a0"
