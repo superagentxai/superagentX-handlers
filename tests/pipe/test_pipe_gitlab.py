@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from superagentx_handlers.gitlab_details import GitlabHandler
+from superagentx_handlers.gitlab_handler import GitlabHandler
 from superagentx.agent import Agent
 from superagentx.agentxpipe import AgentXPipe
 from superagentx.engine import Engine
