@@ -412,7 +412,6 @@ class JiraHandler(BaseHandler):
     @tool
     async def list_all_tickets(
             self,
-            *,
             start: int = 0,
             end: int = 50
     ):
