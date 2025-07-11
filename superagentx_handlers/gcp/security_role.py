@@ -25,70 +25,27 @@ class GcpSecurityRoleHandler(BaseHandler):
 
     def __init__(
             self,
-            creds: str | None = None,
-            scope: list | None = None
+            service_account_info : dict | str | None = None,
     ):
-        """
-        Initializes the GCP Security Info Collector with authenticated clients for
-        Resource Manager and IAM Admin services. It expects the path to a service account
-        key file in the GCP_AGENT_CREDENTIALS environment variable.
-        """
         super().__init__()
-        if not scope:
-            # Broad 'cloud-platform' scope for general access, or more specific scopes
-            # like 'https://www.googleapis.com/auth/cloud-platform'
-            # 'https://www.googleapis.com/auth/cloud-platform' is generally recommended
-            # for broad read access needed by this collector.
-            scope = ["https://www.googleapis.com/auth/cloud-platform"]
-        try:
-            creds_path = creds or os.getenv("GCP_AGENT_CREDENTIALS")
-            if not creds_path:
-                raise ValueError(
-                    "GCP_AGENT_CREDENTIALS environment variable is not set. "
-                    "Please set it to the path of your service account key file."
-                )
+        if service_account_info:
+            if isinstance(service_account_info, str):
+                service_account_info = json.loads(service_account_info)
+            credentials = service_account.Credentials.from_service_account_info(info=service_account_info)
+        else:
+            _creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+            credentials = service_account.Credentials.from_service_account_file(filename=_creds_path)
 
-            # Load credentials file to extract project_id (if available)
-            with open(creds_path, 'r') as f:
-                creds_dict = json.load(f)
-                self.project_from_creds = creds_dict.get("project_id")
+        self.credentials: service_account.Credentials = credentials
+        # Initialize clients for Resource Manager (for Org/Folder/Project IAM)
+        self.organizations_client = resourcemanager_v3.OrganizationsAsyncClient(credentials=credentials)
+        self.folders_client = resourcemanager_v3.FoldersAsyncClient(credentials=credentials)
+        self.projects_client = resourcemanager_v3.ProjectsAsyncClient(credentials=credentials)
 
-            # Load credentials from file path with appropriate scopes.
-            credentials = service_account.Credentials.from_service_account_file(
-                creds_path,
-                scopes=scope
-            )
+        # Initialize IAM Admin client (for Service Accounts and Custom Roles)
+        self.iam_admin_client = iam_admin_v1.IAMAsyncClient(credentials=credentials)
 
-            # Initialize clients for Resource Manager (for Org/Folder/Project IAM)
-            self.organizations_client = resourcemanager_v3.OrganizationsClient(credentials=credentials)
-            self.folders_client = resourcemanager_v3.FoldersClient(credentials=credentials)
-            self.projects_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
-
-            # Initialize IAM Admin client (for Service Accounts and Custom Roles)
-            self.iam_admin_client = iam_admin_v1.IAMClient(credentials=credentials)
-
-            logger.info(
-                "GCP Security clients (Resource Manager, IAM Admin) initialized with custom service account credentials.")
-            if self.project_from_creds:
-                logger.info(f"Default project ID from credentials: '{self.project_from_creds}'")
-            else:
-                logger.warning("Could not determine default project ID from credentials file.")
-
-        except FileNotFoundError:
-            logger.error(f"Credentials file not found at: {creds_path}")
-            raise
-        except json.JSONDecodeError:
-            logger.error(f"Invalid JSON in credentials file: {creds_path}")
-            raise
-        except Exception as e:
-            logger.error(
-                f"Error initializing GCP Security clients: {e}\n"
-                "Please ensure the GCP_AGENT_CREDENTIALS environment variable points to a valid service account key file, "
-                "and that the service account has necessary permissions to list and get IAM-related resources."
-            )
-            raise
-
-    def _get_resource_iam_policy(self, resource_name: str, resource_type: str):
+    async def _get_resource_iam_policy(self, resource_name: str, resource_type: str):
         """
         Helper method to fetch the IAM policy for a given resource (Org, Folder, Project).
 
@@ -102,13 +59,13 @@ class GcpSecurityRoleHandler(BaseHandler):
         policy_details = None
         try:
             if resource_type == "organization":
-                policy = self.organizations_client.get_iam_policy(resource=resource_name)
+                policy = await self.organizations_client.get_iam_policy(resource=resource_name)
             elif resource_type == "folder":
-                policy = self.folders_client.get_iam_policy(resource=resource_name)
+                policy = await self.folders_client.get_iam_policy(resource=resource_name)
             elif resource_type == "project":
-                policy = self.projects_client.get_iam_policy(resource=resource_name)
+                policy = await self.projects_client.get_iam_policy(resource=resource_name)
             else:
-                logger.warning(f"  Unsupported resource type for IAM policy retrieval: {resource_type}")
+                logger.warning(f"Unsupported resource type for IAM policy retrieval: {resource_type}")
                 return None
 
             # etag is bytes, so encode it to base64 and then decode to string for safe representation.
@@ -135,11 +92,13 @@ class GcpSecurityRoleHandler(BaseHandler):
         except exceptions.NotFound:
             logger.warning(f"  {resource_type.capitalize()} '{resource_name}' not found for IAM policy retrieval.")
         except exceptions.Forbidden as e:
-            logger.error(f"  Permission denied to get IAM policy for {resource_type} '{resource_name}'. Error: {e}")
+            logger.error(f"Permission denied to get IAM policy for {resource_type} '{resource_name}'. Error: {e}")
         except Exception as e:
             logger.error(
-                f"  An unexpected error occurred while getting IAM policy for {resource_type} '{resource_name}'. Error: {e}",
-                exc_info=True)
+                f"An unexpected error occurred while getting IAM policy for {resource_type} '{resource_name}'."
+                f" Error: {e}",
+                exc_info=True
+            )
         return policy_details
 
     @tool
@@ -156,11 +115,11 @@ class GcpSecurityRoleHandler(BaseHandler):
         try:
             # Use search_organizations with an empty request to list all accessible organizations.
             # This requires the 'resourcemanager.organizations.search' permission.
-            organizations_response = self.organizations_client.search_organizations()
-            for org in organizations_response:
+            organizations_response = await self.organizations_client.search_organizations()
+            async for org in organizations_response.pages:
                 org_name = org.name  # Format: organizations/ORGANIZATION_ID
                 logger.info(f"Processing Organization: {org.display_name} ({org_name})")
-                iam_policy = self._get_resource_iam_policy(org_name, "organization")
+                iam_policy = await self._get_resource_iam_policy(org_name, "organization")
                 if iam_policy:
                     organization_policies.append({
                         "resource_type": "organization",
@@ -196,11 +155,11 @@ class GcpSecurityRoleHandler(BaseHandler):
         if parent_resource:
             logger.info(f"\nCollecting IAM policies for Folders under {parent_resource}...")
             try:
-                folders_response = self.folders_client.list_folders(parent=parent_resource)
-                for folder in folders_response:
+                folders_response = await self.folders_client.list_folders(parent=parent_resource)
+                async for folder in folders_response:
                     folder_name = folder.name
                     logger.info(f"  Processing Folder: {folder.display_name} ({folder_name})")
-                    iam_policy = self._get_resource_iam_policy(folder_name, "folder")
+                    iam_policy = await self._get_resource_iam_policy(folder_name, "folder")
                     if iam_policy:
                         folder_policies.append({
                             "resource_type": "folder",
@@ -216,16 +175,20 @@ class GcpSecurityRoleHandler(BaseHandler):
                 logger.error(
                     "Ensure the service account/user has 'resourcemanager.folders.list' permission on the parent.")
             except Exception as e:
-                logger.error(f"An error occurred while collecting folder IAM evidence under {parent_resource}: {e}",
-                             exc_info=True)
+                logger.error(
+                    f"An error occurred while collecting folder IAM evidence under {parent_resource}: {e}",
+                    exc_info=True
+                )
         else:
             logger.info(
-                f"\nCollecting IAM policies for Folders (discovering via organizations, starting from {organization_id or 'all accessible'})...")
+                f"\nCollecting IAM policies for Folders (discovering via organizations,"
+                f" starting from {organization_id or 'all accessible'})..."
+            )
             organizations = []
             if organization_id:
                 # If a specific organization ID is given, try to get just that organization
                 try:
-                    org = self.organizations_client.get_organization(name=f"organizations/{organization_id}")
+                    org = await self.organizations_client.get_organization(name=f"organizations/{organization_id}")
                     organizations.append(org)
                 except exceptions.NotFound:
                     logger.warning(f"Organization '{organization_id}' not found. Cannot collect folders.")
@@ -239,8 +202,7 @@ class GcpSecurityRoleHandler(BaseHandler):
                 org_name = f"organizations/{org['organization_id']}" if isinstance(org, dict) else org.name
                 org_display_name = org['display_name'] if isinstance(org, dict) else org.display_name
                 logger.info(f"  Listing folders under Organization: {org_display_name} ({org_name})")
-                folder_policies.extend(await self.collect_folder_iam(
-                    parent_resource=org_name))  # Recursive call with organization as parent
+                folder_policies.extend(await self.collect_folder_iam(parent_resource=org_name))
         return folder_policies
 
     @tool
@@ -263,7 +225,7 @@ class GcpSecurityRoleHandler(BaseHandler):
         logger.info(f"\nCollecting IAM policies for Projects...")
         project_policies = []
         query_string = ""
-        target_project_id = project_id or self.project_from_creds
+        target_project_id = project_id or self.credentials.project_id
 
         if parent_resource:
             try:
@@ -276,7 +238,9 @@ class GcpSecurityRoleHandler(BaseHandler):
                 logger.info(f"  Searching projects under parent: {parent_resource}")
             except ValueError:
                 logger.warning(
-                    f"⚠️ Invalid parent_resource format: {parent_resource}. Expected 'organizations/ORG_ID' or 'folders/FOLDER_ID'")
+                    f"⚠️ Invalid parent_resource format: {parent_resource}."
+                    f" Expected 'organizations/ORG_ID' or 'folders/FOLDER_ID'"
+                )
                 return []
         elif target_project_id:
             # If a specific project_id is provided or derived from creds, search for that project directly
@@ -287,12 +251,11 @@ class GcpSecurityRoleHandler(BaseHandler):
             # An empty query string for search_projects will list all accessible projects.
 
         try:
-            projects_response = self.projects_client.search_projects(query=query_string)
-
-            for project in projects_response:
+            projects_response = await self.projects_client.search_projects(query=query_string)
+            async for project in projects_response:
                 project_name = project.name  # Format: projects/PROJECT_ID
                 logger.info(f"Processing Project: {project.display_name} ({project_name})")
-                iam_policy = self._get_resource_iam_policy(project_name, "project")
+                iam_policy = await self._get_resource_iam_policy(project_name, "project")
                 if iam_policy:
                     project_policies.append({
                         "resource_type": "project",
@@ -305,7 +268,9 @@ class GcpSecurityRoleHandler(BaseHandler):
         except exceptions.Forbidden as e:
             logger.error(f"Permission denied to search projects. Error: {e}")
             logger.error(
-                "Ensure the service account/user has 'resourcemanager.projects.search' permission on the relevant resources.")
+                "Ensure the service account/user has 'resourcemanager.projects.search' permission on the relevant"
+                " resources."
+            )
         except Exception as e:
             logger.error(f"An unexpected error occurred while collecting project IAM evidence: {e}", exc_info=True)
         return project_policies
@@ -322,7 +287,7 @@ class GcpSecurityRoleHandler(BaseHandler):
         Returns:
             list: A list of dictionaries, each containing service account details.
         """
-        target_project_id = project_id or self.project_from_creds
+        target_project_id = project_id or self.credentials.project_id
         if not target_project_id:
             logger.error(
                 "No project ID provided and could not determine from credentials. Cannot collect service accounts.")
@@ -334,7 +299,7 @@ class GcpSecurityRoleHandler(BaseHandler):
             # List service accounts for the project.
             # This requires 'iam.serviceAccounts.list' permission.
             request = iam_admin_v1.ListServiceAccountsRequest(name=f"projects/{target_project_id}")
-            for sa in self.iam_admin_client.list_service_accounts(request=request):
+            async for sa in await self.iam_admin_client.list_service_accounts(request=request):
                 sa_details = {
                     "name": sa.name,
                     "email": sa.email,
@@ -347,12 +312,16 @@ class GcpSecurityRoleHandler(BaseHandler):
                 }
                 service_accounts_info.append(sa_details)
             logger.info(
-                f"  Successfully collected {len(service_accounts_info)} service accounts in project '{target_project_id}'.")
+                f"  Successfully collected {len(service_accounts_info)} service accounts in project"
+                f" '{target_project_id}'."
+            )
         except exceptions.Forbidden as e:
             logger.error(f"  Permission denied to list service accounts in project '{target_project_id}'. Error: {e}")
             logger.error("Ensure the service account/user has 'iam.serviceAccounts.list' permission.")
         except Exception as e:
-            logger.error(f"  An unexpected error occurred while collecting service accounts. Error: {e}", exc_info=True)
+            logger.error(
+                f"  An unexpected error occurred while collecting service accounts. Error: {e}", exc_info=True
+            )
         return service_accounts_info
 
     @tool
@@ -384,7 +353,7 @@ class GcpSecurityRoleHandler(BaseHandler):
             # List custom roles for the specified parent.
             # This requires 'iam.roles.list' permission on the parent.
             request = iam_admin_v1.ListRolesRequest(parent=parent_resource, show_deleted=False)
-            for role in self.iam_admin_client.list_roles(request=request):
+            async for role in await self.iam_admin_client.list_roles(request=request):
                 # Filter for custom roles (role.name contains 'projects/' or 'organizations/')
                 # and exclude predefined roles (which don't have a parent in their name structure)
                 if parent_resource in role.name:
@@ -403,7 +372,9 @@ class GcpSecurityRoleHandler(BaseHandler):
             logger.error(f"  Permission denied to list custom roles for '{parent_resource}'. Error: {e}")
             logger.error("Ensure the service account/user has 'iam.roles.list' permission on the parent.")
         except Exception as e:
-            logger.error(f"  An unexpected error occurred while collecting custom roles. Error: {e}", exc_info=True)
+            logger.error(
+                f"  An unexpected error occurred while collecting custom roles. Error: {e}", exc_info=True
+            )
         return custom_roles_info
 
     @tool
@@ -415,13 +386,11 @@ class GcpSecurityRoleHandler(BaseHandler):
 
         Args:
             project_id (str, optional): The ID of the GCP project to collect security info from.
-                                        If provided, will collect project-level IAM, service accounts,
-                                        and project-level custom roles. Defaults to the project ID from credentials if
-                                        organization_id is also None.
+            If provided, will collect project-level IAM, service accounts, and project-level custom roles. Defaults
+             to the project ID from credentials if organization_id is also None.
             organization_id (str, optional): The ID of the GCP organization to collect security info from.
-                                             If provided, will collect organization-level IAM and custom roles.
-                                             If both project_id and organization_id are None, it will attempt
-                                             to collect organization-level IAM and then traverse to folders/projects.
+            If provided, will collect organization-level IAM and custom roles. If both project_id and organization_id
+             are None, it will attempt to collect organization-level IAM and then traverse to folders/projects.
 
         Returns:
             dict: A dictionary containing lists of collected security information.
@@ -437,13 +406,13 @@ class GcpSecurityRoleHandler(BaseHandler):
         logger.info(f"\nStarting comprehensive collection of GCP Security information...")
 
         try:
-            target_project_id = project_id or self.project_from_creds
+            target_project_id = project_id or self.credentials.project_id
 
             if organization_id:
                 logger.info(f"Collecting security info for organization: {organization_id}")
                 # Collect organization-level IAM policies
                 org_name = f"organizations/{organization_id}"
-                iam_policy = self._get_resource_iam_policy(org_name, "organization")
+                iam_policy = await self._get_resource_iam_policy(org_name, "organization")
                 if iam_policy:
                     all_security_info["organization_iam_policies"].append({
                         "resource_type": "organization",
@@ -460,15 +429,16 @@ class GcpSecurityRoleHandler(BaseHandler):
 
                 for folder in folders_in_org:
                     folder_name = f"folders/{folder['folder_id']}"
-                    projects_in_folder = await self.collect_project_iam(
-                        parent_resource=folder_name)  # Use tool function
+                    projects_in_folder = await self.collect_project_iam(parent_resource=folder_name)
                     all_security_info["project_iam_policies"].extend(projects_in_folder)
                     # Collect service accounts and custom roles for each project found
                     for proj in projects_in_folder:
                         all_security_info["service_accounts"].extend(
-                            await self.collect_service_accounts(project_id=proj['project_id']))  # Use tool function
+                            await self.collect_service_accounts(project_id=proj['project_id'])
+                        )  # Use tool function
                         all_security_info["custom_roles"].extend(
-                            await self.collect_custom_roles(project_id=proj['project_id']))  # Use tool function
+                            await self.collect_custom_roles(project_id=proj['project_id'])
+                        )  # Use tool function
 
                 # Also collect projects directly under the organization
                 projects_in_org = await self.collect_project_iam(parent_resource=org_name)  # Use tool function
@@ -483,7 +453,7 @@ class GcpSecurityRoleHandler(BaseHandler):
                 logger.info(f"Collecting security info for project: {target_project_id}")
                 # Collect project-level IAM policies
                 project_name = f"projects/{target_project_id}"
-                iam_policy = self._get_resource_iam_policy(project_name, "project")
+                iam_policy = await self._get_resource_iam_policy(project_name, "project")
                 if iam_policy:
                     all_security_info["project_iam_policies"].append({
                         "resource_type": "project",
@@ -515,8 +485,7 @@ class GcpSecurityRoleHandler(BaseHandler):
 
                     for folder in folders_in_org:
                         folder_name = f"folders/{folder['folder_id']}"
-                        projects_in_folder = await self.collect_project_iam(
-                            parent_resource=folder_name)  # Use tool function
+                        projects_in_folder = await self.collect_project_iam(parent_resource=folder_name)
                         all_security_info["project_iam_policies"].extend(projects_in_folder)
                         # Collect service accounts and custom roles for each project found
                         for proj in projects_in_folder:
@@ -551,7 +520,7 @@ class GcpSecurityRoleHandler(BaseHandler):
 
 
         except Exception as e:
-            logger.error(f"An unexpected error occurred during comprehensive Security info collection: {e}",
-                         exc_info=True)
-
+            logger.error(
+                f"An unexpected error occurred during comprehensive Security info collection: {e}", exc_info=True
+            )
         return all_security_info
