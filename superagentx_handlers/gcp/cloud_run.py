@@ -1,9 +1,7 @@
 import asyncio
-import json
 import logging
 import os
-import pathlib
-from typing import Any, List
+from typing import Any
 
 from google.cloud import run_v2
 from google.oauth2 import service_account
@@ -32,7 +30,7 @@ def get_attr(obj: Any, attr: Any, default: Any = None) -> Any:
         return default
 
 
-def get_nested_attr(obj: Any, path: List[str], default: Any = None) -> Any:
+def get_nested_attr(obj: Any, path: list[str], default: Any = None) -> Any:
     """Helper to navigate nested attributes."""
     for p in path:
         obj = get_attr(obj, p)
@@ -52,30 +50,22 @@ class GCPCloudRunHandler(BaseHandler):
         # Load credentials from path or dict
         creds = creds or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         if isinstance(creds, str):
-            credentials = service_account.Credentials.from_service_account_file(
+            credentials: service_account.Credentials = service_account.Credentials.from_service_account_file(
                 creds
             )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds
         elif isinstance(creds, dict):
-            credentials = service_account.Credentials.from_service_account_info(
+            credentials: service_account.Credentials = service_account.Credentials.from_service_account_info(
                 creds
             )
         else:
             raise ValueError("Invalid credentials: must be a file path or a dictionary.")
 
         self.credentials = credentials
-
-        if isinstance(creds, str):
-            path = pathlib.Path(creds)
-            if path.is_file():
-                with open(creds, 'r') as f:
-                    creds_info = json.load(f)
-                    self.project_id = creds_info.get('project_id')
-        elif isinstance(creds, dict):
-            self.project_id = creds.get('project_id')
+        self.project_id = credentials.project_id
+        if not self.project_id:
+            raise ValueError("Project ID not found. Set GOOGLE_CLOUD_PROJECT or provide project_id in service account.")
 
         # Store credentials for lazy client initialization
-        self.credentials = credentials
         self._client = None
         self.locations = [
             'us-central1', 'us-east1', 'us-east4', 'us-west1', 'us-west2', 'us-west3', 'us-west4',
@@ -211,7 +201,7 @@ class GCPCloudRunHandler(BaseHandler):
 
         return service_info
 
-    async def _fetch_services_for_location(self, location: str) -> List[dict]:
+    async def _fetch_services_for_location(self, location: str) -> list[dict]:
         """Fetch services for a specific location."""
         services = []
         try:
