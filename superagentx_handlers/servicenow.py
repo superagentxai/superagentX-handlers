@@ -19,7 +19,7 @@ class ServiceNowHandler(BaseHandler):
         self.username = username or os.getenv("SERVICENOW_USERNAME")
         self.password = password or os.getenv("SERVICENOW_PASSWORD")
 
-        self.client = ServiceNowClient(self.instance, self.username, self.password)
+        self.client = ServiceNowClient(self.instance, auth=(self.username, self.password))
         self.asset_table = self.client.GlideRecord('alm_asset')
         self.incident_table = self.client.GlideRecord('incident')
         self.user_table = self.client.GlideRecord('sys_user')
