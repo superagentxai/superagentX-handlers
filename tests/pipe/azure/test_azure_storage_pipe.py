@@ -5,14 +5,14 @@ from superagentx.engine import Engine
 from superagentx.llm import LLMClient
 from superagentx.agentxpipe import AgentXPipe
 from superagentx.prompt import PromptTemplate
-from superagentx_handlers import AzureNSGHandler
+from superagentx_handlers import AzureStorageHandler
 
 logger = logging.getLogger(__name__)
 
 '''
  Run Pytest:  
 
-   1. pytest --log-cli-level=INFO tests/pipe/microsoft/test_azure_nsg_pipe.py::TestAzureNSGPipe::test_azure_nsg_pipe
+   1. pytest --log-cli-level=INFO tests/pipe/azure/test_azure_storage_pipe.py::TestAzureStoragePipe::test_azure_storage_pipe
 '''
 
 @pytest.fixture
@@ -24,19 +24,19 @@ def pipe_client_init() -> dict:
     response = {'llm': llm_client}
     return response
 
-class TestAzureNSGPipe:
+class TestAzureStoragePipe:
 
-    async def test_azure_nsg_pipe(self, pipe_client_init: dict):
+    async def test_azure_storage_pipe(self, pipe_client_init: dict):
         llm_client: LLMClient = pipe_client_init.get('llm')
-        azure_vm_handler = AzureNSGHandler()
-        prompt_template = PromptTemplate(system_message=f"You are an Azure NSG for GRC")
+        azure_vm_handler = AzureStorageHandler()
+        prompt_template = PromptTemplate(system_message=f"You are an Azure Storage for GRC")
         engine = Engine(
             llm=llm_client,
             prompt_template=prompt_template,
             handler=azure_vm_handler
         )
         ec2_agent = Agent(
-            name=f"Azure NSG Agent",
+            name=f"Azure Storage Agent",
             goal="Generate the response and data based on the user input.",
             role=f"You are a GRC Evidence Collection Expert.",
             llm=llm_client,
@@ -50,8 +50,8 @@ class TestAzureNSGPipe:
         prompt = f"""
         If the task has implementing or creating, you just collect evidence the data implemented or created not try to implement.
         """
-        query_instruct = "Implementing firewall to protect networks connected to internet"
+        query_instruct = "Is encryption at rest enabled using Azure-managed or customer-managed keys (CMK)?"
         result = await pipe.flow(
-            query_instruction=f"{prompt}\n\nTool:Azure NSG\n\nTask:{query_instruct}"
+            query_instruction=f"{prompt}\n\nTool:Azure Storage\n\nTask:{query_instruct}"
         )
         logger.info(result)

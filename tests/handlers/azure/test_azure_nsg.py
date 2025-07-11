@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 from superagentx_handlers import AzureNSGHandler
 '''
  Run Pytest for Azure NSG:
-   1. pytest --log-cli-level=INFO tests/handlers/microsoft/test_azure_nsg.py::TestAzureNSG::test_get_network_security_groups
+   1. pytest --log-cli-level=INFO tests/handlers/azure/test_azure_nsg.py::TestAzureNSG::test_get_network_security_groups
 '''
 
 @pytest_asyncio.fixture

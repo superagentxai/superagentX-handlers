@@ -8,7 +8,7 @@ from superagentx_handlers import AzureVMHandler
 logger = logging.getLogger(__name__)
 '''
  Run Pytest for Azure VM:
-   1. pytest --log-cli-level=INFO tests/handlers/microsoft/test_azure_vm.py::TestAzureVM::test_get_vms
+   1. pytest --log-cli-level=INFO tests/handlers/azure/test_azure_vm.py::TestAzureVM::test_get_vms
 '''
 
 @pytest_asyncio.fixture

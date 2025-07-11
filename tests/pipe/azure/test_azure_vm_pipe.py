@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 '''
  Run Pytest:  
 
-   1. pytest --log-cli-level=INFO tests/pipe/microsoft/test_azure_vm_pipe.py::TestAzureVMPipe::test_azure_vm_pipe
+   1. pytest --log-cli-level=INFO tests/pipe/azure/test_azure_vm_pipe.py::TestAzureVMPipe::test_azure_vm_pipe
 '''
 
 @pytest.fixture
