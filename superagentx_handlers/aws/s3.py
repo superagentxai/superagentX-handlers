@@ -7,8 +7,6 @@ from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
-from tests.handlers.test_amazon_web_crawler import aws_client_init
-
 logger = logging.getLogger(__name__)
 
 
