@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import os
 from typing import Any, List
@@ -43,29 +42,23 @@ def get_nested_attr(obj: Any, path: List[str], default: Any = None) -> Any:
 class GCPCloudRunHandler(BaseHandler):
     def __init__(
             self,
-            scope: List[str] | None = None,
             creds: str | dict | None = None
     ):
         super().__init__()
-        self.scope = scope or ["https://www.googleapis.com/auth/cloud-platform"]
 
         creds = creds or os.getenv("GCP_AGENT_CREDENTIALS")
         if isinstance(creds, str):
-            credentials = service_account.Credentials.from_service_account_file(
-                creds, scopes=self.scope)
+            credentials: service_account.Credentials = service_account.Credentials.from_service_account_file(
+                creds
+            )
         elif isinstance(creds, dict):
-            credentials = service_account.Credentials.from_service_account_info(
-                creds, scopes=self.scope)
+            credentials: service_account.Credentials = service_account.Credentials.from_service_account_info(
+                creds
+            )
         else:
             raise ValueError("Invalid credentials")
 
-        self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
-        if not self.project_id:
-            credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-            if credentials_path:
-                with open(credentials_path, 'r') as f:
-                    creds_info = json.load(f)
-                    self.project_id = creds_info.get('project_id')
+        self.project_id = credentials.project_id
         if not self.project_id:
             raise ValueError("Project ID not found. Set GOOGLE_CLOUD_PROJECT or provide project_id in service account.")
 
