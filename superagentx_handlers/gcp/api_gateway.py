@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from typing import Any, Dict, List, Union
@@ -6,10 +5,9 @@ from typing import Any, Dict, List, Union
 from google.api_core import exceptions
 from google.cloud import apigateway_v1
 from google.oauth2 import service_account
-from superagentx.utils.helper import sync_to_async
-
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.utils.helper import sync_to_async
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +33,9 @@ def _get_gateway_state(state_value: Union[str, int, apigateway_v1.Gateway.State]
 class GCPAPIGatewayHandler(BaseHandler):
     def __init__(
             self,
-            scope: List[str] | None = None,
             creds: str | dict | None = None
     ):
         super().__init__()
-        self.scope = scope or ["https://www.googleapis.com/auth/cloud-platform"]
 
         self.locations = [
             'us-central1', 'us-east1', 'us-east4', 'us-west1', 'us-west2', 'us-west3', 'us-west4',
@@ -51,20 +47,16 @@ class GCPAPIGatewayHandler(BaseHandler):
         creds = creds or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         if isinstance(creds, str):
             credentials = service_account.Credentials.from_service_account_file(
-                creds, scopes=self.scope)
+                creds
+            )
         elif isinstance(creds, dict):
             credentials = service_account.Credentials.from_service_account_info(
-                creds, scopes=self.scope)
+                creds
+            )
         else:
             raise ValueError("Invalid credentials")
 
-        self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
-        if not self.project_id:
-            credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-            if credentials_path:
-                with open(credentials_path, 'r') as f:
-                    creds_info = json.load(f)
-                    self.project_id = creds_info.get('project_id')
+        self.project_id = credentials.project_id
         if not self.project_id:
             raise ValueError("Project ID not found. Set GOOGLE_CLOUD_PROJECT or provide project_id in service account.")
 
@@ -88,10 +80,11 @@ class GCPAPIGatewayHandler(BaseHandler):
 
             for location in self.locations:
                 parent_path = f"projects/{self.project_id}/locations/{location}"
-                request = await sync_to_async(apigateway_v1.ListGatewaysRequest,
-                                              parent=parent_path,
-                                              page_size=page_size
-                                              )
+                request = await sync_to_async(
+                    apigateway_v1.ListGatewaysRequest,
+                    parent=parent_path,
+                    page_size=page_size
+                )
 
                 try:
                     async for gateway in await self.client.list_gateways(request=request):
