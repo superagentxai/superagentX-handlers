@@ -6,7 +6,10 @@ from typing import Any, Dict, List, Union
 from google.api_core import exceptions
 from google.cloud import apigateway_v1
 from google.oauth2 import service_account
-from superagentx.utils.helper import sync_to_async, iter_to_aiter
+from superagentx.utils.helper import sync_to_async
+
+from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,7 @@ def _get_gateway_state(state_value: Union[str, int, apigateway_v1.Gateway.State]
         return apigateway_v1.Gateway.State.ACTIVE
 
 
-class GCPAPIGatewayHandler:
+class GCPAPIGatewayHandler(BaseHandler):
     def __init__(
             self,
             scope: List[str] | None = None,
@@ -68,6 +71,7 @@ class GCPAPIGatewayHandler:
         # Initialize the API Gateway client
         self.client = apigateway_v1.ApiGatewayServiceAsyncClient(credentials=credentials)
 
+    @tool
     async def list_gateways(self, page_size: int = 100) -> List[Dict[str, Any]]:
         """
         List all GCP API Gateways asynchronously.
