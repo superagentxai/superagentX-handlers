@@ -46,13 +46,13 @@ class GCPLoadBalancerHandler(BaseHandler):
             'europe-central2', 'asia-east1', 'asia-east2', 'asia-northeast1', 'asia-northeast2',
             'asia-northeast3', 'asia-south1', 'asia-southeast1', 'asia-southeast2'
         ]
-        self.url_maps_client = compute_v1.UrlMapsClient()
-        self.backend_services_client = compute_v1.BackendServicesClient()
-        self.target_http_proxies_client = compute_v1.TargetHttpProxiesClient()
-        self.target_https_proxies_client = compute_v1.TargetHttpsProxiesClient()
-        self.global_forwarding_rules_client = compute_v1.GlobalForwardingRulesClient()
-        self.ssl_certificates_client = compute_v1.SslCertificatesClient()
-        self.health_checks_client = compute_v1.HealthChecksClient()
+        self.url_maps_client = compute_v1.UrlMapsClient(credentials=credentials)
+        self.backend_services_client = compute_v1.BackendServicesClient(credentials=credentials)
+        self.target_http_proxies_client = compute_v1.TargetHttpProxiesClient(credentials=credentials)
+        self.target_https_proxies_client = compute_v1.TargetHttpsProxiesClient(credentials=credentials)
+        self.global_forwarding_rules_client = compute_v1.GlobalForwardingRulesClient(credentials=credentials)
+        self.ssl_certificates_client = compute_v1.SslCertificatesClient(credentials=credentials)
+        self.health_checks_client = compute_v1.HealthChecksClient(credentials=credentials)
 
     @tool
     async def list_all_load_balancer_components(self) -> dict:
