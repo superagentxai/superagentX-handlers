@@ -7,8 +7,6 @@ from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
-from tests.handlers.test_amazon_web_crawler import aws_client_init
-
 logger = logging.getLogger(__name__)
 
 
@@ -29,13 +27,11 @@ class AWSS3Handler(BaseHandler):
         super().__init__()
         self.bucket_name = bucket_name
         self.region = region_name or os.getenv("AWS_REGION")
-        aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
-        aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
         self._storage = boto3.client(
            's3',
             region_name=self.region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
+            aws_access_key_id=aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
         )
 
     @tool
@@ -506,8 +502,8 @@ class AWSS3Handler(BaseHandler):
         _list_buckets = await self.list_buckets()
         buckets = _list_buckets.get('Buckets') if _list_buckets else []
 
-        async for bucket_info in iter_to_aiter(buckets):
-            bucket_name = bucket_info.get('Name')
+        async for bucket in iter_to_aiter(buckets):
+            bucket_name = bucket.get('Name')
             buckets_info.append({
                 'accelerate_configuration': await self.get_bucket_accelerate_config(bucket_name=bucket_name),
                 'acl': await self.get_bucket_acl(bucket_name=bucket_name),

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superagentx-handlers"
-version = "0.1.5.8"
+version = "0.1.5.9"
 description = ""
 authors = [
     "SuperAgentX AI <support@superagentx.ai>",
@@ -49,6 +49,7 @@ google-cloud-storage = "^3.2.0"
 google-cloud-compute = "^1.31.0"
 google-cloud-run = "^0.10.18"
 azure-storage-blob = "^12.25.1"
+google-cloud-api-gateway = "^1.12.2"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"
