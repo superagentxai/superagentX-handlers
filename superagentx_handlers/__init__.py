@@ -10,3 +10,4 @@ from .wikipedia import WikipediaHandler
 from .twitter import TwitterHandler
 from .websitecrawler import *
 from .microsoft import *
+from .code_gen import CodeHandler
