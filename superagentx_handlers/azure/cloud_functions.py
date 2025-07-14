@@ -166,7 +166,7 @@ def _function_to_dict(function_app) -> dict:
         "vnet_content_share_enabled": getattr(function_app, "vnet_content_share_enabled", None),
 
         # Site Configuration
-        "site_config": _extract_site_config(function_app),
+        "site_config": _extract_site_config(function_app=function_app),
 
         # Host Name SSL States
         "host_name_ssl_states": [
@@ -182,7 +182,7 @@ def _function_to_dict(function_app) -> dict:
         ],
 
         # Resource Group
-        "resource_group": _extract_resource_group_from_id(getattr(function_app, "id", "")),
+        "resource_group": _extract_resource_group_from_id(resource_id=getattr(function_app, "id", "")),
 
         # Extended Properties
         "extended_location": getattr(function_app, "extended_location", None),
@@ -315,7 +315,7 @@ class AzureFunctionHandler(BaseHandler):
             if not (hasattr(app, 'kind') and app.kind and 'functionapp' in app.kind.lower()):
                 raise ValueError(f"App {function_app_name} is not a function app")
 
-            function_app_dict = _function_to_dict(app)
+            function_app_dict = _function_to_dict(function_app=app)
             logger.info(
                 f"Successfully retrieved function app: {function_app_name} from resource group: {resource_group_name}"
             )
@@ -371,7 +371,7 @@ class AzureFunctionHandler(BaseHandler):
             )
 
             config_dict = {
-                "site_config": _function_to_dict(site_config),
+                "site_config": _function_to_dict(function_app=site_config),
                 "app_settings": getattr(app_settings, "properties", {}),
                 "connection_strings": getattr(connection_strings, "properties", {})
             }
