@@ -185,7 +185,7 @@ class GitHubHandler(BaseHandler):
             return {"error": f"Unexpected error: {str(e)}"}
 
     @tool
-    async def mfa_evidence(self, org_name: str = None):
+    async def get_mfa(self, org_name: str = None):
         """
         Explanation:
             Collects MFA compliance evidence for GitHub organizations.
@@ -202,7 +202,7 @@ class GitHubHandler(BaseHandler):
         if "error" in headers:
             return headers
 
-        async def single_mfa_evidence(current_org_name: str = None, common_headers: dict = None):
+        async def single_mfa(current_org_name: str = None, common_headers: dict = None):
             evidence = {
                 "organization": current_org_name, "timestamp": datetime.now().isoformat(),
                 "organization_details": {}, "total_members": 0, "mfa_enforcement_detected": False,
@@ -270,7 +270,7 @@ class GitHubHandler(BaseHandler):
             return evidence
 
         if org_name:
-            return await single_mfa_evidence(org_name, headers)
+            return await single_mfa(org_name, headers)
         else:
             all_orgs_response = await self.organization_details(org_name=None)
             if "error" in all_orgs_response:
@@ -279,13 +279,13 @@ class GitHubHandler(BaseHandler):
             organizations_list = all_orgs_response.get("organizations", [])
             all_evidence = {
                 "timestamp": datetime.now().isoformat(), "total_organizations_processed": len(organizations_list),
-                "organizations_mfa_evidence": [], "errors": []
+                "organizations_get_mfa": [], "errors": []
             }
             for org_detail in organizations_list:
                 current_org_name = org_detail.get("login")
                 if current_org_name:
-                    org_evidence = await single_mfa_evidence(current_org_name, headers)
-                    all_evidence["organizations_mfa_evidence"].append(org_evidence)
+                    org_evidence = await single_mfa(current_org_name, headers)
+                    all_evidence["organizations_get_mfa"].append(org_evidence)
                     if org_evidence["errors"]:
                         all_evidence["errors"].extend(org_evidence["errors"])
                 else:
@@ -1182,7 +1182,7 @@ class GitHubHandler(BaseHandler):
 
 
 tools = [
-    "mfa_evidence",
+    "get_mfa",
     "repository_summary",
     "list_organization_members",
     "repository_branches",
