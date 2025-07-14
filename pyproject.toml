@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superagentx-handlers"
-version = "0.1.5.10"
+version = "0.1.6.0"
 description = ""
 authors = [
     "SuperAgentX AI <support@superagentx.ai>",
