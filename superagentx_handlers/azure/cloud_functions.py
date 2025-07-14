@@ -1,11 +1,10 @@
 import logging
 import os
-from typing import Dict, List, Any
 
-from azure.identity.aio import ClientSecretCredential
-from superagentx.handler.base import BaseHandler
-from azure.mgmt.web.aio import WebSiteManagementClient
 from azure.core.exceptions import AzureError
+from azure.identity.aio import ClientSecretCredential
+from azure.mgmt.web.aio import WebSiteManagementClient
+from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
@@ -15,7 +14,6 @@ def _extract_resource_group_from_id(resource_id: str) -> str:
     """Extract resource group name from Azure resource ID."""
     if not resource_id:
         return ""
-
     parts = resource_id.split("/")
     try:
         rg_index = parts.index("resourceGroups")
@@ -24,7 +22,7 @@ def _extract_resource_group_from_id(resource_id: str) -> str:
         return ""
 
 
-def _extract_site_config(function_app) -> Dict[str, Any]:
+def _extract_site_config(function_app) -> dict:
     """Extract site configuration properties."""
     if not hasattr(function_app, "site_config") or not function_app.site_config:
         return {}
@@ -92,7 +90,7 @@ def _extract_site_config(function_app) -> Dict[str, Any]:
     }
 
 
-def _function_to_dict(function_app) -> Dict[str, Any]:
+def _function_to_dict(function_app) -> dict:
     """
     Convert Azure Function App object to dictionary with all properties.
 
@@ -113,14 +111,18 @@ def _function_to_dict(function_app) -> Dict[str, Any]:
 
         # Identity Properties
         "identity": {
-            "type": getattr(function_app.identity, "type", None) if hasattr(function_app,
-                                                                            "identity") and function_app.identity else None,
-            "principal_id": getattr(function_app.identity, "principal_id", None) if hasattr(function_app,
-                                                                                            "identity") and function_app.identity else None,
-            "tenant_id": getattr(function_app.identity, "tenant_id", None) if hasattr(function_app,
-                                                                                      "identity") and function_app.identity else None,
+            "type": getattr(function_app.identity, "type", None) if hasattr(
+                function_app, "identity"
+            ) and function_app.identity else None,
+            "principal_id": getattr(function_app.identity, "principal_id", None) if hasattr(
+                function_app, "identity"
+            ) and function_app.identity else None,
+            "tenant_id": getattr(function_app.identity, "tenant_id", None) if hasattr(
+                function_app, "identity"
+            ) and function_app.identity else None,
             "user_assigned_identities": getattr(function_app.identity, "user_assigned_identities", {}) if hasattr(
-                function_app, "identity") and function_app.identity else {}
+                function_app, "identity"
+            ) and function_app.identity else {}
         },
 
         # Site Properties
@@ -235,29 +237,27 @@ class AzureFunctionHandler(BaseHandler):
         Returns:
             List[Dict]: List of function app properties as dictionaries
         """
+        function_apps = []
         try:
-            function_apps = []
             async for app in self.web_client.web_apps.list():
                 # Filter only function apps (kind contains 'functionapp')
                 if hasattr(app, 'kind') and app.kind and 'functionapp' in app.kind.lower():
-                    function_app_dict = _function_to_dict(app)
-                    function_apps.append(function_app_dict)
+                    function_apps.append(_function_to_dict(function_app=app))
                     logger.debug(f"Added function app: {app.name}")
 
             logger.info(f"Successfully retrieved {len(function_apps)} function apps from subscription")
             return function_apps
-
         except AzureError as e:
             logger.error(f"Azure error retrieving function apps from subscription {self.subscription_id}: {str(e)}")
-            raise
         except Exception as e:
             logger.error(
                 f"Unexpected error retrieving function apps from subscription {self.subscription_id}: {str(e)}")
         finally:
             await self.close()
+        return function_apps
 
     @tool
-    async def get_function_apps_by_resource_group(self, resource_group_name: str) -> List[Dict[str, Any]]:
+    async def get_function_apps_by_resource_group(self, resource_group_name: str) -> list:
         """
         Get all function apps in a specific resource group
 
@@ -267,30 +267,34 @@ class AzureFunctionHandler(BaseHandler):
         Returns:
             List[Dict]: List of function app properties as dictionaries
         """
+        function_apps = []
         try:
-            function_apps = []
-            async for app in self.web_client.web_apps.list_by_resource_group(resource_group_name):
+            async for app in self.web_client.web_apps.list_by_resource_group(resource_group_name=resource_group_name):
                 # Filter only function apps (kind contains 'functionapp')
                 if hasattr(app, 'kind') and app.kind and 'functionapp' in app.kind.lower():
-                    function_app_dict = _function_to_dict(app)
-                    function_apps.append(function_app_dict)
+                    function_apps.append(_function_to_dict(function_app=app))
                     logger.debug(f"Added function app: {app.name} from resource group: {resource_group_name}")
 
             logger.info(
-                f"Successfully retrieved {len(function_apps)} function apps from resource group: {resource_group_name}")
+                f"Successfully retrieved {len(function_apps)} function apps from resource group: {resource_group_name}"
+            )
             return function_apps
-
         except AzureError as e:
             logger.error(f"Azure error retrieving function apps from resource group {resource_group_name}: {str(e)}")
-            raise
         except Exception as e:
             logger.error(
-                f"Unexpected error retrieving function apps from resource group {resource_group_name}: {str(e)}")
+                f"Unexpected error retrieving function apps from resource group {resource_group_name}: {str(e)}"
+            )
         finally:
             await self.close()
+        return function_apps
 
     @tool
-    async def get_function_app_by_name(self, resource_group_name: str, function_app_name: str) -> Dict[str, Any]:
+    async def get_function_app_by_name(
+            self,
+            resource_group_name: str,
+            function_app_name: str
+    ) -> dict:
         """
         Get a specific function app by name
 
@@ -302,7 +306,10 @@ class AzureFunctionHandler(BaseHandler):
             Dict: Function app properties as dictionary
         """
         try:
-            app = await self.web_client.web_apps.get(resource_group_name, function_app_name)
+            app = await self.web_client.web_apps.get(
+                resource_group_name=resource_group_name,
+                name=function_app_name
+            )
 
             # Verify it's a function app
             if not (hasattr(app, 'kind') and app.kind and 'functionapp' in app.kind.lower()):
@@ -310,21 +317,30 @@ class AzureFunctionHandler(BaseHandler):
 
             function_app_dict = _function_to_dict(app)
             logger.info(
-                f"Successfully retrieved function app: {function_app_name} from resource group: {resource_group_name}")
+                f"Successfully retrieved function app: {function_app_name} from resource group: {resource_group_name}"
+            )
             return function_app_dict
-
         except AzureError as e:
             logger.error(
-                f"Azure error retrieving function app {function_app_name} from resource group {resource_group_name}: {str(e)}")
+                f"Azure error retrieving function app {function_app_name} from resource group"
+                f" {resource_group_name}: {str(e)}"
+            )
             raise
         except Exception as e:
             logger.error(
-                f"Unexpected error retrieving function app {function_app_name} from resource group {resource_group_name}: {str(e)}")
+                f"Unexpected error retrieving function app {function_app_name} from resource group"
+                f" {resource_group_name}: {str(e)}"
+            )
         finally:
             await self.close()
+        return {}
 
     @tool
-    async def get_function_app_configuration(self, resource_group_name: str, function_app_name: str) -> Dict[str, Any]:
+    async def get_function_app_configuration(
+            self,
+            resource_group_name: str,
+            function_app_name: str
+    ) -> dict:
         """
         Get function app configuration including app settings
 
@@ -337,15 +353,22 @@ class AzureFunctionHandler(BaseHandler):
         """
         try:
             # Get site config
-            site_config = await self.web_client.web_apps.get_configuration(resource_group_name, function_app_name)
+            site_config = await self.web_client.web_apps.get_configuration(
+                resource_group_name=resource_group_name,
+                name=function_app_name
+            )
 
             # Get application settings
-            app_settings = await self.web_client.web_apps.list_application_settings(resource_group_name,
-                                                                                    function_app_name)
+            app_settings = await self.web_client.web_apps.list_application_settings(
+                resource_group_name=resource_group_name,
+                name=function_app_name
+            )
 
             # Get connection strings
-            connection_strings = await self.web_client.web_apps.list_connection_strings(resource_group_name,
-                                                                                        function_app_name)
+            connection_strings = await self.web_client.web_apps.list_connection_strings(
+                resource_group_name=resource_group_name,
+                name=function_app_name
+            )
 
             config_dict = {
                 "site_config": _function_to_dict(site_config),
@@ -355,7 +378,6 @@ class AzureFunctionHandler(BaseHandler):
 
             logger.info(f"Successfully retrieved configuration for function app: {function_app_name}")
             return config_dict
-
         except AzureError as e:
             logger.error(f"Azure error retrieving configuration for function app {function_app_name}: {str(e)}")
             raise
@@ -363,6 +385,7 @@ class AzureFunctionHandler(BaseHandler):
             logger.error(f"Unexpected error retrieving configuration for function app {function_app_name}: {str(e)}")
         finally:
             await self.close()
+        return {}
 
     async def close(self):
         """Close the Azure clients and credentials."""
