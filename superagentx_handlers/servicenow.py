@@ -3,6 +3,7 @@ import os
 from pysnc import ServiceNowClient
 from superagentx.handler.base import BaseHandler
 from superagentx.utils.helper import sync_to_async
+from superagentx.handler.decorators import tool
 
 
 class ServiceNowHandler(BaseHandler):
@@ -12,6 +13,14 @@ class ServiceNowHandler(BaseHandler):
             username: str = None,
             password: str = None
     ):
+        """
+       Initializes the ServiceNowHandler with instance details and authentication.
+
+       Args:
+           instance_url (str, optional): The ServiceNow instance URL. If not provided, fetched from environment variable SERVICENOW_INSTANCE_URL.
+           username (str, optional): Username for authentication. If not provided, fetched from environment variable SERVICENOW_USERNAME.
+           password (str, optional): Password for authentication. If not provided, fetched from environment variable SERVICENOW_PASSWORD.
+       """
         super().__init__()
         self.instance = (
                 instance_url or os.getenv("SERVICENOW_INSTANCE_URL")
@@ -24,6 +33,7 @@ class ServiceNowHandler(BaseHandler):
         self.incident_table = self.client.GlideRecord('incident')
         self.user_table = self.client.GlideRecord('sys_user')
 
+    @tool
     async def get_user_name(self, user_sys_id):
         if not user_sys_id:
             return "Unassigned"
@@ -31,7 +41,14 @@ class ServiceNowHandler(BaseHandler):
             return self.user_table.get_value("name")
         return  "Unknown"
 
+    @tool
     async def get_assets_with_details_and_tickets(self):
+        """
+        Retrieve a list of all assets along with their associated details and incident tickets.
+
+        Returns:
+            list: A list of dictionaries where each dictionary represents an asset with its details and related tickets.
+        """
         report = []
 
         await sync_to_async(
