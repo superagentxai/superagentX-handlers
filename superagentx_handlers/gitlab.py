@@ -36,10 +36,11 @@ class GitlabHandler(BaseHandler):
             logger.debug(f"Connected to GitLab as: {self.gl.user.username}")
         except GitlabError as e:
             logger.error(f"Error initializing GitLab client: {e}", exc_info=True)
-            raise GitlabError(f"Failed to initialize GitLab Handler: {e}") # Using GitlabError
+            # Keeping raise here as __init__ should fail if client cannot be initialized
+            raise GitlabError(f"Failed to initialize GitLab Handler: {e}")
 
     @tool
-    async def get_user_profile(self) -> dict:
+    async def get_user_profile(self) -> dict | None:
         """
         Asynchronously collects the full GitLab user profile of the authenticated user.
         This includes all available details from the GitLab API for the user.
@@ -50,7 +51,7 @@ class GitlabHandler(BaseHandler):
             return full_user.attributes
         except GitlabError as e:
             logger.error(f"Error getting user profile: {e}", exc_info=True)
-            raise GitlabError(f"Failed to get user profile: {e}") # Using GitlabError
+            return None # Return None on error
 
     @tool
     async def get_projects(self) -> list[dict]:
@@ -64,7 +65,7 @@ class GitlabHandler(BaseHandler):
             return projects_data
         except GitlabError as e:
             logger.error(f"Error getting projects: {e}", exc_info=True)
-            raise GitlabError(f"Failed to list projects: {e}") # Using GitlabError
+            return [] # Return empty list on error
 
     @tool
     async def get_groups_and_members(self) -> list[dict]:
@@ -89,7 +90,7 @@ class GitlabHandler(BaseHandler):
             return groups_data
         except GitlabError as e:
             logger.error(f"Error getting groups and members: {e}", exc_info=True)
-            raise GitlabError(f"Failed to list groups and members: {e}") # Using GitlabError
+            return [] # Return empty list on error
 
     # --- Helper methods for project-specific data ---
     async def _get_project_issues_data(self, project_obj: gitlab.v4.objects.Project) -> list[dict]:
@@ -153,7 +154,7 @@ class GitlabHandler(BaseHandler):
             return all_issues_data
         except GitlabError as e:
             logger.error(f"Error getting issues: {e}", exc_info=True)
-            raise GitlabError(f"Failed to list issues: {e}") # Using GitlabError
+            return [] # Return empty list on error
 
     @tool
     async def get_merge_requests(self, project_id: int | None = None) -> list[dict]:
@@ -186,7 +187,7 @@ class GitlabHandler(BaseHandler):
             return all_mrs_data
         except GitlabError as e:
             logger.error(f"Error getting merge requests: {e}", exc_info=True)
-            raise GitlabError(f"Failed to list merge requests: {e}") # Using GitlabError
+            return [] # Return empty list on error
 
     @tool
     async def get_hooks(self, project_id: int | None = None) -> list[dict]:
@@ -219,7 +220,7 @@ class GitlabHandler(BaseHandler):
             return all_hooks_data
         except GitlabError as e:
             logger.error(f"Error getting hooks: {e}", exc_info=True)
-            raise GitlabError(f"Failed to list hooks: {e}") # Using GitlabError
+            return [] # Return empty list on error
 
     @tool
     async def get_pipelines(self, project_id: int | None = None) -> list[dict]:
@@ -252,7 +253,7 @@ class GitlabHandler(BaseHandler):
             return all_pipelines_data
         except GitlabError as e:
             logger.error(f"Error getting pipelines: {e}", exc_info=True)
-            raise GitlabError(f"Failed to list pipelines: {e}") # Using GitlabError
+            return [] # Return empty list on error
 
     @tool
     async def get_branches(self, project_id: int | None = None) -> list[dict]:
@@ -285,7 +286,7 @@ class GitlabHandler(BaseHandler):
             return all_branches_data
         except GitlabError as e:
             logger.error(f"Error getting branches: {e}", exc_info=True)
-            raise GitlabError(f"Failed to list branches: {e}") # Using GitlabError
+            return [] # Return empty list on error
 
     @tool
     async def get_branch_protection_rules(self, project_id: int | None = None) -> list[dict]:
@@ -318,7 +319,7 @@ class GitlabHandler(BaseHandler):
             return all_protected_branches_data
         except GitlabError as e:
             logger.error(f"Error getting branch protection rules: {e}", exc_info=True)
-            raise GitlabError(f"Failed to list branch protection rules: {e}") # Using GitlabError
+            return [] # Return empty list on error
 
     @tool
     async def get_packages(self, project_id: int | None = None) -> list[dict]:
@@ -351,4 +352,4 @@ class GitlabHandler(BaseHandler):
             return all_packages_data
         except GitlabError as e:
             logger.error(f"Error getting packages: {e}", exc_info=True)
-            raise GitlabError(f"Failed to list packages: {e}") # Using GitlabError
+            return [] # Return empty list on error
