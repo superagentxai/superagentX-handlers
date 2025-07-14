@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 from datadog_api_client import AsyncApiClient, Configuration
 from datadog_api_client.v2.api.incidents_api import IncidentsApi
@@ -17,15 +18,19 @@ class DDIncidentsHandler(BaseHandler):
         host = host or os.getenv('DD_SITE')
         api_key = api_key or os.getenv('DD_API_KEY')
         app_key = app_key or os.getenv('DD_APP_KEY')
-        configuration = Configuration()
-        configuration.server_variables['site'] = host
-        configuration.api_key['apiKeyAuth'] = api_key
-        configuration.api_key['appKeyAuth'] = app_key
+        self.configuration = Configuration()
+        self.configuration.server_variables['site'] = host
+        self.configuration.api_key['apiKeyAuth'] = api_key
+        self.configuration.api_key['appKeyAuth'] = app_key
 
         # Enable list incidents
-        configuration.unstable_operations['list_incidents'] = True
-        _api_cli = AsyncApiClient(configuration=configuration)
-        self.incidents_cli = IncidentsApi(api_client=_api_cli)
+        self.configuration.unstable_operations['list_incidents'] = True
+        self.incidents_cli = self.incidents_cli_conn
+
+    @asynccontextmanager
+    async def incidents_cli_conn(self):
+        async with AsyncApiClient(configuration=self.configuration) as api_cli:
+            yield IncidentsApi(api_client=api_cli)
 
     @tool
     async def list_incidents(
@@ -37,7 +42,8 @@ class DDIncidentsHandler(BaseHandler):
         Returns:
             list: List of incidents
         """
-        return await self.incidents_cli.list_incidents()
+        async with self.incidents_cli() as cli:
+            return await cli.list_incidents()
 
     @tool
     async def search_incidents(self, query: str):
@@ -50,4 +56,5 @@ class DDIncidentsHandler(BaseHandler):
         Returns:
             list: List of incidents
         """
-        return await self.incidents_cli.search_incidents(query=query)
+        async with self.incidents_cli() as cli:
+            return await cli.search_incidents(query=query)
