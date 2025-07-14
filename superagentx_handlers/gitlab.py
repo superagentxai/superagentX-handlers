@@ -1,12 +1,12 @@
-import os
 import logging
+import os
+
 import gitlab
-from gitlab.exceptions import GitlabError, GitlabGetError
 import gitlab.v4
 import gitlab.v4.objects
+from gitlab.exceptions import GitlabError, GitlabGetError
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -27,20 +27,13 @@ class GitlabHandler(BaseHandler):
         if not url:
             url = "https://gitlab.com"
         self.token = private_token or os.getenv("GITLAB_PRIVATE_TOKEN")
-        if not self.token:
-            raise ValueError("No GitLab private token provided or set in GITLAB_PRIVATE_TOKEN.")
 
-        try:
-            self.gl = gitlab.Gitlab(url, private_token=self.token)
-            self.gl.auth()
-            logger.debug(f"Connected to GitLab as: {self.gl.user.username}")
-        except GitlabError as e:
-            logger.error(f"Error initializing GitLab client: {e}", exc_info=True)
-            # Keeping raise here as __init__ should fail if client cannot be initialized
-            raise GitlabError(f"Failed to initialize GitLab Handler: {e}")
+        self.gl = gitlab.Gitlab(url, private_token=self.token)
+        self.gl.auth()
+        logger.debug(f"Connected to GitLab as: {self.gl.user.username}")
 
     @tool
-    async def get_user_profile(self) -> dict | None:
+    async def get_user_profile(self) -> dict:
         """
         Asynchronously collects the full GitLab user profile of the authenticated user.
         This includes all available details from the GitLab API for the user.
@@ -51,7 +44,7 @@ class GitlabHandler(BaseHandler):
             return full_user.attributes
         except GitlabError as e:
             logger.error(f"Error getting user profile: {e}", exc_info=True)
-            return None # Return None on error
+            return {}
 
     @tool
     async def get_projects(self) -> list[dict]:
@@ -77,54 +70,61 @@ class GitlabHandler(BaseHandler):
         try:
             for group in self.gl.groups.list(owned=True, all=True):
                 group_attrs = group.attributes
-                members_data = []
                 try:
                     members_data = [m.attributes for m in group.members.list(all=True)]
                 except GitlabError as e:
-                    logger.warning(f"Could not retrieve members for group '{group_attrs.get('name', group.id)}' (ID: {group.id}): {e}")
+                    logger.warning(
+                        f"Could not retrieve members for group '{group_attrs.get('name', group.id)}' "
+                        f"(ID: {group.id}): {e}"
+                    )
                     members_data = []
-
                 group_attrs["members"] = members_data
                 groups_data.append(group_attrs)
             logger.debug(f"Got {len(groups_data)} groups and their members.")
-            return groups_data
         except GitlabError as e:
             logger.error(f"Error getting groups and members: {e}", exc_info=True)
-            return [] # Return empty list on error
+        return groups_data
 
     # --- Helper methods for project-specific data ---
-    async def _get_project_issues_data(self, project_obj: gitlab.v4.objects.Project) -> list[dict]:
+    @staticmethod
+    async def _get_project_issues_data(project_obj: gitlab.v4.objects.Project) -> list[dict]:
         """Helper to get full issues data for a single project."""
         return [issue.attributes for issue in project_obj.issues.list(all=True)]
 
-    async def _get_project_merge_requests_data(self, project_obj: gitlab.v4.objects.Project) -> list[dict]:
+    @staticmethod
+    async def _get_project_merge_requests_data(project_obj: gitlab.v4.objects.Project) -> list[dict]:
         """Helper to get full merge requests data for a single project."""
         return [mr.attributes for mr in project_obj.mergerequests.list(all=True)]
 
-    async def _get_project_hooks_data(self, project_obj: gitlab.v4.objects.Project) -> list[dict]:
+    @staticmethod
+    async def _get_project_hooks_data(project_obj: gitlab.v4.objects.Project) -> list[dict]:
         """Helper to get full hooks data for a single project."""
         return [hook.attributes for hook in project_obj.hooks.list(all=True)]
 
-    async def _get_project_pipelines_data(self, project_obj: gitlab.v4.objects.Project) -> list[dict]:
+    @staticmethod
+    async def _get_project_pipelines_data(project_obj: gitlab.v4.objects.Project) -> list[dict]:
         """Helper to get full pipelines data for a single project."""
         return [pipeline.attributes for pipeline in project_obj.pipelines.list(all=True)]
 
-    async def _get_project_branches_data(self, project_obj: gitlab.v4.objects.Project) -> list[dict]:
+    @staticmethod
+    async def _get_project_branches_data(project_obj: gitlab.v4.objects.Project) -> list[dict]:
         """Helper to get full branches data for a single project."""
         return [branch.attributes for branch in project_obj.branches.list(all=True)]
 
-    async def _get_project_branch_protection_rules_data(self, project_obj: gitlab.v4.objects.Project) -> list[dict]:
+    @staticmethod
+    async def _get_project_branch_protection_rules_data(project_obj: gitlab.v4.objects.Project) -> list[dict]:
         """Helper to get full branch protection rules data for a single project."""
         return [protected_branch.attributes for protected_branch in project_obj.protected_branches.list(all=True)]
 
-    async def _get_project_packages_data(self, project_obj: gitlab.v4.objects.Project) -> list[dict]:
+    @staticmethod
+    async def _get_project_packages_data(project_obj: gitlab.v4.objects.Project) -> list[dict]:
         """Helper to get full packages data for a single project."""
         return [package.attributes for package in project_obj.packages.list(all=True)]
 
     # --- Refactored Tool methods ---
 
     @tool
-    async def get_issues(self, project_id: int | None = None) -> list[dict]:
+    async def get_issues(self, project_id: int = None) -> list[dict]:
         """
         Asynchronously retrieves GitLab issues. If a project_id is provided, it fetches issues
         for that specific project. If project_id is None, it fetches issues across all accessible projects.
@@ -136,7 +136,7 @@ class GitlabHandler(BaseHandler):
         """
         all_issues_data = []
         try:
-            if project_id is not None:
+            if project_id:
                 try:
                     project = self.gl.projects.get(project_id)
                     all_issues_data.extend(await self._get_project_issues_data(project))
@@ -151,13 +151,12 @@ class GitlabHandler(BaseHandler):
                         logger.debug(f"Got issues for project ID {project_summary['id']} (all projects mode).")
                     except GitlabGetError as e:
                         logger.warning(f"Skipping project ID {project_summary['id']} (issues): {e}")
-            return all_issues_data
         except GitlabError as e:
             logger.error(f"Error getting issues: {e}", exc_info=True)
-            return [] # Return empty list on error
+        return all_issues_data
 
     @tool
-    async def get_merge_requests(self, project_id: int | None = None) -> list[dict]:
+    async def get_merge_requests(self, project_id: int = None) -> list[dict]:
         """
         Asynchronously collects GitLab merge requests. If a project_id is provided, it fetches MRs
         for that specific project. If project_id is None, it fetches MRs across all accessible projects.
@@ -165,11 +164,11 @@ class GitlabHandler(BaseHandler):
 
         Parameter:
            project_id (int, optional): The ID of the GitLab project to retrieve merge requests from.
-                                       If None, MRs from all accessible projects are returned.
+           If None, MRs from all accessible projects are returned.
         """
         all_mrs_data = []
         try:
-            if project_id is not None:
+            if project_id:
                 try:
                     project = self.gl.projects.get(project_id)
                     all_mrs_data.extend(await self._get_project_merge_requests_data(project))
@@ -184,13 +183,12 @@ class GitlabHandler(BaseHandler):
                         logger.debug(f"Got merge requests for project ID {project_summary['id']} (all projects mode).")
                     except GitlabGetError as e:
                         logger.warning(f"Skipping project ID {project_summary['id']} (merge requests): {e}")
-            return all_mrs_data
         except GitlabError as e:
             logger.error(f"Error getting merge requests: {e}", exc_info=True)
-            return [] # Return empty list on error
+            return all_mrs_data
 
     @tool
-    async def get_hooks(self, project_id: int | None = None) -> list[dict]:
+    async def get_hooks(self, project_id: int = None) -> list[dict]:
         """
         Asynchronously fetches webhooks configured for a specific GitLab project.
         If project_id is None, it fetches hooks from all accessible projects.
@@ -202,7 +200,7 @@ class GitlabHandler(BaseHandler):
         """
         all_hooks_data = []
         try:
-            if project_id is not None:
+            if project_id:
                 try:
                     project = self.gl.projects.get(project_id)
                     all_hooks_data.extend(await self._get_project_hooks_data(project))
@@ -217,13 +215,12 @@ class GitlabHandler(BaseHandler):
                         logger.debug(f"Got hooks for project ID {project_summary['id']} (all projects mode).")
                     except GitlabGetError as e:
                         logger.warning(f"Skipping project ID {project_summary['id']} (hooks): {e}")
-            return all_hooks_data
         except GitlabError as e:
             logger.error(f"Error getting hooks: {e}", exc_info=True)
-            return [] # Return empty list on error
+            return all_hooks_data
 
     @tool
-    async def get_pipelines(self, project_id: int | None = None) -> list[dict]:
+    async def get_pipelines(self, project_id: int = None) -> list[dict]:
         """
         Asynchronously retrieves recent pipeline runs for a specific GitLab project.
         If project_id is None, it fetches pipelines from all accessible projects.
@@ -235,7 +232,7 @@ class GitlabHandler(BaseHandler):
         """
         all_pipelines_data = []
         try:
-            if project_id is not None:
+            if project_id:
                 try:
                     project = self.gl.projects.get(project_id)
                     all_pipelines_data.extend(await self._get_project_pipelines_data(project))
@@ -250,13 +247,12 @@ class GitlabHandler(BaseHandler):
                         logger.debug(f"Got pipelines for project ID {project_summary['id']} (all projects mode).")
                     except GitlabGetError as e:
                         logger.warning(f"Skipping project ID {project_summary['id']} (pipelines): {e}")
-            return all_pipelines_data
         except GitlabError as e:
             logger.error(f"Error getting pipelines: {e}", exc_info=True)
-            return [] # Return empty list on error
+            return all_pipelines_data
 
     @tool
-    async def get_branches(self, project_id: int | None = None) -> list[dict]:
+    async def get_branches(self, project_id: int = None) -> list[dict]:
         """
         Asynchronously retrieves a list of all branches for a specific GitLab project.
         If project_id is None, it fetches branches from all accessible projects.
@@ -268,7 +264,7 @@ class GitlabHandler(BaseHandler):
         """
         all_branches_data = []
         try:
-            if project_id is not None:
+            if project_id:
                 try:
                     project = self.gl.projects.get(project_id)
                     all_branches_data.extend(await self._get_project_branches_data(project))
@@ -283,13 +279,12 @@ class GitlabHandler(BaseHandler):
                         logger.debug(f"Got branches for project ID {project_summary['id']} (all projects mode).")
                     except GitlabGetError as e:
                         logger.warning(f"Skipping project ID {project_summary['id']} (branches): {e}")
-            return all_branches_data
         except GitlabError as e:
             logger.error(f"Error getting branches: {e}", exc_info=True)
-            return [] # Return empty list on error
+            return all_branches_data
 
     @tool
-    async def get_branch_protection_rules(self, project_id: int | None = None) -> list[dict]:
+    async def get_branch_protection_rules(self, project_id: int = None) -> list[dict]:
         """
         Asynchronously retrieves a list of all branch protection rules for a specific GitLab project.
         If project_id is None, it fetches rules from all accessible projects.
@@ -301,7 +296,7 @@ class GitlabHandler(BaseHandler):
         """
         all_protected_branches_data = []
         try:
-            if project_id is not None:
+            if project_id:
                 try:
                     project = self.gl.projects.get(project_id)
                     all_protected_branches_data.extend(await self._get_project_branch_protection_rules_data(project))
@@ -316,13 +311,12 @@ class GitlabHandler(BaseHandler):
                         logger.debug(f"Got branch protection rules for project ID {project_summary['id']} (all projects mode).")
                     except GitlabGetError as e:
                         logger.warning(f"Skipping project ID {project_summary['id']} (branch protection rules): {e}")
-            return all_protected_branches_data
         except GitlabError as e:
             logger.error(f"Error getting branch protection rules: {e}", exc_info=True)
-            return [] # Return empty list on error
+            return all_protected_branches_data
 
     @tool
-    async def get_packages(self, project_id: int | None = None) -> list[dict]:
+    async def get_packages(self, project_id: int = None) -> list[dict]:
         """
         Asynchronously retrieves a list of all packages published to the package registry
         for a specific GitLab project. If project_id is None, it fetches packages from all accessible projects.
@@ -334,7 +328,7 @@ class GitlabHandler(BaseHandler):
         """
         all_packages_data = []
         try:
-            if project_id is not None:
+            if project_id:
                 try:
                     project = self.gl.projects.get(project_id)
                     all_packages_data.extend(await self._get_project_packages_data(project))
@@ -349,7 +343,6 @@ class GitlabHandler(BaseHandler):
                         logger.debug(f"Got packages for project ID {project_summary['id']} (all projects mode).")
                     except GitlabGetError as e:
                         logger.warning(f"Skipping project ID {project_summary['id']} (packages): {e}")
-            return all_packages_data
         except GitlabError as e:
             logger.error(f"Error getting packages: {e}", exc_info=True)
-            return [] # Return empty list on error
+            return all_packages_data
