@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
     11. pytest --log-cli-level=INFO tests/handlers/test_atlassian_handler.py::TestAtlassian::test_get_all_spaces
     12. pytest --log-cli-level=INFO tests/handlers/test_atlassian_handler.py::TestAtlassian::test_get_pages_spaces
     13. pytest --log-cli-level=INFO tests/handlers/test_atlassian_handler.py::TestAtlassian::test_last_updated_pages
+    14. pytest --log-cli-level=INFO tests/handlers/test_atlassian_handler.py::TestAtlassian::test_list_all_tickets
 '''
 
 
@@ -102,6 +103,10 @@ class TestAtlassian:
             issue_key='PS-520'
         )
 
+        assert isinstance(res, Response)
+
+    async def test_list_all_tickets(self, jira_client_init: JiraHandler):
+        res = await jira_client_init.list_all_tickets()
         assert isinstance(res, Response)
 
     async def test_add_comment_issue(self, jira_client_init: JiraHandler):
