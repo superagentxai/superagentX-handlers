@@ -18,6 +18,16 @@ class ZohoHIRSHandler(BaseHandler):
         }
 
     async def _get(self, endpoint: str, params=None):
+        """
+        Internal helper to perform a GET request to a Zoho People API endpoint.
+
+        Args:
+            endpoint (str): The relative API endpoint (e.g., 'forms/P_EmployeeView/records').
+            params (dict, optional): Optional query parameters to send with the request.
+
+        Returns:
+            dict: Parsed JSON response from the API, or an empty dict in case of failure.
+        """
         url = f"{self.base_url}/{endpoint}"
         try:
             async with aiohttp.ClientSession(headers=self.headers) as session:
@@ -34,7 +44,10 @@ class ZohoHIRSHandler(BaseHandler):
     @tool
     async def list_employees(self):
         """
-        Lists all employees in the Zoho People organization.
+        Retrieves the list of all employees in the Zoho People organization.
+
+        Returns:
+            list: A list of employee records (each a dict).
         """
         logger.info("Fetching employee list...")
         result = await self._get("forms/P_EmployeeView/records")
@@ -43,7 +56,10 @@ class ZohoHIRSHandler(BaseHandler):
     @tool
     async def list_onboarding_workflows(self):
         """
-        Lists onboarding workflows from Zoho People.
+        Retrieves the list of onboarding workflows configured in Zoho People.
+
+        Returns:
+            list: A list of onboarding workflow records (each a dict).
         """
         logger.info("Fetching onboarding workflows...")
         result = await self._get("onboarding/getonboardinglist")
@@ -52,7 +68,10 @@ class ZohoHIRSHandler(BaseHandler):
     @tool
     async def list_offboarding_workflows(self):
         """
-        Lists offboarding workflows from Zoho People.
+        Retrieves the list of offboarding workflows configured in Zoho People.
+
+        Returns:
+            list: A list of offboarding workflow records (each a dict).
         """
         logger.info("Fetching offboarding workflows...")
         result = await self._get("offboarding/getoffboardinglist")
@@ -61,7 +80,10 @@ class ZohoHIRSHandler(BaseHandler):
     @tool
     async def list_role_change_workflows(self):
         """
-        Lists role change workflows. This is generally part of transfer or job change flows.
+        Retrieves the list of role change (or transfer) workflows configured in Zoho People.
+
+        Returns:
+            list: A list of transfer workflow records (each a dict).
         """
         logger.info("Fetching role change workflows...")
         result = await self._get("transfer/gettransferlist")
