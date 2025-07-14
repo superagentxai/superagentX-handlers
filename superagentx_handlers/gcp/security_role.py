@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import os
+from typing import Optional
 
 from google.api_core import exceptions
 from google.cloud import iam_admin_v1
@@ -135,7 +136,11 @@ class GcpSecurityRoleHandler(BaseHandler):
         return organization_policies
 
     @tool
-    async def collect_folder_iam(self, parent_resource: str = None, organization_id: str = None) -> list:
+    async def collect_folder_iam(
+            self,
+            parent_resource: Optional[str] = None,
+            organization_id: Optional[str] = None
+    ) -> list:
         """
         Collects IAM policies for all accessible folders under a given parent (organization or folder).
         If no parent_resource is provided, it will attempt to discover folders by first listing
@@ -206,7 +211,11 @@ class GcpSecurityRoleHandler(BaseHandler):
         return folder_policies
 
     @tool
-    async def collect_project_iam(self, parent_resource: str = None, project_id: str = None) -> list:
+    async def collect_project_iam(
+            self,
+            parent_resource: Optional[str] = None,
+            project_id: Optional[str] = None
+    ) -> list:
         """
         Collects IAM policies for all accessible projects under a given parent (organization or folder),
         or for a specific project ID, or all accessible projects if no parent/project_id is specified.
@@ -276,7 +285,7 @@ class GcpSecurityRoleHandler(BaseHandler):
         return project_policies
 
     @tool
-    async def collect_service_accounts(self, project_id: str = None) -> list:
+    async def collect_service_accounts(self, project_id: Optional[str] = None) -> list:
         """
         Collects information about service accounts in a specific project.
 
@@ -325,7 +334,11 @@ class GcpSecurityRoleHandler(BaseHandler):
         return service_accounts_info
 
     @tool
-    async def collect_custom_roles(self, project_id: str = None, organization_id: str = None) -> list:
+    async def collect_custom_roles(
+            self,
+            project_id: Optional[str] = None,
+            organization_id: Optional[str] = None
+    ) -> list:
         """
         Collects information about custom IAM roles in a specific project or organization.
         One of project_id or organization_id must be provided.
@@ -378,7 +391,11 @@ class GcpSecurityRoleHandler(BaseHandler):
         return custom_roles_info
 
     @tool
-    async def collect_all_security_info(self, project_id: str = None, organization_id: str = None) -> dict:
+    async def collect_all_security_info(
+            self,
+            project_id: Optional[str] = None,
+            organization_id: Optional[str] = None
+    ) -> dict:
         """
         Collects comprehensive security-related information for GCP, including IAM policies,
         service accounts, and custom roles within a specified project or organization.

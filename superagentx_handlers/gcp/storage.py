@@ -1,6 +1,7 @@
 import json
-import logging  # Import the logging module
+import logging
 import os
+from typing import Optional
 
 from google.api_core import iam
 from google.cloud import exceptions as gc_exc
@@ -353,8 +354,8 @@ class GCPStorageHandler(BaseHandler):
     async def list_files(
             self,
             bucket_name: str,
-            prefix: str = None,
-            delimiter: str = None
+            prefix: Optional[str] = None,
+            delimiter: Optional[str] = None
     ):
         """
         Lists files (blobs) in a Google Storage bucket under a specified prefix.

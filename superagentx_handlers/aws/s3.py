@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
@@ -528,8 +529,8 @@ class AWSS3Handler(BaseHandler):
     async def list_files(
             self,
             bucket_name: str,
-            prefix: str = None,
-            delimiter: str = None
+            prefix: Optional[str] = None,
+            delimiter: Optional[str] = None
     ):
         """
         Lists files (objects) in a S3 bucket under a specified prefix.
@@ -583,7 +584,7 @@ class AWSS3Handler(BaseHandler):
     async def upload_file(
             self,
             file_name: str,
-            object_name: str = None
+            object_name: Optional[str] = None
     ):
         """
         Asynchronously uploads a file to an S3 bucket, specifying the file name and optional object name in the bucket.
@@ -611,7 +612,7 @@ class AWSS3Handler(BaseHandler):
     async def download_file(
             self,
             object_name: str,
-            file_name: str = None
+            file_name: Optional[str] = None
     ):
         """
         Asynchronously downloads a file from an S3 bucket to a local path.

@@ -167,7 +167,7 @@ class AWSRDSHandler(BaseHandler):
     async def get_backup_config(
             self,
             db_identifier: str,
-            is_cluster=False
+            is_cluster: bool = False
     ):
         """Get backup configuration for RDS instance or cluster"""
         try:

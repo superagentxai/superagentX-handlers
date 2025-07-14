@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 import gitlab
 import gitlab.v4
@@ -124,7 +125,7 @@ class GitlabHandler(BaseHandler):
     # --- Refactored Tool methods ---
 
     @tool
-    async def get_issues(self, project_id: int = None) -> list[dict]:
+    async def get_issues(self, project_id: Optional[int] = None) -> list[dict]:
         """
         Asynchronously retrieves GitLab issues. If a project_id is provided, it fetches issues
         for that specific project. If project_id is None, it fetches issues across all accessible projects.
@@ -156,7 +157,7 @@ class GitlabHandler(BaseHandler):
         return all_issues_data
 
     @tool
-    async def get_merge_requests(self, project_id: int = None) -> list[dict]:
+    async def get_merge_requests(self, project_id: Optional[int] = None) -> list:
         """
         Asynchronously collects GitLab merge requests. If a project_id is provided, it fetches MRs
         for that specific project. If project_id is None, it fetches MRs across all accessible projects.
@@ -185,10 +186,10 @@ class GitlabHandler(BaseHandler):
                         logger.warning(f"Skipping project ID {project_summary['id']} (merge requests): {e}")
         except GitlabError as e:
             logger.error(f"Error getting merge requests: {e}", exc_info=True)
-            return all_mrs_data
+        return all_mrs_data
 
     @tool
-    async def get_hooks(self, project_id: int = None) -> list[dict]:
+    async def get_hooks(self, project_id: Optional[int] = None) -> list:
         """
         Asynchronously fetches webhooks configured for a specific GitLab project.
         If project_id is None, it fetches hooks from all accessible projects.
@@ -217,10 +218,10 @@ class GitlabHandler(BaseHandler):
                         logger.warning(f"Skipping project ID {project_summary['id']} (hooks): {e}")
         except GitlabError as e:
             logger.error(f"Error getting hooks: {e}", exc_info=True)
-            return all_hooks_data
+        return all_hooks_data
 
     @tool
-    async def get_pipelines(self, project_id: int = None) -> list[dict]:
+    async def get_pipelines(self, project_id: Optional[int] = None) -> list:
         """
         Asynchronously retrieves recent pipeline runs for a specific GitLab project.
         If project_id is None, it fetches pipelines from all accessible projects.
@@ -249,10 +250,10 @@ class GitlabHandler(BaseHandler):
                         logger.warning(f"Skipping project ID {project_summary['id']} (pipelines): {e}")
         except GitlabError as e:
             logger.error(f"Error getting pipelines: {e}", exc_info=True)
-            return all_pipelines_data
+        return all_pipelines_data
 
     @tool
-    async def get_branches(self, project_id: int = None) -> list[dict]:
+    async def get_branches(self, project_id: Optional[int] = None) -> list:
         """
         Asynchronously retrieves a list of all branches for a specific GitLab project.
         If project_id is None, it fetches branches from all accessible projects.
@@ -281,10 +282,10 @@ class GitlabHandler(BaseHandler):
                         logger.warning(f"Skipping project ID {project_summary['id']} (branches): {e}")
         except GitlabError as e:
             logger.error(f"Error getting branches: {e}", exc_info=True)
-            return all_branches_data
+        return all_branches_data
 
     @tool
-    async def get_branch_protection_rules(self, project_id: int = None) -> list[dict]:
+    async def get_branch_protection_rules(self, project_id: Optional[int] = None) -> list:
         """
         Asynchronously retrieves a list of all branch protection rules for a specific GitLab project.
         If project_id is None, it fetches rules from all accessible projects.
@@ -313,10 +314,10 @@ class GitlabHandler(BaseHandler):
                         logger.warning(f"Skipping project ID {project_summary['id']} (branch protection rules): {e}")
         except GitlabError as e:
             logger.error(f"Error getting branch protection rules: {e}", exc_info=True)
-            return all_protected_branches_data
+        return all_protected_branches_data
 
     @tool
-    async def get_packages(self, project_id: int = None) -> list[dict]:
+    async def get_packages(self, project_id: Optional[int] = None) -> list:
         """
         Asynchronously retrieves a list of all packages published to the package registry
         for a specific GitLab project. If project_id is None, it fetches packages from all accessible projects.
@@ -345,4 +346,4 @@ class GitlabHandler(BaseHandler):
                         logger.warning(f"Skipping project ID {project_summary['id']} (packages): {e}")
         except GitlabError as e:
             logger.error(f"Error getting packages: {e}", exc_info=True)
-            return all_packages_data
+        return all_packages_data
