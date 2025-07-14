@@ -2,6 +2,7 @@ from .atlassian import *
 from .aws import *
 from .azure import *
 from .crm import *
+from .datadog import *
 from .ecommerce import *
 from .gcp import *
 from .gitlab import GitlabHandler

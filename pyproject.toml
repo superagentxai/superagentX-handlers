@@ -53,6 +53,7 @@ google-cloud-run = "^0.10.18"
 google-cloud-iam = "^2.19.1"
 google-cloud-api-gateway = "^1.12.2"
 azure-mgmt-web = "^9.0.0"
+datadog-api-client = {extras = ["async"], version = "^2.39.0"}
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"
