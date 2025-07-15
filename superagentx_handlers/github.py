@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Optional,Union
+from typing import Optional
 
 import os
 import aiohttp
@@ -55,7 +55,7 @@ class GitHubHandler(BaseHandler):
             self,
             url: str,
             headers: dict,
-            params: Union[dict, None] = None
+            params: Optional[dict] = None
     ) -> list[dict]:
         """
             Fetches all pages from a paginated GitHub API endpoint.
@@ -69,6 +69,10 @@ class GitHubHandler(BaseHandler):
         all_data: list[dict] = []
         current_url = url
         current_params = params.copy() if params is not None else {}
+        page_data_keys = [
+            "items", "workflow_runs", "jobs", "artifacts",
+            "secrets", "repositories", "pull_requests", "branches"
+        ]
 
         async with aiohttp.ClientSession() as session:
             while current_url:
@@ -85,8 +89,7 @@ class GitHubHandler(BaseHandler):
                             all_data.extend(page_data)
                         elif isinstance(page_data, dict):
                             found_list = False
-                            for key in ["items", "workflow_runs", "jobs", "artifacts", "secrets", "repositories",
-                                        "packages"]:
+                            for key in page_data_keys:
                                 if key in page_data and isinstance(page_data[key], list):
                                     all_data.extend(page_data[key])
                                     found_list = True
