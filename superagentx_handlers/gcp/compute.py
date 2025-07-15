@@ -2,6 +2,7 @@ import base64
 import json
 import logging  # Import the logging module
 import os
+from typing import Optional
 
 from google.api_core import exceptions
 from google.cloud import compute_v1
@@ -171,7 +172,7 @@ class GcpComputeHandler(BaseHandler):
         return policy_details
 
     @tool
-    async def collect_instances(self, project_id: str = None, zone: str = None) -> list:
+    async def collect_instances(self, project_id: Optional[str] = None, zone: Optional[str] = None) -> list:
         """
         Collects information about VM instances in a specific project and optionally a zone.
         If no zone is provided, it will collect instances from all accessible zones
@@ -246,7 +247,7 @@ class GcpComputeHandler(BaseHandler):
         return instances_info
 
     @tool
-    async def collect_disks(self, project_id: str = None, zone: str = None) -> list:
+    async def collect_disks(self, project_id: Optional[str] = None, zone: Optional[str] = None) -> list:
         """
         Collects information about persistent disks in a specific project and optionally a zone.
         If no zone is provided, it will collect disks from all accessible zones
@@ -302,7 +303,7 @@ class GcpComputeHandler(BaseHandler):
         return disks_info
 
     @tool
-    async def collect_networks(self, project_id: str = None) -> list:
+    async def collect_networks(self, project_id: Optional[str] = None) -> list:
         """
         Collects information about VPC networks in a specific project.
 
@@ -344,7 +345,7 @@ class GcpComputeHandler(BaseHandler):
         return networks_info
 
     @tool
-    async def collect_subnetworks(self, project_id: str = None, region: str = None) -> list:
+    async def collect_subnetworks(self, project_id: Optional[str] = None, region: Optional[str] = None) -> list:
         """
         Collects information about subnetworks in a specific project and optionally a region.
         If no region is provided, it will collect subnetworks from all accessible regions
@@ -403,7 +404,7 @@ class GcpComputeHandler(BaseHandler):
         return subnetworks_info
 
     @tool
-    async def collect_firewall_rules(self, project_id: str = None) -> list:
+    async def collect_firewall_rules(self, project_id: Optional[str] = None) -> list:
         """
         Collects information about firewall rules in a specific project.
 
@@ -466,7 +467,7 @@ class GcpComputeHandler(BaseHandler):
         return firewall_rules_info
 
     @tool
-    async def collect_images(self, project_id: str = None) -> list:
+    async def collect_images(self, project_id: Optional[str] = None) -> list:
         """
         Collects information about custom images in a specific project.
 
@@ -513,7 +514,7 @@ class GcpComputeHandler(BaseHandler):
         return images_info
 
     @tool
-    async def collect_snapshots(self, project_id: str = None) -> list:
+    async def collect_snapshots(self, project_id: Optional[str] = None) -> list:
         """
         Collects information about disk snapshots in a specific project.
 
@@ -557,7 +558,7 @@ class GcpComputeHandler(BaseHandler):
         return snapshots_info
 
     @tool
-    async def collect_all_compute_info(self, project_id: str = None) -> dict: # project_id is now optional
+    async def collect_all_compute_info(self, project_id: Optional[str] = None) -> dict: # project_id is now optional
         """
         Collects comprehensive information for various Compute Engine resources
         within a specified GCP project. This method is exposed as a tool for

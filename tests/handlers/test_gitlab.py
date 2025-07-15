@@ -7,11 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import your GitlabHandler and custom exceptions
-from superagentx_handlers.gitlab import GitlabHandler, GitLabClientInitFailed, \
-    GitLabListUsersFailed, GitLabListProjectsFailed, GitLabListGroupsFailed, \
-    GitLabListIssuesFailed, GitLabListMergeRequestsFailed, GitLabListHooksFailed, \
-    GitLabListPipelinesFailed, GitLabListBranchesFailed, GitLabListBranchProtectionRulesFailed, \
-    GitLabListPackagesFailed
+from superagentx_handlers import GitlabHandler
 
 '''
  Run Pytest for GitLab Handler:
