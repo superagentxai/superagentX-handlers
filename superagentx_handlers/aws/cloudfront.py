@@ -133,10 +133,6 @@ class AWSCloudFrontHandler(BaseHandler):
         Lists all cache behaviors configured across all CloudFront distributions.
         Returns a list of dictionaries, each containing distribution ID and its associated cache behaviors.
         """
-        if not self._is_initialized:
-            logger.error("AWSCloudFrontHandler not initialized. Cannot list cache behaviors.")
-            return []
-
         all_cache_behaviors: list[Dict] = []
         try:
             distributions = await self.list_distributions()
