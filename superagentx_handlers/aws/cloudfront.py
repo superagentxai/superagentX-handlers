@@ -69,8 +69,10 @@ class AWSCloudFrontHandler(BaseHandler):
     async def list_distributions(self) -> list:
         """
         Lists all CloudFront distributions with all available details.
-        """
 
+        Returns:
+            list: List of distrubtions
+        """
         final_distributions: list[dict] = []
         try:
             paginator = await sync_to_async(self.cloudfront_client.get_paginator, 'list_distributions')
@@ -86,7 +88,6 @@ class AWSCloudFrontHandler(BaseHandler):
                 f"An unexpected error occurred while listing CloudFront distributions: {e}",
                 exc_info=True
             )
-
         return final_distributions
 
     @tool
@@ -94,9 +95,10 @@ class AWSCloudFrontHandler(BaseHandler):
         """
         Lists all SSL/TLS certificates managed by AWS Certificate Manager (ACM)
         in us-east-1 region, as these are typically used with CloudFront.
-        Returns all available details for each certificate.
+        
+        Returns:
+            list: all available details for each certificate.
         """
-
         final_certificates: list[dict] = []
         try:
             final_certificates = await self._list_all_paginated_data(
@@ -118,7 +120,9 @@ class AWSCloudFrontHandler(BaseHandler):
     async def list_cache_behaviors(self) -> list:
         """
         Lists all cache behaviors configured across all CloudFront distributions.
-        Returns a list of dictionaries, each containing distribution ID and its associated cache behaviors.
+        
+        Returns:
+            list: a list of dictionaries, each containing distribution ID and its associated cache behaviors.
         """
         all_cache_behaviors: list[dict] = []
         try:
@@ -158,14 +162,12 @@ class AWSCloudFrontHandler(BaseHandler):
                             f"Unexpected error getting config for distribution {dist_id}: {e}",
                             exc_info=True
                         )
-
             logger.info(f"Successfully retrieved {len(all_cache_behaviors)} cache behaviors across distributions.")
         except Exception as e:
             logger.error(
                 f"An unexpected error occurred while listing CloudFront cache behaviors: {e}",
                 exc_info=True
             )
-
         return all_cache_behaviors
 
     @tool
@@ -173,9 +175,10 @@ class AWSCloudFrontHandler(BaseHandler):
         """
         Lists access control configurations (geo-restrictions, WAF associations)
         for all CloudFront distributions.
-        Returns a list of dictionaries, each containing distribution ID and its access control details.
+        
+        Returns:
+            list: a list of dictionaries, each containing distribution ID and its access control details.
         """
-
         all_access_controls: list[dict] = []
         try:
             distributions = await self.list_distributions()
@@ -205,11 +208,9 @@ class AWSCloudFrontHandler(BaseHandler):
                             f"Unexpected error getting config for distribution {dist_id}: {e}",
                             exc_info=True
                         )
-
             logger.info(f"Successfully retrieved {len(all_access_controls)} access control configurations.")
         except Exception as e:
             logger.error(
                 f"An error occurred while listing CloudFront access control configurations: {e}",
                 exc_info=True)
-
         return all_access_controls
