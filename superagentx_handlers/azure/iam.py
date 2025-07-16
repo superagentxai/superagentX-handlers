@@ -27,8 +27,7 @@ class EntraIAMHandler(BaseHandler):
         *,
         tenant_id: str | None = None,
         client_id: str | None = None,
-        client_secret: str | None = None,
-        **kwargs: Any
+        client_secret: str | None = None
     ):
         super().__init__()
         """

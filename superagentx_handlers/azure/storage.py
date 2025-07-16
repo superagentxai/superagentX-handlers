@@ -30,8 +30,7 @@ class AzureStorageHandler(BaseHandler):
             subscription_id: str | None = None,
             tenant_id: str | None = None,
             client_id: str | None = None,
-            client_secret: str | None = None,
-            **kwargs: Any
+            client_secret: str | None = None
     ):
         """
         Initializes the AzureStorageHandler.
@@ -41,7 +40,6 @@ class AzureStorageHandler(BaseHandler):
             tenant_id (str | None): The Azure tenant ID. Defaults to AZURE_TENANT_ID environment variable.
             client_id (str | None): The Azure client ID (application ID). Defaults to AZURE_CLIENT_ID environment variable.
             client_secret (str | None): The Azure client secret. Defaults to AZURE_CLIENT_SECRET environment variable.
-            **kwargs (Any): Additional keyword arguments.
 
         Raises:
             AzureStorageClientInitFailed: If there's an error initializing the Azure Storage client.
