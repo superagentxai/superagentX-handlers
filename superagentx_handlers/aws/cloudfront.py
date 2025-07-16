@@ -33,41 +33,19 @@ class AWSCloudFrontHandler(BaseHandler):
         self.session = None
         self.cloudfront_client = None
         self.acm_client = None
+        self.session = boto3.Session(
+            aws_access_key_id=self.aws_access_key_id,
+            aws_secret_access_key=self.aws_secret_access_key,
+            region_name=self.region_name
+        )
+        self.cloudfront_client = self.session.client("cloudfront")
+        self.acm_client = self.session.client(
+            "acm",
+            region_name=self.region_name
+        )
 
-        if not self.aws_access_key_id or not self.aws_secret_access_key:
-            logger.error("AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) not provided. "
-                         "Handler will not be able to make API calls.")
-            return
-
-        try:
-            self.session = boto3.Session(
-                aws_access_key_id=self.aws_access_key_id,
-                aws_secret_access_key=self.aws_secret_access_key,
-                region_name=self.region_name
-            )
-            self.cloudfront_client = self.session.client("cloudfront")
-            self.acm_client = self.session.client(
-                "acm",
-                region_name=self.region_name
-            )
-
-            self._is_initialized = True
-            logger.debug("AWSCloudFrontHandler initialized successfully.")
-        except NoCredentialsError:
-            logger.error(
-                "AWS credentials not found or invalid during handler initialization.",
-                exc_info=True
-            )
-            self._is_initialized = False
-        except ClientError as e:
-            logger.error(f"AWS Client error during CloudFront handler initialization: {e}", exc_info=True)
-            self._is_initialized = False
-        except Exception as e:
-            logger.error(
-                f"An unexpected error occurred during CloudFront handler initialization: {e}",
-                exc_info=True
-            )
-            self._is_initialized = False
+        self._is_initialized = True
+        logger.debug("AWSCloudFrontHandler initialized successfully.")
 
     @staticmethod
     async def _list_all_paginated_data(
@@ -78,23 +56,21 @@ class AWSCloudFrontHandler(BaseHandler):
         """
         Helper method to handle pagination for AWS API calls.
         """
-        all_data: List[Dict] = []
+        all_data: list[Dict] = []
         try:
             paginator = await sync_to_async(client.get_paginator, operation_name)
             pages = await sync_to_async(paginator.paginate)
             for page in pages:
                 if result_key in page:
                     all_data.extend(page[result_key])
-            return all_data
         except ClientError as e:
             logger.error(f"AWS Client error during pagination for {operation_name}: {e}", exc_info=True)
-            return []
         except Exception as e:
             logger.error(
                 f"An unexpected error occurred during pagination for {operation_name}: {e}",
                 exc_info=True
             )
-            return []
+        return all_data
 
     @tool
     async def list_distributions(self) -> list:
@@ -105,7 +81,7 @@ class AWSCloudFrontHandler(BaseHandler):
             logger.error("AWSCloudFrontHandler not initialized. Cannot list distributions.")
             return []
 
-        final_distributions: List[Dict] = []
+        final_distributions: list[Dict] = []
         try:
             paginator = await sync_to_async(self.cloudfront_client.get_paginator, 'list_distributions')
             pages = await sync_to_async(paginator.paginate)
@@ -115,13 +91,11 @@ class AWSCloudFrontHandler(BaseHandler):
             logger.info(f"Successfully retrieved {len(final_distributions)} CloudFront distributions.")
         except ClientError as e:
             logger.error(f"AWS Client error while listing CloudFront distributions: {e}", exc_info=True)
-            final_distributions = []
         except Exception as e:
             logger.error(
                 f"An unexpected error occurred while listing CloudFront distributions: {e}",
                 exc_info=True
             )
-            final_distributions = []
 
         return final_distributions
 
@@ -136,7 +110,7 @@ class AWSCloudFrontHandler(BaseHandler):
             logger.error("AWSCloudFrontHandler or ACM client not initialized. Cannot list certificates.")
             return []
 
-        final_certificates: List[Dict] = []
+        final_certificates: list[Dict] = []
         try:
             final_certificates = await self._list_all_paginated_data(
                 client=self.acm_client,
@@ -146,14 +120,11 @@ class AWSCloudFrontHandler(BaseHandler):
             logger.info(f"Successfully retrieved {len(final_certificates)} ACM certificates.")
         except ClientError as e:
             logger.error(f"AWS Client error while listing ACM certificates: {e}", exc_info=True)
-            final_certificates = []
         except Exception as e:
             logger.error(
                 f"An unexpected error occurred while listing ACM certificates: {e}",
                 exc_info=True
             )
-            final_certificates = []
-
         return final_certificates
 
     @tool
@@ -166,7 +137,7 @@ class AWSCloudFrontHandler(BaseHandler):
             logger.error("AWSCloudFrontHandler not initialized. Cannot list cache behaviors.")
             return []
 
-        all_cache_behaviors: List[Dict] = []
+        all_cache_behaviors: list[Dict] = []
         try:
             distributions = await self.list_distributions()
             for dist in distributions:
@@ -211,7 +182,6 @@ class AWSCloudFrontHandler(BaseHandler):
                 f"An unexpected error occurred while listing CloudFront cache behaviors: {e}",
                 exc_info=True
             )
-            all_cache_behaviors = []
 
         return all_cache_behaviors
 
@@ -222,11 +192,8 @@ class AWSCloudFrontHandler(BaseHandler):
         for all CloudFront distributions.
         Returns a list of dictionaries, each containing distribution ID and its access control details.
         """
-        if not self._is_initialized:
-            logger.error("AWSCloudFrontHandler not initialized. Cannot list access control configurations.")
-            return []
 
-        all_access_controls: List[Dict] = []
+        all_access_controls: list[Dict] = []
         try:
             distributions = await self.list_distributions()
             for dist in distributions:
@@ -261,6 +228,5 @@ class AWSCloudFrontHandler(BaseHandler):
             logger.error(
                 f"An error occurred while listing CloudFront access control configurations: {e}",
                 exc_info=True)
-            all_access_controls = []
 
         return all_access_controls
