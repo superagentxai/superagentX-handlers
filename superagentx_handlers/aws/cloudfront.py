@@ -20,9 +20,9 @@ class AWSCloudFrontHandler(BaseHandler):
 
     def __init__(
         self,
-        aws_access_key_id: str = None,
-        aws_secret_access_key: str = None,
-        region_name: str = None
+        aws_access_key_id: str | None = None,
+        aws_secret_access_key: str | None = None,
+        region_name: str | None = None
     ):
         super().__init__()
         self.aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
@@ -46,31 +46,43 @@ class AWSCloudFrontHandler(BaseHandler):
                 region_name=self.region_name
             )
             self.cloudfront_client = self.session.client("cloudfront")
-            self.acm_client = self.session.client("acm", region_name="us-east-1")
+            self.acm_client = self.session.client(
+                "acm",
+                region_name=self.region_name
+            )
 
             self._is_initialized = True
             logger.debug("AWSCloudFrontHandler initialized successfully.")
         except NoCredentialsError:
-            logger.error("AWS credentials not found or invalid during handler initialization.",
-                         exc_info=True)
+            logger.error(
+                "AWS credentials not found or invalid during handler initialization.",
+                exc_info=True
+            )
             self._is_initialized = False
         except ClientError as e:
             logger.error(f"AWS Client error during CloudFront handler initialization: {e}", exc_info=True)
             self._is_initialized = False
         except Exception as e:
-            logger.error(f"An unexpected error occurred during CloudFront handler initialization: {e}",
-                         exc_info=True)
+            logger.error(
+                f"An unexpected error occurred during CloudFront handler initialization: {e}",
+                exc_info=True
+            )
             self._is_initialized = False
 
     @staticmethod
-    async def _list_all_paginated_data(client: Any, operation_name: str, result_key: str) -> List[Dict]:
+    async def _list_all_paginated_data(
+            client: Any,
+            operation_name: str,
+            result_key: str
+    ) -> list:
         """
         Helper method to handle pagination for AWS API calls.
         """
         all_data: List[Dict] = []
         try:
             paginator = await sync_to_async(client.get_paginator, operation_name)
-            for page in await sync_to_async(paginator.paginate):
+            pages = await sync_to_async(paginator.paginate)
+            for page in pages:
                 if result_key in page:
                     all_data.extend(page[result_key])
             return all_data
@@ -78,14 +90,16 @@ class AWSCloudFrontHandler(BaseHandler):
             logger.error(f"AWS Client error during pagination for {operation_name}: {e}", exc_info=True)
             return []
         except Exception as e:
-            logger.error(f"An unexpected error occurred during pagination for {operation_name}: {e}",
-                         exc_info=True)
+            logger.error(
+                f"An unexpected error occurred during pagination for {operation_name}: {e}",
+                exc_info=True
+            )
             return []
 
     @tool
-    async def list_distributions(self) -> List[Dict]:
+    async def list_distributions(self) -> list:
         """
-        Asynchronously lists all CloudFront distributions with all available details.
+        Lists all CloudFront distributions with all available details.
         """
         if not self._is_initialized:
             logger.error("AWSCloudFrontHandler not initialized. Cannot list distributions.")
@@ -94,7 +108,8 @@ class AWSCloudFrontHandler(BaseHandler):
         final_distributions: List[Dict] = []
         try:
             paginator = await sync_to_async(self.cloudfront_client.get_paginator, 'list_distributions')
-            for page in await sync_to_async(paginator.paginate):
+            pages = await sync_to_async(paginator.paginate)
+            for page in pages:
                 if 'DistributionList' in page and 'Items' in page['DistributionList']:
                     final_distributions.extend(page['DistributionList']['Items'])
             logger.info(f"Successfully retrieved {len(final_distributions)} CloudFront distributions.")
@@ -102,16 +117,18 @@ class AWSCloudFrontHandler(BaseHandler):
             logger.error(f"AWS Client error while listing CloudFront distributions: {e}", exc_info=True)
             final_distributions = []
         except Exception as e:
-            logger.error(f"An unexpected error occurred while listing CloudFront distributions: {e}",
-                         exc_info=True)
+            logger.error(
+                f"An unexpected error occurred while listing CloudFront distributions: {e}",
+                exc_info=True
+            )
             final_distributions = []
 
         return final_distributions
 
     @tool
-    async def list_certificates(self) -> List[Dict]:
+    async def list_certificates(self) -> list:
         """
-        Asynchronously lists all SSL/TLS certificates managed by AWS Certificate Manager (ACM)
+        Lists all SSL/TLS certificates managed by AWS Certificate Manager (ACM)
         in us-east-1 region, as these are typically used with CloudFront.
         Returns all available details for each certificate.
         """
@@ -122,23 +139,27 @@ class AWSCloudFrontHandler(BaseHandler):
         final_certificates: List[Dict] = []
         try:
             final_certificates = await self._list_all_paginated_data(
-                self.acm_client, 'list_certificates', 'CertificateSummaryList'
+                client=self.acm_client,
+                operation_name='list_certificates',
+                result_key='CertificateSummaryList'
             )
             logger.info(f"Successfully retrieved {len(final_certificates)} ACM certificates.")
         except ClientError as e:
             logger.error(f"AWS Client error while listing ACM certificates: {e}", exc_info=True)
             final_certificates = []
         except Exception as e:
-            logger.error(f"An unexpected error occurred while "
-                         f"listing ACM certificates: {e}", exc_info=True)
+            logger.error(
+                f"An unexpected error occurred while listing ACM certificates: {e}",
+                exc_info=True
+            )
             final_certificates = []
 
         return final_certificates
 
     @tool
-    async def list_cache_behaviors(self) -> List[Dict]:
+    async def list_cache_behaviors(self) -> list:
         """
-        Asynchronously lists all cache behaviors configured across all CloudFront distributions.
+        Lists all cache behaviors configured across all CloudFront distributions.
         Returns a list of dictionaries, each containing distribution ID and its associated cache behaviors.
         """
         if not self._is_initialized:
@@ -174,26 +195,30 @@ class AWSCloudFrontHandler(BaseHandler):
                                     "CacheBehavior": behavior
                                 })
                     except ClientError as e:
-                        logger.warning(f"Could not retrieve "
-                                       f"config for distribution {dist_id}: {e}",
-                                       exc_info=True)
+                        logger.warning(
+                            f"Could not retrieve config for distribution {dist_id}: {e}",
+                            exc_info=True
+                        )
                     except Exception as e:
-                        logger.warning(f"Unexpected error getting "
-                                       f"config for distribution {dist_id}: {e}", exc_info=True)
+                        logger.warning(
+                            f"Unexpected error getting config for distribution {dist_id}: {e}",
+                            exc_info=True
+                        )
 
-            logger.info(f"Successfully retrieved {len(all_cache_behaviors)} "
-                        f"cache behaviors across distributions.")
+            logger.info(f"Successfully retrieved {len(all_cache_behaviors)} cache behaviors across distributions.")
         except Exception as e:
-            logger.error(f"An unexpected error occurred while "
-                         f"listing CloudFront cache behaviors: {e}", exc_info=True)
+            logger.error(
+                f"An unexpected error occurred while listing CloudFront cache behaviors: {e}",
+                exc_info=True
+            )
             all_cache_behaviors = []
 
         return all_cache_behaviors
 
     @tool
-    async def list_access_control_configs(self) -> List[Dict]:
+    async def list_access_control_configs(self) -> list:
         """
-        Asynchronously lists access control configurations (geo-restrictions, WAF associations)
+        Lists access control configurations (geo-restrictions, WAF associations)
         for all CloudFront distributions.
         Returns a list of dictionaries, each containing distribution ID and its access control details.
         """
@@ -221,17 +246,21 @@ class AWSCloudFrontHandler(BaseHandler):
                             }
                             all_access_controls.append(access_control_info)
                     except ClientError as e:
-                        logger.warning(f"Could not retrieve "
-                                       f"config for distribution {dist_id}: {e}", exc_info=True)
+                        logger.warning(
+                            f"Could not retrieve config for distribution {dist_id}: {e}",
+                            exc_info=True
+                        )
                     except Exception as e:
-                        logger.warning(f"Unexpected error getting "
-                                       f"config for distribution {dist_id}: {e}", exc_info=True)
+                        logger.warning(
+                            f"Unexpected error getting config for distribution {dist_id}: {e}",
+                            exc_info=True
+                        )
 
-            logger.info(f"Successfully retrieved {len(all_access_controls)} "
-                        f"access control configurations.")
+            logger.info(f"Successfully retrieved {len(all_access_controls)} access control configurations.")
         except Exception as e:
-            logger.error(f"An error occurred while listing "
-                         f"CloudFront access control configurations: {e}", exc_info=True)
+            logger.error(
+                f"An error occurred while listing CloudFront access control configurations: {e}",
+                exc_info=True)
             all_access_controls = []
 
         return all_access_controls

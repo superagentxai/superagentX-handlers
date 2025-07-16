@@ -1,21 +1,21 @@
-# test_aws_cloudfront.py
+# tests/handlers/test_aws_cloudfront.py
 import os
 import pytest
 import pytest_asyncio
 import logging
 
 # Import your AWSCloudFrontHandler
-from cloudfront import AWSCloudFrontHandler
+from superagentx_handlers import AWSCloudFrontHandler
 
 logger = logging.getLogger(__name__)
 
 '''
  Run Pytest for AWS CloudFront:
 
-   1. pytest --log-cli-level=INFO test_aws_cloudfront.py::TestAWSCloudFrontHandler::test_list_distributions
-   2. pytest --log-cli-level=INFO test_aws_cloudfront.py::TestAWSCloudFrontHandler::test_list_certificates
-   3. pytest --log-cli-level=INFO test_aws_cloudfront.py::TestAWSCloudFrontHandler::test_list_cache_behaviors
-   4. pytest --log-cli-level=INFO test_aws_cloudfront.py::TestAWSCloudFrontHandler::test_list_access_control_configs
+   1. pytest --log-cli-level=INFO tests/handlers/test_aws_cloudfront.py::TestAWSCloudFrontHandler::test_list_distributions
+   2. pytest --log-cli-level=INFO tests/handlers/test_aws_cloudfront.py::TestAWSCloudFrontHandler::test_list_certificates
+   3. pytest --log-cli-level=INFO tests/handlers/test_aws_cloudfront.py::TestAWSCloudFrontHandler::test_list_cache_behaviors
+   4. pytest --log-cli-level=INFO tests/handlers/test_aws_cloudfront.py::TestAWSCloudFrontHandler::test_list_access_control_configs
 
  Remember to set your AWS environment variables for a TEST/DEVELOPMENT account (NOT production) before running:
  export AWS_ACCESS_KEY_ID="your_aws_access_key_id"
