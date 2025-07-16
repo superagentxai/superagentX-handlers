@@ -3,12 +3,12 @@ import pytest
 import logging
 import pytest_asyncio
 
-from superagentx_handlers.azure.api_gateway import AzureApplicationGatewayHandler
+from superagentx_handlers import AzureApplicationGatewayHandler
 
 logger = logging.getLogger(__name__)
 '''
  Run Pytest for Azure LoadBalancer:
-   1. pytest --log-cli-level=INFO tests/handlers/azure/test_azure_api_gateway.py::TestAzureApplicationGatewayHandler::test_get_load_balancers
+   1. pytest --log-cli-level=INFO tests/handlers/azure/test_azure_application_gateway.py::TestAzureApplicationGatewayHandler::test_get_load_balancers
 '''
 
 

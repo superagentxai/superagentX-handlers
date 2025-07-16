@@ -4,13 +4,12 @@ import os
 from datetime import datetime
 from typing import Optional
 
+from azure.core.exceptions import AzureError, ResourceNotFoundError
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
-from azure.mgmt.network import NetworkManagementClient
-from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.apimanagement.aio import ApiManagementClient
 from azure.mgmt.authorization.aio import AuthorizationManagementClient
-from azure.core.exceptions import AzureError, ResourceNotFoundError
-
+from azure.mgmt.network.aio import NetworkManagementClient
+from azure.mgmt.resource import ResourceManagementClient
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
@@ -57,17 +56,23 @@ class AzureApplicationGatewayHandler(BaseHandler):
 
         # Initialize clients
         self.network_client = NetworkManagementClient(
-            credential=self.credential, # noqa
+            credential=self.credential,  # noqa
             subscription_id=self.subscription_id
         )
 
         self.resource_client = ResourceManagementClient(
-            credential=self.credential, # noqa
+            credential=self.credential,  # noqa
             subscription_id=self.subscription_id
         )
 
-        self.apim_client = ApiManagementClient(self.credential, self.subscription_id)
-        self.rbac_client = AuthorizationManagementClient(self.credential, self.subscription_id)
+        self.apim_client = ApiManagementClient(
+            self.credential,
+            self.subscription_id
+        )
+        self.rbac_client = AuthorizationManagementClient(
+            credential=self.credential,
+            subscription_id=self.subscription_id
+        )
 
     @tool
     async def get_resource_groups(self) -> list[dict]:
@@ -103,7 +108,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
             return []
 
     @tool
-    async def get_application_gateways(self, resource_group_name: str = None) -> list[dict]:
+    async def get_application_gateways(self, resource_group_name: Optional[str] = None) -> list[dict]:
         """
         Retrieve all application gateways in the subscription or specific resource group.
 
@@ -117,16 +122,13 @@ class AzureApplicationGatewayHandler(BaseHandler):
         app_gateways_data = []
         try:
             if resource_group_name:
-                app_gateways = await sync_to_async(
-                    self.network_client.application_gateways.list,
+                app_gateways = self.network_client.application_gateways.list(
                     resource_group_name=resource_group_name
                 )
             else:
-                app_gateways = await sync_to_async(
-                    self.network_client.application_gateways.list_all
-                )
+                app_gateways = self.network_client.application_gateways.list_all()
 
-            async for app_gateway in iter_to_aiter(app_gateways):
+            async for app_gateway in app_gateways:
                 app_gateway_info = {
                     'name': app_gateway.name,
                     'id': app_gateway.id,
@@ -278,7 +280,11 @@ class AzureApplicationGatewayHandler(BaseHandler):
             return []
 
     @tool
-    async def get_application_gateway(self, resource_group_name: str, gateway_name: str) -> dict:
+    async def get_application_gateway(
+            self,
+            resource_group_name: str,
+            gateway_name: str
+    ) -> dict:
         """
         Retrieve details for a specific application gateway.
 
@@ -291,8 +297,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
         """
         logger.info(f"Fetching application gateway {gateway_name} in resource group {resource_group_name}")
         try:
-            app_gateway = await sync_to_async(
-                self.network_client.application_gateways.get,
+            app_gateway = await self.network_client.application_gateways.get(
                 resource_group_name=resource_group_name,
                 application_gateway_name=gateway_name
             )
@@ -327,7 +332,11 @@ class AzureApplicationGatewayHandler(BaseHandler):
             return {}
 
     @tool
-    async def get_application_gateway_backend_health(self, resource_group_name: str, gateway_name: str) -> dict:
+    async def get_application_gateway_backend_health(
+            self,
+            resource_group_name: str,
+            gateway_name: str
+    ) -> dict:
         """
         Retrieve backend health information for an application gateway.
 
@@ -341,14 +350,13 @@ class AzureApplicationGatewayHandler(BaseHandler):
         logger.info(f"Fetching backend health for application gateway {gateway_name}")
         try:
             # Start backend health check
-            health_operation = await sync_to_async(
-                self.network_client.application_gateways.begin_backend_health,
+            health_operation = await self.network_client.application_gateways.begin_backend_health(
                 resource_group_name=resource_group_name,
                 application_gateway_name=gateway_name
             )
 
             # Wait for operation to complete
-            health_result = await sync_to_async(health_operation.result)
+            health_result = health_operation.result()
 
             backend_health_info = {
                 'backend_address_pools': [
@@ -386,7 +394,10 @@ class AzureApplicationGatewayHandler(BaseHandler):
             return {}
 
     @tool
-    async def get_application_gateway_waf_policies(self, resource_group_name: str = None) -> list[dict]:
+    async def get_application_gateway_waf_policies(
+            self,
+            resource_group_name: Optional[str] = None
+    ) -> list:
         """
         Retrieve Web Application Firewall policies.
 
@@ -400,16 +411,13 @@ class AzureApplicationGatewayHandler(BaseHandler):
         waf_policies_data = []
         try:
             if resource_group_name:
-                waf_policies = await sync_to_async(
-                    self.network_client.web_application_firewall_policies.list,
+                waf_policies = self.network_client.web_application_firewall_policies.list(
                     resource_group_name=resource_group_name
                 )
             else:
-                waf_policies = await sync_to_async(
-                    self.network_client.web_application_firewall_policies.list_all
-                )
+                waf_policies = self.network_client.web_application_firewall_policies.list_all()
 
-            async for policy in iter_to_aiter(waf_policies):
+            async for policy in waf_policies:
                 policy_info = {
                     'name': policy.name,
                     'id': policy.id,
@@ -489,7 +497,10 @@ class AzureApplicationGatewayHandler(BaseHandler):
             return []
 
     @tool
-    async def get_public_ip_addresses(self, resource_group_name: str = None) -> list[dict]:
+    async def get_public_ip_addresses(
+            self,
+            resource_group_name: Optional[str] = None
+    ) -> list:
         """
         Retrieve public IP addresses that can be used with application gateways.
 
@@ -503,16 +514,13 @@ class AzureApplicationGatewayHandler(BaseHandler):
         public_ips_data = []
         try:
             if resource_group_name:
-                public_ips = await sync_to_async(
-                    self.network_client.public_ip_addresses.list,
+                public_ips = self.network_client.public_ip_addresses.list(
                     resource_group_name=resource_group_name
                 )
             else:
-                public_ips = await sync_to_async(
-                    self.network_client.public_ip_addresses.list_all
-                )
+                public_ips = self.network_client.public_ip_addresses.list_all()
 
-            async for public_ip in iter_to_aiter(public_ips):
+            async for public_ip in public_ips:
                 public_ip_info = {
                     'name': public_ip.name,
                     'id': public_ip.id,
@@ -551,7 +559,10 @@ class AzureApplicationGatewayHandler(BaseHandler):
             return []
 
     @tool
-    async def get_virtual_networks(self, resource_group_name: str = None) -> list[dict]:
+    async def get_virtual_networks(
+            self,
+            resource_group_name: Optional[str] = None
+    ) -> list:
         """
         Retrieve virtual networks that can be used with application gateways.
 
@@ -565,16 +576,13 @@ class AzureApplicationGatewayHandler(BaseHandler):
         vnets_data = []
         try:
             if resource_group_name:
-                vnets = await sync_to_async(
-                    self.network_client.virtual_networks.list,
+                vnets = self.network_client.virtual_networks.list(
                     resource_group_name=resource_group_name
                 )
             else:
-                vnets = await sync_to_async(
-                    self.network_client.virtual_networks.list_all
-                )
+                vnets = self.network_client.virtual_networks.list_all()
 
-            async for vnet in iter_to_aiter(vnets):
+            async for vnet in vnets:
                 vnet_info = {
                     'name': vnet.name,
                     'id': vnet.id,
@@ -617,7 +625,11 @@ class AzureApplicationGatewayHandler(BaseHandler):
             return []
 
     @tool
-    async def start_application_gateway(self, resource_group_name: str, gateway_name: str) -> dict:
+    async def start_application_gateway(
+            self,
+            resource_group_name: str,
+            gateway_name: str
+    ) -> dict:
         """
         Start an application gateway.
 
@@ -630,13 +642,12 @@ class AzureApplicationGatewayHandler(BaseHandler):
         """
         logger.info(f"Starting application gateway {gateway_name} in resource group {resource_group_name}")
         try:
-            start_operation = await sync_to_async(
-                self.network_client.application_gateways.begin_start,
+            start_operation = await self.network_client.application_gateways.begin_start(
                 resource_group_name=resource_group_name,
                 application_gateway_name=gateway_name
             )
 
-            result = await sync_to_async(start_operation.result)
+            result = start_operation.result()
 
             logger.info(f"Application gateway {gateway_name} start operation completed")
             return {
@@ -665,7 +676,11 @@ class AzureApplicationGatewayHandler(BaseHandler):
             }
 
     @tool
-    async def stop_application_gateway(self, resource_group_name: str, gateway_name: str) -> dict:
+    async def stop_application_gateway(
+            self,
+            resource_group_name: str,
+            gateway_name: str
+    ) -> dict:
         """
         Stop an application gateway.
 
@@ -678,8 +693,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
         """
         logger.info(f"Stopping application gateway {gateway_name} in resource group {resource_group_name}")
         try:
-            stop_operation = await sync_to_async(
-                self.network_client.application_gateways.begin_stop,
+            stop_operation = await self.network_client.application_gateways.begin_stop(
                 resource_group_name=resource_group_name,
                 application_gateway_name=gateway_name
             )
@@ -713,7 +727,10 @@ class AzureApplicationGatewayHandler(BaseHandler):
             }
 
     @tool
-    async def collect_all_application_gateway_data(self, resource_group_name: Optional[str] = None) -> dict:
+    async def collect_all_application_gateway_data(
+            self,
+            resource_group_name: Optional[str] = None
+    ) -> dict:
         """
         Collects comprehensive governance, risk, and compliance (GRC) data for Azure Application Gateway
         resources within a specified resource group or across the entire subscription.
@@ -793,7 +810,10 @@ class AzureApplicationGatewayHandler(BaseHandler):
             return {}
 
     @tool
-    async def collect_authentication_authorization_details(self, resource_group_name: Optional[str] = None) -> dict:
+    async def collect_authentication_authorization_details(
+            self,
+            resource_group_name: Optional[str] = None
+    ) -> dict:
         """
         Collects authentication and authorization configuration details for Azure API Management resources.
 
@@ -858,7 +878,6 @@ class AzureApplicationGatewayHandler(BaseHandler):
                     })
 
             logger.info("Successfully collected API Management auth and RBAC details.")
-            logger.info(result)
             return result
 
         except Exception as e:
