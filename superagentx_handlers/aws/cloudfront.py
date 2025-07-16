@@ -3,7 +3,7 @@ import logging
 # Removed asyncio as boto3 is synchronous, and using sync_to_async
 import boto3 # Using boto3
 from botocore.exceptions import ClientError, NoCredentialsError
-from asgiref.sync import sync_to_async # Import sync_to_async
+from superagentx.utils.helper import sync_to_async
 
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
