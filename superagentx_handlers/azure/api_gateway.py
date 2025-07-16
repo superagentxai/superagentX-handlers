@@ -1,12 +1,14 @@
 import asyncio
 import logging
 import os
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import Optional
 
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.apimanagement.aio import ApiManagementClient
+from azure.mgmt.authorization.aio import AuthorizationManagementClient
 from azure.core.exceptions import AzureError, ResourceNotFoundError
 
 from superagentx.handler.base import BaseHandler
@@ -31,6 +33,9 @@ class AzureApplicationGatewayHandler(BaseHandler):
     ):
         super().__init__()
         self.subscription_id = subscription_id or os.getenv("AZURE_SUBSCRIPTION_ID")
+        self.tenant_id = tenant_id or os.getenv("AZURE_TENANT_ID")
+        self.client_id = client_id or os.getenv("AZURE_CLIENT_ID")
+        self.client_secret = client_secret or os.getenv("AZURE_CLIENT_SECRET")
 
         if not self.subscription_id:
             raise ValueError(
@@ -60,6 +65,9 @@ class AzureApplicationGatewayHandler(BaseHandler):
             credential=self.credential, # noqa
             subscription_id=self.subscription_id
         )
+
+        self.apim_client = ApiManagementClient(self.credential, self.subscription_id)
+        self.rbac_client = AuthorizationManagementClient(self.credential, self.subscription_id)
 
     @tool
     async def get_resource_groups(self) -> list[dict]:
@@ -705,15 +713,31 @@ class AzureApplicationGatewayHandler(BaseHandler):
             }
 
     @tool
-    async def collect_all_application_gateway_data(self, resource_group_name: str = None) -> dict:
+    async def collect_all_application_gateway_data(self, resource_group_name: Optional[str] = None) -> dict:
         """
-        Collect all application gateway related data for a resource group or subscription.
+        Collects comprehensive governance, risk, and compliance (GRC) data for Azure Application Gateway
+        resources within a specified resource group or across the entire subscription.
+
+        This method asynchronously gathers detailed metadata and configuration for Application Gateways,
+        including related components such as WAF policies, public IPs, virtual networks, and backend health status.
+        It is useful for compliance audits, security assessments, and infrastructure monitoring.
 
         Args:
-            resource_group_name: Optional resource group name to filter results
+            resource_group_name (Optional[str]):
+                The name of the Azure resource group to filter the data. If not provided, data is collected
+                for all resource groups in the subscription.
 
         Returns:
-            dict: Comprehensive application gateway data collection
+            dict: A dictionary containing the following keys:
+                - subscription_id: Azure subscription identifier
+                - resource_group_filter: The resource group used for filtering (if any)
+                - resource_groups: List of resource groups (if not filtered)
+                - application_gateways: List of Application Gateway instances
+                - waf_policies: Associated Web Application Firewall (WAF) policies
+                - public_ip_addresses: Public IPs linked to Application Gateways
+                - virtual_networks: Related virtual networks and subnets
+                - backend_health_data: Health status of backend pools per gateway
+                - collection_timestamp: ISO-formatted timestamp of data collection
         """
         logger.info(
             f"Starting comprehensive application gateway data collection for resource group: {resource_group_name or 'all'}")
@@ -750,7 +774,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
 
             logger.info(f"Finished comprehensive application gateway data collection")
 
-            return {
+            result = {
                 'subscription_id': self.subscription_id,
                 'resource_group_filter': resource_group_name,
                 'resource_groups': resource_groups if not isinstance(resource_groups, Exception) else [],
@@ -761,7 +785,82 @@ class AzureApplicationGatewayHandler(BaseHandler):
                 'backend_health_data': backend_health_data,
                 'collection_timestamp': datetime.now().isoformat()
             }
+            logger.info(result)
+            return result
 
         except Exception as e:
             logger.error(f"Error during comprehensive application gateway data collection: {e}")
             return {}
+
+    @tool
+    async def collect_authentication_authorization_details(self, resource_group_name: Optional[str] = None) -> dict:
+        """
+        Collects authentication and authorization configuration details for Azure API Management resources.
+
+        Args:
+            resource_group_name (Optional[str]): Resource group to filter APIM instances.
+
+        Returns:
+            dict: Dictionary with authentication settings, RBAC policies, and managed identities.
+        """
+        result = {
+            "resource_group_filter": resource_group_name,
+            "authentication_settings": [],
+            "authorization_policies": [],
+            "managed_identities": [],
+            "collection_timestamp": datetime.utcnow().isoformat()
+        }
+
+        try:
+            apim_services = []
+            if resource_group_name:
+                for svc in self.apim_client.api_management_service.list_by_resource_group(resource_group_name):
+                    apim_services.append((resource_group_name, svc))
+            else:
+                # Query all resources of type Microsoft.ApiManagement/service
+                for resource in self.resource_client.resources.list(
+                        filter="resourceType eq 'Microsoft.ApiManagement/service'"):
+                    rg_name = resource.id.split("/")[4]
+                    svc_name = resource.name
+                    svc = await self.apim_client.api_management_service.get(rg_name, svc_name)
+                    apim_services.append((rg_name, svc))
+
+            for rg, service in apim_services:
+                name = service.name
+
+                # Managed Identity
+                result["managed_identities"].append({
+                    "name": name,
+                    "resource_group": rg,
+                    "identity": service.identity.as_dict() if service.identity else {}
+                })
+
+                # RBAC role assignments
+                rbac_scope = f"/subscriptions/{self.subscription_id}/resourceGroups/{rg}/providers/Microsoft.ApiManagement/service/{name}"
+                for role in self.rbac_client.role_assignments.list_for_scope(rbac_scope):
+                    result["authorization_policies"].append({
+                        "name": name,
+                        "resource_group": rg,
+                        "principal_id": role.principal_id,
+                        "role_definition_id": role.role_definition_id,
+                        "scope": role.scope
+                    })
+
+                # Identity Providers (OAuth2, AAD, etc.)
+                for idp in self.apim_client.identity_provider.list_by_service(rg, name):
+                    result["authentication_settings"].append({
+                        "name": name,
+                        "resource_group": rg,
+                        "identity_provider": idp.type,
+                        "client_id": idp.client_id,
+                        "allowed_tenants": getattr(idp, 'allowed_tenants', []),
+                        "authority": getattr(idp, 'authority', None)
+                    })
+
+            logger.info("Successfully collected API Management auth and RBAC details.")
+            logger.info(result)
+            return result
+
+        except Exception as e:
+            logger.error(f"Error collecting auth and RBAC details: {e}")
+            return result  # Return partial data

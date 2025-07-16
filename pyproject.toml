@@ -56,6 +56,8 @@ azure-mgmt-web = "^9.0.0"
 datadog-api-client = {extras = ["async"], version = "^2.39.0"}
 azure-mgmt-resource = "^24.0.0"
 azure-identity = "^1.23.0"
+azure-mgmt-apimanagement = "^5.0.0"
+azure-mgmt-authorization = "^4.0.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"

@@ -4,4 +4,5 @@ from .loadbalancer import AzureLoadBalancerHandler
 from .nsg import AzureNSGHandler
 from .storage import AzureStorageHandler
 from .vm import AzureVMHandler
+from .api_gateway import AzureApplicationGatewayHandler
 
