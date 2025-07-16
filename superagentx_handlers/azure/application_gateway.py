@@ -36,11 +36,6 @@ class AzureApplicationGatewayHandler(BaseHandler):
         self.client_id = client_id or os.getenv("AZURE_CLIENT_ID")
         self.client_secret = client_secret or os.getenv("AZURE_CLIENT_SECRET")
 
-        if not self.subscription_id:
-            raise ValueError(
-                "Azure subscription ID is required. Set AZURE_SUBSCRIPTION_ID environment variable or pass "
-                "subscription_id parameter.")
-
         # Initialize credential
         if credential:
             self.credential = credential
@@ -99,13 +94,11 @@ class AzureApplicationGatewayHandler(BaseHandler):
                 }
                 resource_groups_data.append(rg_info)
             logger.info(f"Retrieved {len(resource_groups_data)} resource groups")
-            return resource_groups_data
         except AzureError as e:
             logger.error(f"Error fetching resource groups: {e}")
-            return []
         except Exception as e:
             logger.error(f"Unexpected error fetching resource groups: {e}")
-            return []
+        return resource_groups_data
 
     @tool
     async def get_application_gateways(self, resource_group_name: Optional[str] = None) -> list[dict]:
@@ -113,7 +106,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
         Retrieve all application gateways in the subscription or specific resource group.
 
         Args:
-            resource_group_name: Optional resource group name to filter results
+            resource_group_name (str, optional): Optional resource group name to filter results
 
         Returns:
             list[dict]: List of application gateway details
@@ -269,15 +262,12 @@ class AzureApplicationGatewayHandler(BaseHandler):
                     } if app_gateway.autoscale_configuration else None
                 }
                 app_gateways_data.append(app_gateway_info)
-
             logger.info(f"Retrieved {len(app_gateways_data)} application gateways")
-            return app_gateways_data
         except AzureError as e:
             logger.error(f"Error fetching application gateways: {e}")
-            return []
         except Exception as e:
             logger.error(f"Unexpected error fetching application gateways: {e}")
-            return []
+        return app_gateways_data
 
     @tool
     async def get_application_gateway(
@@ -289,8 +279,8 @@ class AzureApplicationGatewayHandler(BaseHandler):
         Retrieve details for a specific application gateway.
 
         Args:
-            resource_group_name: Resource group name
-            gateway_name: Application gateway name
+            resource_group_name (str): Resource group name
+            gateway_name (str): Application gateway name
 
         Returns:
             dict: Application gateway details
@@ -323,13 +313,11 @@ class AzureApplicationGatewayHandler(BaseHandler):
             return app_gateway_info
         except ResourceNotFoundError:
             logger.warning(f"Application gateway {gateway_name} not found in resource group {resource_group_name}")
-            return {}
         except AzureError as e:
             logger.error(f"Error fetching application gateway {gateway_name}: {e}")
-            return {}
         except Exception as e:
             logger.error(f"Unexpected error fetching application gateway {gateway_name}: {e}")
-            return {}
+        return {}
 
     @tool
     async def get_application_gateway_backend_health(
@@ -341,8 +329,8 @@ class AzureApplicationGatewayHandler(BaseHandler):
         Retrieve backend health information for an application gateway.
 
         Args:
-            resource_group_name: Resource group name
-            gateway_name: Application gateway name
+            resource_group_name (str): Resource group name
+            gateway_name (str): Application gateway name
 
         Returns:
             dict: Backend health details
@@ -383,15 +371,13 @@ class AzureApplicationGatewayHandler(BaseHandler):
                     } for pool in (health_result.backend_address_pools or [])
                 ]
             }
-
             logger.info(f"Retrieved backend health for application gateway {gateway_name}")
             return backend_health_info
         except AzureError as e:
             logger.error(f"Error fetching backend health for application gateway {gateway_name}: {e}")
-            return {}
         except Exception as e:
             logger.error(f"Unexpected error fetching backend health for application gateway {gateway_name}: {e}")
-            return {}
+        return {}
 
     @tool
     async def get_application_gateway_waf_policies(
@@ -402,7 +388,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
         Retrieve Web Application Firewall policies.
 
         Args:
-            resource_group_name: Optional resource group name to filter results
+            resource_group_name (srt, optional): Optional resource group name to filter results
 
         Returns:
             list[dict]: List of WAF policy details
@@ -488,13 +474,11 @@ class AzureApplicationGatewayHandler(BaseHandler):
                 waf_policies_data.append(policy_info)
 
             logger.info(f"Retrieved {len(waf_policies_data)} WAF policies")
-            return waf_policies_data
         except AzureError as e:
             logger.error(f"Error fetching WAF policies: {e}")
-            return []
         except Exception as e:
             logger.error(f"Unexpected error fetching WAF policies: {e}")
-            return []
+        return waf_policies_data
 
     @tool
     async def get_public_ip_addresses(
@@ -505,7 +489,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
         Retrieve public IP addresses that can be used with application gateways.
 
         Args:
-            resource_group_name: Optional resource group name to filter results
+            resource_group_name (str, optional): Optional resource group name to filter results
 
         Returns:
             list[dict]: List of public IP address details
@@ -548,15 +532,12 @@ class AzureApplicationGatewayHandler(BaseHandler):
                     } if public_ip.ip_configuration else None
                 }
                 public_ips_data.append(public_ip_info)
-
             logger.info(f"Retrieved {len(public_ips_data)} public IP addresses")
-            return public_ips_data
         except AzureError as e:
             logger.error(f"Error fetching public IP addresses: {e}")
-            return []
         except Exception as e:
             logger.error(f"Unexpected error fetching public IP addresses: {e}")
-            return []
+        return public_ips_data
 
     @tool
     async def get_virtual_networks(
@@ -567,7 +548,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
         Retrieve virtual networks that can be used with application gateways.
 
         Args:
-            resource_group_name: Optional resource group name to filter results
+            resource_group_name (str, optional): Optional resource group name to filter results
 
         Returns:
             list[dict]: List of virtual network details
@@ -614,15 +595,12 @@ class AzureApplicationGatewayHandler(BaseHandler):
                     'enable_vm_protection': vnet.enable_vm_protection
                 }
                 vnets_data.append(vnet_info)
-
             logger.info(f"Retrieved {len(vnets_data)} virtual networks")
-            return vnets_data
         except AzureError as e:
             logger.error(f"Error fetching virtual networks: {e}")
-            return []
         except Exception as e:
             logger.error(f"Unexpected error fetching virtual networks: {e}")
-            return []
+        return vnets_data
 
     @tool
     async def start_application_gateway(
@@ -634,8 +612,8 @@ class AzureApplicationGatewayHandler(BaseHandler):
         Start an application gateway.
 
         Args:
-            resource_group_name: Resource group name
-            gateway_name: Application gateway name
+            resource_group_name (str): Resource group name
+            gateway_name (str): Application gateway name
 
         Returns:
             dict: Operation result
@@ -647,7 +625,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
                 application_gateway_name=gateway_name
             )
 
-            result = start_operation.result()
+            await start_operation.result()
 
             logger.info(f"Application gateway {gateway_name} start operation completed")
             return {
@@ -685,8 +663,8 @@ class AzureApplicationGatewayHandler(BaseHandler):
         Stop an application gateway.
 
         Args:
-            resource_group_name: Resource group name
-            gateway_name: Application gateway name
+            resource_group_name (str): Resource group name
+            gateway_name (str): Application gateway name
 
         Returns:
             dict: Operation result
@@ -698,7 +676,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
                 application_gateway_name=gateway_name
             )
 
-            result = await sync_to_async(stop_operation.result)
+            await stop_operation.result()
 
             logger.info(f"Application gateway {gateway_name} stop operation completed")
             return {
@@ -740,7 +718,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
         It is useful for compliance audits, security assessments, and infrastructure monitoring.
 
         Args:
-            resource_group_name (Optional[str]):
+            resource_group_name (str, optional):
                 The name of the Azure resource group to filter the data. If not provided, data is collected
                 for all resource groups in the subscription.
 
@@ -818,7 +796,7 @@ class AzureApplicationGatewayHandler(BaseHandler):
         Collects authentication and authorization configuration details for Azure API Management resources.
 
         Args:
-            resource_group_name (Optional[str]): Resource group to filter APIM instances.
+            resource_group_name (str, optional): Resource group to filter APIM instances.
 
         Returns:
             dict: Dictionary with authentication settings, RBAC policies, and managed identities.
@@ -878,8 +856,6 @@ class AzureApplicationGatewayHandler(BaseHandler):
                     })
 
             logger.info("Successfully collected API Management auth and RBAC details.")
-            return result
-
         except Exception as e:
             logger.error(f"Error collecting auth and RBAC details: {e}")
-            return result  # Return partial data
+        return result  # Return partial data
