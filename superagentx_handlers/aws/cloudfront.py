@@ -77,9 +77,6 @@ class AWSCloudFrontHandler(BaseHandler):
         """
         Lists all CloudFront distributions with all available details.
         """
-        if not self._is_initialized:
-            logger.error("AWSCloudFrontHandler not initialized. Cannot list distributions.")
-            return []
 
         final_distributions: list[Dict] = []
         try:
@@ -106,9 +103,6 @@ class AWSCloudFrontHandler(BaseHandler):
         in us-east-1 region, as these are typically used with CloudFront.
         Returns all available details for each certificate.
         """
-        if not self._is_initialized or not self.acm_client:
-            logger.error("AWSCloudFrontHandler or ACM client not initialized. Cannot list certificates.")
-            return []
 
         final_certificates: list[Dict] = []
         try:
