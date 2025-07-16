@@ -29,9 +29,6 @@ class GitHubHandler(BaseHandler):
             "Accept": "application/vnd.github.v3+json",
         }
 
-        if not self.github_token:
-            raise ValueError("GITHUB_TOKEN environment variable not set. Please set it.")
-
     @tool
     async def fetch_all_pages(
             self,
@@ -1056,12 +1053,11 @@ class GitHubHandler(BaseHandler):
             owner: str,
             repo: str
     ) -> dict:
-        headers = self._common_headers
         logger.info(f"Fetching dependencies for repository: {owner}/{repo}")
         async with aiohttp.ClientSession() as session:
             try:
                 dependencies_url = f"{self.api_base_url}/repos/{owner}/{repo}/dependency-graph/sbom"
-                sbom_headers = headers.copy()
+                sbom_headers = self._common_headers.copy()
                 # GitHub's SBOM API requires a specific Accept header
                 sbom_headers["Accept"] = "application/vnd.github.sbom+json"
 
