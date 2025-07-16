@@ -1,3 +1,4 @@
+from .application_gateway import AzureApplicationGatewayHandler
 from .cloud_functions import AzureFunctionHandler
 from .iam import EntraIAMHandler
 from .loadbalancer import AzureLoadBalancerHandler
