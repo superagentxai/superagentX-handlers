@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superagentx-handlers"
-version = "0.1.5.9"
+version = "0.1.6.0"
 description = ""
 authors = [
     "SuperAgentX AI <support@superagentx.ai>",
@@ -43,10 +43,17 @@ boto3 = "^1.38.42"
 msgraph-sdk = "^1.34.0"
 google-cloud-resource-manager = "^1.14.2"
 python-gitlab = "6.1.0"
+azure-mgmt-compute = "34.1.0"
+azure-mgmt-storage = "^23.0.1"
+azure-storage-blob = "^12.25.1"
+azure-mgmt-network = "^29.0.0"
 google-cloud-storage = "^3.2.0"
 google-cloud-compute = "^1.31.0"
 google-cloud-run = "^0.10.18"
+google-cloud-iam = "^2.19.1"
 google-cloud-api-gateway = "^1.12.2"
+azure-mgmt-web = "^9.0.0"
+datadog-api-client = {extras = ["async"], version = "^2.39.0"}
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"

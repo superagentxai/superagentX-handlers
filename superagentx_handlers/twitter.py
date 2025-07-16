@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 import pyshorteners
 from superagentx.handler.base import BaseHandler
@@ -40,9 +41,9 @@ class TwitterHandler(BaseHandler):
     async def post_tweet(
             self,
             text: str,
-            link: str = None,
-            hash_tags: list[str] = None,
-            user_tags: list[str] = None
+            link: Optional[str] = None,
+            hash_tags: Optional[list[str]] = None,
+            user_tags: Optional[list[str]] = None
     ):
         """
         posts a tweet with optional hashtags and user tags.

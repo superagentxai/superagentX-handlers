@@ -1,9 +1,8 @@
 import logging
-import os
 
 import pytest
 
-from superagentx_handlers.gitlab_handler import GitlabHandler
+from superagentx_handlers.zohohirs import ZohoHIRSHandler
 from superagentx.agent import Agent
 from superagentx.agentxpipe import AgentXPipe
 from superagentx.engine import Engine
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 '''
  Run Pytest:  
 
-   1. pytest --log-cli-level=INFO tests/pipe/test_pipe_gitlab.py::TestPipeGitLab::test_pipe_gitlab
+   1. pytest --log-cli-level=INFO tests/pipe/test_zoho_hirs.py::TestZohoHIRS::test_servicenow
 '''
 
 @pytest.fixture
@@ -25,11 +24,11 @@ def agent_client_init() -> dict:
     response = {'llm': llm_client}
     return response
 
-class TestPipeGitLab:
-    async def test_pipe_gitlab(self, agent_client_init: dict):
+class TestZohoHIRS:
+    async def test_zoho(self, agent_client_init: dict):
         llm_client : LLMClient = agent_client_init.get('llm')
 
-        handler = GitlabHandler()
+        handler = ZohoHIRSHandler()
 
         prompt = PromptTemplate()
 
@@ -40,8 +39,8 @@ class TestPipeGitLab:
         )
 
         agent = Agent(
-            goal="To help retrieving information about the GitLab user profile",
-            role="AI GitLab Assistant",
+            goal="To help retrieving information about the list of employees onboarding and offboarding.",
+            role="Expert in retrieving Zoho employee list.",
             llm=llm_client,
             engines=[engine],
             prompt_template=prompt
@@ -51,6 +50,6 @@ class TestPipeGitLab:
             agents=[agent],
         )
 
-        result = await pipe.flow(query_instruction="Collect the GitLab user profile,")
+        result = await pipe.flow(query_instruction="Get me the list of employees .")
 
         logger.debug(f"Result =>{result}")
