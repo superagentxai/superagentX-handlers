@@ -4,8 +4,8 @@ import os
 from typing import List, Dict, Any
 from datetime import datetime
 
-import httpx
-from httpx import AsyncClient
+import aiohttp
+from aiohttp import ClientSession, ClientTimeout
 
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
@@ -41,6 +41,7 @@ class SnykHandler(BaseHandler):
             "Content-Type": "application/vnd.api+json",
             "User-Agent": "SuperAgentX-Snyk-Handler/1.0"
         }
+        self.timeout_config = ClientTimeout(total=self.timeout)
 
     async def _make_request(self, method: str, endpoint: str, params: dict = None, data: dict = None) -> dict:
         """
@@ -57,22 +58,27 @@ class SnykHandler(BaseHandler):
         """
         url = f"{self.base_url}/{endpoint}"
 
-        async with AsyncClient(timeout=self.timeout) as client:
+        async with ClientSession(
+                timeout=self.timeout_config,
+                headers=self.headers
+        ) as session:
             try:
-                response = await client.request(
-                    method=method,
-                    url=url,
-                    headers=self.headers,
-                    params=params or {},
-                    json=data
-                )
-                response.raise_for_status()
-                return response.json()
-            except httpx.HTTPStatusError as e:
-                logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
+                async with session.request(
+                        method=method,
+                        url=url,
+                        params=params or {},
+                        json=data
+                ) as response:
+                    response.raise_for_status()
+                    return await response.json()
+            except aiohttp.ClientResponseError as e:
+                logger.error(f"HTTP error {e.status}: {e.message}")
                 raise
-            except httpx.RequestError as e:
+            except aiohttp.ClientError as e:
                 logger.error(f"Request error: {e}")
+                raise
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
                 raise
 
     @tool
