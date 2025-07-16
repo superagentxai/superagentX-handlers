@@ -1,13 +1,12 @@
-import os
 import logging
-# Removed asyncio as boto3 is synchronous, and using sync_to_async
-import boto3 # Using boto3
-from botocore.exceptions import ClientError, NoCredentialsError
-from superagentx.utils.helper import sync_to_async
+import os
+from typing import Any
 
+import boto3  # Using boto3
+from botocore.exceptions import ClientError, NoCredentialsError
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
-from typing import List, Dict, Any
+from superagentx.utils.helper import sync_to_async
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +28,6 @@ class AWSCloudFrontHandler(BaseHandler):
         self.aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
         self.region_name = region_name or os.getenv("AWS_REGION", "us-east-1")
 
-        self._is_initialized = False
-        self.session = None
-        self.cloudfront_client = None
-        self.acm_client = None
         self.session = boto3.Session(
             aws_access_key_id=self.aws_access_key_id,
             aws_secret_access_key=self.aws_secret_access_key,
@@ -43,8 +38,6 @@ class AWSCloudFrontHandler(BaseHandler):
             "acm",
             region_name=self.region_name
         )
-
-        self._is_initialized = True
         logger.debug("AWSCloudFrontHandler initialized successfully.")
 
     @staticmethod
@@ -56,7 +49,7 @@ class AWSCloudFrontHandler(BaseHandler):
         """
         Helper method to handle pagination for AWS API calls.
         """
-        all_data: list[Dict] = []
+        all_data: list[dict] = []
         try:
             paginator = await sync_to_async(client.get_paginator, operation_name)
             pages = await sync_to_async(paginator.paginate)
@@ -78,7 +71,7 @@ class AWSCloudFrontHandler(BaseHandler):
         Lists all CloudFront distributions with all available details.
         """
 
-        final_distributions: list[Dict] = []
+        final_distributions: list[dict] = []
         try:
             paginator = await sync_to_async(self.cloudfront_client.get_paginator, 'list_distributions')
             pages = await sync_to_async(paginator.paginate)
@@ -104,7 +97,7 @@ class AWSCloudFrontHandler(BaseHandler):
         Returns all available details for each certificate.
         """
 
-        final_certificates: list[Dict] = []
+        final_certificates: list[dict] = []
         try:
             final_certificates = await self._list_all_paginated_data(
                 client=self.acm_client,
@@ -127,7 +120,7 @@ class AWSCloudFrontHandler(BaseHandler):
         Lists all cache behaviors configured across all CloudFront distributions.
         Returns a list of dictionaries, each containing distribution ID and its associated cache behaviors.
         """
-        all_cache_behaviors: list[Dict] = []
+        all_cache_behaviors: list[dict] = []
         try:
             distributions = await self.list_distributions()
             for dist in distributions:
@@ -183,7 +176,7 @@ class AWSCloudFrontHandler(BaseHandler):
         Returns a list of dictionaries, each containing distribution ID and its access control details.
         """
 
-        all_access_controls: list[Dict] = []
+        all_access_controls: list[dict] = []
         try:
             distributions = await self.list_distributions()
             for dist in distributions:

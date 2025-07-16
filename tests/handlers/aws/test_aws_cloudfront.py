@@ -1,9 +1,9 @@
 # tests/handlers/test_aws_cloudfront.py
+import logging
 import os
+
 import pytest
 import pytest_asyncio
-import logging
-
 # Import your AWSCloudFrontHandler
 from superagentx_handlers import AWSCloudFrontHandler
 
@@ -50,8 +50,6 @@ async def cloudfront_handler_init() -> AWSCloudFrontHandler: # type: ignore
     # The handler's __init__ already handles initialization logic and sets _is_initialized
     # We should wait for it to be ready. For this simplified test, we assume if init
     # didn't fail, it's ready.
-    if not handler._is_initialized:
-        pytest.fail("AWSCloudFrontHandler failed to initialize. Check logs for details.")
 
     yield handler
 
