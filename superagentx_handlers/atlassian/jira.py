@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any
+from typing import Any, Optional
 
 from jira import JIRA, Project
 from superagentx.handler.base import BaseHandler
@@ -50,12 +50,12 @@ class JiraHandler(BaseHandler):
             self
     ):
         """
-            retrieves a list of projects.
+        Retrieves a list of projects.
 
-            Returns:
-                List[dict]: A list of dictionaries, where each dictionary represents
-                a JIRA project with keys such as 'key', 'name', and 'id'.
-            """
+        Returns:
+            List[dict]: A list of dictionaries, where each dictionary represents
+            a JIRA project with keys such as 'key', 'name', and 'id'.
+        """
         try:
             project_list: Project = await sync_to_async(self._connection.projects)
             projects = []
@@ -114,9 +114,9 @@ class JiraHandler(BaseHandler):
             *,
             name: str,
             board_id: int,
-            start_date: Any = None,
-            end_date: Any = None,
-            description: str = None
+            start_date: Optional[Any] = None,
+            end_date: Optional[Any] = None,
+            description: Optional[str] = None
     ):
         """
             Creates a new sprint for the specified board, allowing optional start and end dates
@@ -408,3 +408,38 @@ class JiraHandler(BaseHandler):
             message = f"Search Error! {ex}"
             logger.error(message)
             raise SprintException(message)
+
+    @tool
+    async def list_all_tickets(
+            self,
+            start: int = 0,
+            end: int = 50
+    ):
+        """
+        List all Jira tickets with full properties.
+
+        This method retrieves all tickets across projects, paginated, and returns full issue details.
+
+        Args:
+            start (int, optional): The index of the first ticket to return. Defaults to 0.
+            end (int, optional): The index of the last ticket to return (exclusive). Defaults to 50.
+
+        Returns:
+            List[dict]: A list of issue dictionaries with all properties.
+        """
+        try:
+            issues_list = await sync_to_async(
+                self._connection.search_issues,
+                jql_str='ORDER BY created DESC',
+                startAt=start,
+                maxResults=end
+            )
+            issues = []
+            async for issue in iter_to_aiter(issues_list):
+                issue_data = await self.get_issue(issue_id=issue.id)
+                issues.append(issue_data)
+            return issues
+        except Exception as ex:
+            message = f"Failed to fetch all tickets! {ex}"
+            logger.error(message)
+            raise TaskException(message)

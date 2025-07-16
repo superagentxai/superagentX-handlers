@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+from optparse import Option
+from typing import Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -79,8 +81,8 @@ class AWSEC2Handler(BaseHandler):
     @tool
     async def get_security_groups(
             self,
-            group_ids: list = None,
-            group_names: list = None
+            group_ids: Optional[list] = None,
+            group_names: Optional[list] = None
     ):
         """
         Retrieves information about specified EC2 security groups by ID or name.
