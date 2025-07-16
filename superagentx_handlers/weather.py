@@ -68,3 +68,4 @@ class WeatherHandler(BaseHandler):
                         "latitude": lat,
                         "longitude": lon
                     }
+        return {}
