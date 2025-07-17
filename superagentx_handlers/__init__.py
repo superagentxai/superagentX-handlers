@@ -17,3 +17,4 @@ from .weather import WeatherHandler
 from .websitecrawler import *
 from .wikipedia import WikipediaHandler
 from .zohohirs import ZohoHIRSHandler
+from defender365 import DefenderO365GetHandler
