@@ -1,28 +1,12 @@
 import asyncio
+import logging
 from typing import Optional
 
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
+logger = logging.getLogger(__name__)
 POWERSHELL = "powershell.exe"
-
-
-async def _run_ps(command: str):
-    """Run a PowerShell command and return its output or raise error."""
-    proc = await asyncio.create_subprocess_exec(
-        POWERSHELL,
-        "-NoLogo",
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-Command", command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError(f"PowerShell error: {stderr.decode().strip()}")
-    return stdout.decode().strip() or "<no data found>"
-
 
 class DefenderO365GetHandler(BaseHandler):
     """
@@ -49,7 +33,7 @@ class DefenderO365GetHandler(BaseHandler):
         """
         ps = (f"Get-MessageTrace{' -RecipientAddress ' + user if user else ''} | Select Received, SenderAddress,"
               f" RecipientAddress, Subject, Status | Format-Table -AutoSize")
-        return await _run_ps(ps)
+        return await self._run_ps(ps)
 
     @tool
     async def list_user_submissions(
@@ -68,7 +52,7 @@ class DefenderO365GetHandler(BaseHandler):
         user_filter = f" | Where-Object {{ $_.Submitter -like '{user}' }}" if user else ""
         ps = (f"Get-UserSubmission{user_filter} | Select Id, Submitter, Sender, Recipient, Subject, "
               f"SubmissionType, Verdict | Format-Table -AutoSize")
-        return await _run_ps(ps)
+        return await self._run_ps(ps)
 
     @tool
     async def get_email_trace(
@@ -84,7 +68,7 @@ class DefenderO365GetHandler(BaseHandler):
         Returns:
             str: Email trace details or summary.
         """
-        if not message_id:
+        if isinstance(message_id, str):
             ps = ("Get-MessageTrace | Select InternetMessageId, Received, SenderAddress, RecipientAddress, Subject, "
                   "Status | Format-Table -AutoSize")
         else:
@@ -93,7 +77,7 @@ class DefenderO365GetHandler(BaseHandler):
                 f" '{message_id}'}} | ""Select -First 1 -ExpandProperty MessageTraceId"") | Format-Table EventDate, "
                 "Action, Detail, RecipientAddress -AutoSize"
             )
-        return await _run_ps(ps)
+        return await self._run_ps(ps)
 
     @tool
     async def list_quarantined_items(
@@ -110,7 +94,7 @@ class DefenderO365GetHandler(BaseHandler):
             str: Quarantine data with sender and subject.
         """
         ps = f"Get-QuarantineMessage{' -RecipientAddress ' + user if user else ''} | Select Received, Subject, SenderAddress, RecipientAddress, MessageId | Format-Table -AutoSize"
-        return await _run_ps(ps)
+        return await self._run_ps(ps)
 
     @tool
     async def list_safe_links_policy(self):
@@ -121,7 +105,7 @@ class DefenderO365GetHandler(BaseHandler):
             str: Table of policies and actions.
         """
         ps = "Get-SafeLinksPolicy | Select Name, Action, IsEnabled | Format-Table -AutoSize"
-        return await _run_ps(ps)
+        return await self._run_ps(ps)
 
     @tool
     async def list_safe_attachment_policy(self):
@@ -132,7 +116,7 @@ class DefenderO365GetHandler(BaseHandler):
             str: Policy names, actions, and status.
         """
         ps = "Get-SafeAttachmentPolicy | Select Name, Action, IsEnabled | Format-Table -AutoSize"
-        return await _run_ps(ps)
+        return await self._run_ps(ps)
 
     @tool
     async def get_mail_detail_atp_report(
@@ -151,4 +135,24 @@ class DefenderO365GetHandler(BaseHandler):
         domain_filter = f" | Where-Object {{ $_.RecipientAddress -like '*@{domain}' }}" if domain else ""
         ps = (f"Get-MailDetailATPReport{domain_filter} | Select Date, EventType, RecipientAddress, SenderAddress, "
               f"Subject | Format-Table -AutoSize")
-        return await _run_ps(ps)
+        return await self._run_ps(ps)
+
+    @staticmethod
+    async def _run_ps(
+            command: str
+    ):
+        """Run a PowerShell command and return its output or raise error."""
+        proc = await asyncio.create_subprocess_exec(
+            POWERSHELL,
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-Command", command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            logger.error(f"PowerShell error: {stderr.decode().strip()}")
+            return []
+        return stdout.decode().strip() or "<no data found>"
