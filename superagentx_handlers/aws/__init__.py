@@ -8,4 +8,5 @@ from .iam import AWSIAMHandler
 from .rds import AWSRDSHandler
 from .s3 import AWSS3Handler
 from .security_groups import AWSSecurityGroupsHandler
+from .cloudfront import AWSCloudFrontHandler
 from .serverless import AWSLambdaHandler
