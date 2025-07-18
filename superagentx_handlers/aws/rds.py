@@ -78,7 +78,7 @@ class AWSRDSHandler(BaseHandler):
         instances = await self.get_rds_instances() or []
         clusters = await self.get_rds_clusters() or []
         proxies = await self.get_rds_proxies() or []
-        ec2_instances = await self.get_ec2_associations(instances) or []
+        ec2_instances = await self.get_ec2_associations(rds_instances=instances) or []
 
         protected_instances = len([inst for inst in instances if inst.get('DeletionProtection', False)])
         protected_clusters = len([cluster for cluster in clusters if cluster.get('DeletionProtection', False)])
