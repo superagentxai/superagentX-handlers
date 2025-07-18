@@ -78,7 +78,7 @@ class AWSRDSHandler(BaseHandler):
         instances = await self.get_rds_instances() or []
         clusters = await self.get_rds_clusters() or []
         proxies = await self.get_rds_proxies() or []
-        ec2_instances = await self.get_ec2_associations() or []
+        ec2_instances = await self.get_ec2_associations(instances) or []
 
         protected_instances = len([inst for inst in instances if inst.get('DeletionProtection', False)])
         protected_clusters = len([cluster for cluster in clusters if cluster.get('DeletionProtection', False)])
@@ -142,24 +142,24 @@ class AWSRDSHandler(BaseHandler):
             logger.error(f"Error getting proxy targets for {proxy_name}: {e}")
             return []
 
-    async def get_ec2_associations(self):
+    async def get_ec2_associations(self, rds_instances: list):
         """Get EC2 instances to check for RDS associations"""
         try:
-            response = await sync_to_async(self.ec2_client.describe_instances)
-            return [
-                {
-                    'InstanceId': instance['InstanceId'],
-                    'InstanceType': instance['InstanceType'],
-                    'State': instance['State']['Name'],
-                    'VpcId': instance.get('VpcId', 'N/A'),
-                    'SubnetId': instance.get('SubnetId', 'N/A'),
-                    'SecurityGroups': await self.ec2_handlers.get_security_groups(
-                        group_ids=[sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
-                    )
-                }
-                async for reservation in iter_to_aiter(response.get("Reservations"))
-                async for instance in iter_to_aiter(reservation.get("Instances"))
-            ]
+            associations = []
+            ec2_data = await sync_to_async(self.ec2_client.describe_instances)
+            rds_data = []
+            for instances in rds_instances:
+                for db in instances['DBInstances']:
+                    rds_info = {
+                        'VpcSecurityGroups': [sg['VpcSecurityGroupId'] for sg in db.get('VpcSecurityGroups', [])],
+                    }
+                    rds_data.append(rds_info)
+            for ec2 in ec2_data:
+                for rds in rds_data:
+                    common_sg = set(ec2['SecurityGroups']) & set(rds['VpcSecurityGroups'])
+                    if common_sg:
+                        associations.append(ec2_data)
+            return associations
         except ClientError as e:
             logger.error(f"Error getting EC2 instances: {e}")
             return []
