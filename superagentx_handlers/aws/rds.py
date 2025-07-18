@@ -145,12 +145,12 @@ class AWSRDSHandler(BaseHandler):
     async def get_ec2_associations(self, rds_instances: list):
         """Get EC2 instances to check for RDS associations"""
         try:
-            rds_sg_set = set()
-            for instances in rds_instances:
-                for db in instances['DBInstances']:
-                    rds_sg_set.update(
-                        sg['VpcSecurityGroupId'] for sg in db.get('VpcSecurityGroups', [])
-                    )
+            rds_sg_set = {
+                sg['VpcSecurityGroupId']
+                for instance in rds_instances
+                for db in instance.get('DBInstances', [])
+                for sg in db.get('VpcSecurityGroups', [])
+            }
 
             # Get all EC2 instances using paginator
             paginator = self.ec2_client.get_paginator('describe_instances')
