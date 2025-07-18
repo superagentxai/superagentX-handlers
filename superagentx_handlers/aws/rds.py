@@ -145,21 +145,36 @@ class AWSRDSHandler(BaseHandler):
     async def get_ec2_associations(self, rds_instances: list):
         """Get EC2 instances to check for RDS associations"""
         try:
-            associations = []
-            ec2_data = await sync_to_async(self.ec2_client.describe_instances)
-            rds_data = []
+            rds_sg_set = set()
             for instances in rds_instances:
                 for db in instances['DBInstances']:
-                    rds_info = {
-                        'VpcSecurityGroups': [sg['VpcSecurityGroupId'] for sg in db.get('VpcSecurityGroups', [])],
-                    }
-                    rds_data.append(rds_info)
-            for ec2 in ec2_data:
-                for rds in rds_data:
-                    common_sg = set(ec2['SecurityGroups']) & set(rds['VpcSecurityGroups'])
-                    if common_sg:
-                        associations.append(ec2_data)
-            return associations
+                    rds_sg_set.update(
+                        sg['VpcSecurityGroupId'] for sg in db.get('VpcSecurityGroups', [])
+                    )
+
+            # Get all EC2 instances using paginator
+            paginator = self.ec2_client.get_paginator('describe_instances')
+            ec2_pages = await sync_to_async(lambda: list(paginator.paginate()))
+
+            matching_ec2_instances = []
+
+            for page in ec2_pages:
+                for reservation in page['Reservations']:
+                    for instance in reservation['Instances']:
+                        ec2_sg_ids = set(
+                            sg['GroupId'] for sg in instance.get('SecurityGroups', [])
+                        )
+                        if ec2_sg_ids & rds_sg_set:  # Intersection found
+                            matching_ec2_instances.append({
+                                'InstanceId': instance['InstanceId'],
+                                'VpcId': instance.get('VpcId'),
+                                'SecurityGroups': list(ec2_sg_ids),
+                                'PrivateIpAddress': instance.get('PrivateIpAddress'),
+                                # Add any additional fields you need here
+                            })
+
+            return matching_ec2_instances
+
         except ClientError as e:
             logger.error(f"Error getting EC2 instances: {e}")
             return []
