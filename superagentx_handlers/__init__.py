@@ -2,13 +2,17 @@ from .atlassian import *
 from .aws import *
 from .azure import *
 from .crm import *
+from .cybersecurity import *
 from .datadog import *
 from .ecommerce import *
 from .gcp import *
 from .gitlab import GitlabHandler
 from .scrape import ScrapeHandler
+from .servicenow import ServiceNowHandler
 from .sql import SQLHandler
 from .twitter import TwitterHandler
 from .weather import WeatherHandler
 from .websitecrawler import *
 from .wikipedia import WikipediaHandler
+from .zohohirs import ZohoHIRSHandler
+from .github import GitHubHandler
