@@ -78,7 +78,7 @@ class AWSRDSHandler(BaseHandler):
         instances = await self.get_rds_instances() or []
         clusters = await self.get_rds_clusters() or []
         proxies = await self.get_rds_proxies() or []
-        ec2_instances = await self.get_ec2_associations() or []
+        ec2_instances = await self.get_ec2_associations(rds_instances=instances) or []
 
         protected_instances = len([inst for inst in instances if inst.get('DeletionProtection', False)])
         protected_clusters = len([cluster for cluster in clusters if cluster.get('DeletionProtection', False)])
@@ -142,24 +142,39 @@ class AWSRDSHandler(BaseHandler):
             logger.error(f"Error getting proxy targets for {proxy_name}: {e}")
             return []
 
-    async def get_ec2_associations(self):
+    async def get_ec2_associations(self, rds_instances: list):
         """Get EC2 instances to check for RDS associations"""
         try:
-            response = await sync_to_async(self.ec2_client.describe_instances)
-            return [
-                {
-                    'InstanceId': instance['InstanceId'],
-                    'InstanceType': instance['InstanceType'],
-                    'State': instance['State']['Name'],
-                    'VpcId': instance.get('VpcId', 'N/A'),
-                    'SubnetId': instance.get('SubnetId', 'N/A'),
-                    'SecurityGroups': await self.ec2_handlers.get_security_groups(
-                        group_ids=[sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
-                    )
-                }
-                async for reservation in iter_to_aiter(response.get("Reservations"))
-                async for instance in iter_to_aiter(reservation.get("Instances"))
-            ]
+            rds_sg_set = {
+                sg['VpcSecurityGroupId']
+                for instance in rds_instances
+                for db in instance.get('DBInstances', [])
+                for sg in db.get('VpcSecurityGroups', [])
+            }
+
+            # Get all EC2 instances using paginator
+            paginator = self.ec2_client.get_paginator('describe_instances')
+            ec2_pages = await sync_to_async(lambda: list(paginator.paginate()))
+
+            matching_ec2_instances = []
+
+            for page in ec2_pages:
+                for reservation in page['Reservations']:
+                    for instance in reservation['Instances']:
+                        ec2_sg_ids = set(
+                            sg['GroupId'] for sg in instance.get('SecurityGroups', [])
+                        )
+                        if ec2_sg_ids & rds_sg_set:  # Intersection found
+                            matching_ec2_instances.append({
+                                'InstanceId': instance['InstanceId'],
+                                'VpcId': instance.get('VpcId'),
+                                'SecurityGroups': list(ec2_sg_ids),
+                                'PrivateIpAddress': instance.get('PrivateIpAddress'),
+                                # Add any additional fields you need here
+                            })
+
+            return matching_ec2_instances
+
         except ClientError as e:
             logger.error(f"Error getting EC2 instances: {e}")
             return []

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superagentx-handlers"
-version = "0.1.6.0"
+version = "0.1.6.1"
 description = ""
 authors = [
     "SuperAgentX AI <support@superagentx.ai>",
@@ -58,6 +58,7 @@ azure-mgmt-resource = "^24.0.0"
 azure-identity = "^1.23.0"
 azure-mgmt-apimanagement = "^5.0.0"
 azure-mgmt-authorization = "^4.0.0"
+pysnc = "1.1.10"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"

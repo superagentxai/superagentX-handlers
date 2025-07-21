@@ -1,3 +1,4 @@
+from defender365 import DefenderO365GetHandler
 from .atlassian import *
 from .aws import *
 from .azure import *
@@ -8,6 +9,7 @@ from .defender import DefenderHandler
 from .ecommerce import *
 from .gcp import *
 from .github import GitHubHandler
+from .github import GitHubHandler
 from .gitlab import GitlabHandler
 from .scrape import ScrapeHandler
 from .servicenow import ServiceNowHandler
@@ -17,4 +19,3 @@ from .weather import WeatherHandler
 from .websitecrawler import *
 from .wikipedia import WikipediaHandler
 from .zohohirs import ZohoHIRSHandler
-from defender365 import DefenderO365GetHandler
