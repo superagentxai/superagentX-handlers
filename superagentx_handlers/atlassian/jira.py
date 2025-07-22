@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any
+from typing import Any, Optional
 
 from jira import JIRA, Project
 from superagentx.handler.base import BaseHandler
@@ -50,12 +50,12 @@ class JiraHandler(BaseHandler):
             self
     ):
         """
-            retrieves a list of projects.
+        Retrieves a list of projects.
 
-            Returns:
-                List[dict]: A list of dictionaries, where each dictionary represents
-                a JIRA project with keys such as 'key', 'name', and 'id'.
-            """
+        Returns:
+            List[dict]: A list of dictionaries, where each dictionary represents
+            a JIRA project with keys such as 'key', 'name', and 'id'.
+        """
         try:
             project_list: Project = await sync_to_async(self._connection.projects)
             projects = []
@@ -114,9 +114,9 @@ class JiraHandler(BaseHandler):
             *,
             name: str,
             board_id: int,
-            start_date: Any = None,
-            end_date: Any = None,
-            description: str = None
+            start_date: Optional[Any] = None,
+            end_date: Optional[Any] = None,
+            description: Optional[str] = None
     ):
         """
             Creates a new sprint for the specified board, allowing optional start and end dates
@@ -438,9 +438,135 @@ class JiraHandler(BaseHandler):
             async for issue in iter_to_aiter(issues_list):
                 issue_data = await self.get_issue(issue_id=issue.id)
                 issues.append(issue_data)
+            # logger.info(issues_list)
             return issues
         except Exception as ex:
             message = f"Failed to fetch all tickets! {ex}"
             logger.error(message)
             raise TaskException(message)
 
+    @tool
+    async def get_workflow_details(
+            self,
+            start: int = 0,
+            end: int = 50
+    ):
+        """
+        Retrieves workflow details for a Jira issue associated with control objectives
+        such as 'Access Control' or 'Change Management'.
+
+        This method is used in GRC contexts to track the workflow status and transitions
+        of Jira tickets that are linked to specific control objectives. It helps ensure
+        traceability, accountability, and proper change governance by showing current
+        issue state and possible next steps in the workflow.
+
+        Args:
+            start (int, optional): The index of the first ticket to return. Defaults to 0.
+            end (int, optional): The index of the last ticket to return (exclusive). Defaults to 50.
+        :return: Dict with workflow info
+        """
+        logger.info("Workflow")
+        issues_list = await sync_to_async(
+            self._connection.search_issues,
+            jql_str='ORDER BY created DESC',
+            startAt=start,
+            maxResults=end
+        )
+        datas = []
+        async for issue in iter_to_aiter(issues_list):
+            issue = await sync_to_async(self._connection.issue, id=issue.id)
+            transitions = await sync_to_async(self._connection.transitions, issue)
+            datas.append(transitions)
+        return datas
+
+    @tool
+    async def get_all_tickets(
+            self,
+            start: int = 0,
+            end: int = 50
+    ):
+        """
+        Retrieve Jira tickets relevant to GRC analysis, including full metadata and relationships.
+
+        This method fetches Jira tickets across projects (paginated by `start` and `end`)
+        and extracts fields useful for Governance, Risk, and Compliance (GRC) activities.
+        The returned ticket data includes control-relevant information such as descriptions,
+        project details, linked issues, attachments, comments, worklogs, and time tracking.
+
+        Example GRC use cases:
+        - Audit evidence for control objectives (e.g., Access Control, Change Management)
+        - Traceability of tasks, approvals, and documentation
+        - Workflow or accountability analysis
+
+        Args:
+            start (int, optional): The index of the first ticket to return. Defaults to 0.
+            end (int, optional): The index of the last ticket to return (exclusive). Defaults to 50.
+
+        Returns:
+            List[dict]: A list of issue dictionaries with fields extracted for GRC purposes.
+        """
+        logger.info(f"Fetching......")
+
+        try:
+            issues_list = await sync_to_async(
+                self._connection.search_issues,
+                jql_str='ORDER BY created DESC',
+                startAt=start,
+                maxResults=end
+            )
+            issues = []
+            async for issue in iter_to_aiter(issues_list):
+                issue_data = await self.get_issue(issue_id=issue.id)
+                fields = issue_data.get("fields", {})
+
+                result = {
+                    "issue_key": issue_data.get("key"),
+                    "issue_id": issue_data.get("id"),
+                    "summary": fields.get("summary"),
+                    "description": await self.extract_description(fields.get("description")),
+                    "project_key": fields.get("project", {}).get("key"),
+                    "project_name": fields.get("project", {}).get("name"),
+                    "issue_links": [link.get("outwardIssue", {}).get("key") or link.get("inwardIssue", {}).get("key")
+                                    for link in fields.get("issuelinks", [])],
+                    "attachments": [att.get("filename") for att in fields.get("attachment", [])],
+                    "comments": [await self.extract_comment_text(c.get("body")) for c in
+                                 fields.get("comment", {}).get("comments", [])],
+                    "worklogs": [{
+                        "author": wl.get("author", {}).get("displayName"),
+                        "comment": await self.extract_comment_text(wl.get("comment")),
+                        "timeSpent": wl.get("timeSpent")
+                    } for wl in fields.get("worklog", {}).get("worklogs", [])],
+                    "time_tracking": {
+                        "original_estimate": fields.get("timetracking", {}).get("originalEstimate"),
+                        "remaining_estimate": fields.get("timetracking", {}).get("remainingEstimate"),
+                        "time_spent": fields.get("timetracking", {}).get("timeSpent")
+                    }
+                }
+                issues.append(result)
+            return issues
+        except Exception as ex:
+            message = f"Failed to fetch all tickets! {ex}"
+            logger.error(message)
+            return []
+
+    @staticmethod
+    async def extract_description(desc):
+        if not desc: return ""
+        try:
+            return " ".join([
+                item["text"] for para in desc.get("content", [])
+                for item in para.get("content", []) if item.get("type") == "text"
+            ])
+        except Exception as ex:
+            return ""
+
+    @staticmethod
+    async def extract_comment_text(comment):
+        if not comment: return ""
+        try:
+            return " ".join([
+                item["text"] for para in comment.get("content", [])
+                for item in para.get("content", []) if item.get("type") == "text"
+            ])
+        except Exception as ex:
+            return ""
