@@ -1,15 +1,17 @@
+import asyncio
 import base64
 import json
 import logging
 import os
-import aiohttp
 import asyncio
+import aiohttp
 
 from typing import Optional
 
+from functools import lru_cache
+
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
-from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +29,9 @@ class ExtractAIHandler(BaseHandler):
             project_id: str | None = None
     ):
         super().__init__()
+        self.prompt_name = prompt_name
         self.api_token = api_token or os.getenv("EXTRACT_API_TOKEN")
         self.base_url = base_url or os.getenv("BASE_URL")
-        self.prompt_name = prompt_name
         self.project_id = project_id
 
     @lru_cache(maxsize=1)
@@ -43,7 +45,6 @@ class ExtractAIHandler(BaseHandler):
     async def get_file_base64_data(self, file_path):
         """
         Read a file from the given path and return its Base64-encoded content.
-
         Args:
             file_path (str): The path to the file that needs to be read.
         """
@@ -63,8 +64,8 @@ class ExtractAIHandler(BaseHandler):
         logger.info(f"Getting invoice json data for {reference_id}")
         get_url = f"{self.base_url}/{self.API_STATUS_ENDPOINT}/{reference_id}"
 
-        async with aiohttp.ClientSession(headers=self.get_header()) as session:
-            async with session.request("GET", get_url) as response:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(get_url, headers=self.get_header()) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     logger.error(f"Failed to fetch invoice data. Status: {response.status}, Response: {error_text}")
@@ -74,15 +75,21 @@ class ExtractAIHandler(BaseHandler):
                 logger.debug(f"Invoice JSON Data: {data}")
                 return data
 
-    async def process_request( self, post_url:str, project_id: str, file_path: str, file_data: str):
+    async def process_request(
+            self,
+            post_url: str,
+            project_id: str,
+            file_path: str,
+            file_data: str
+    ):
         payload = {
             "project_id": project_id,
             "file_name_or_path": file_path,
             "file_data": file_data,
             "instruction_type": self.prompt_name
         }
-        async with aiohttp.ClientSession(headers=self.get_header()) as session:
-            async with session.post(post_url, data=json.dumps(payload)) as response:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(post_url, headers=self.get_header(), data=json.dumps(payload)) as response:
                 if response.status == 200:
                     return await response.json()  # Directly parse JSON response
                 else:
