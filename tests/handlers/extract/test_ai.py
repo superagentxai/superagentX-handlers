@@ -13,7 +13,6 @@ logger=logging.getLogger(__name__)
 
 '''
 
-@pytest.fixture
 def extract_init() -> ExtractAIHandler:
     extract_handler = ExtractAIHandler(
         api_token= "" or os.getenv('API_TOKEN'),
