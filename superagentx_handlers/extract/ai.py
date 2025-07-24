@@ -1,15 +1,15 @@
+import asyncio
 import base64
 import json
 import logging
 import os
 import time
-import aiohttp
-
 from typing import Optional
 
+import aiofiles
+import aiohttp
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
-from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -21,20 +21,17 @@ class ExtractAIHandler(BaseHandler):
 
     def __init__(
             self,
-            api_token: str,
             prompt_name: str,
+            api_token: str | None = None,
             base_url: str | None = None,
             project_id: str | None = None
     ):
         super().__init__()
+        self.prompt_name = prompt_name
         self.api_token = api_token or os.getenv("EXTRACT_API_TOKEN")
         self.base_url = base_url or os.getenv("BASE_URL")
-        self.prompt_name = prompt_name
         self.project_id = project_id
-
-    @lru_cache(maxsize=1)
-    def get_header(self):
-        return {
+        self.__headers = {
             'api-token': self.api_token,
             'Content-Type': 'application/json'
         }
@@ -50,21 +47,18 @@ class ExtractAIHandler(BaseHandler):
         try:
             logger.info(f"Reading file {file_path}")
             # Open the PDF file in binary mode
-            with open(file_path, "rb") as pdf_file:
+            async with aiofiles.open(file_path, "rb") as pdf_file:
                 # Read the PDF content and encode it to Base64
-                base64_data = base64.b64encode(pdf_file.read()).decode('utf-8')
-            return base64_data
+                return base64.b64encode(await pdf_file.read()).decode('utf-8')
         except FileNotFoundError:
             logger.info(f"File {file_path} not found...")
-            # print("File not found. Please provide a valid file path.")
-            return None
 
     async def get_invoice_json_data(self, reference_id: str):
         logger.info(f"Getting invoice json data for {reference_id}")
         get_url = f"{self.base_url}/{self.API_STATUS_ENDPOINT}/{reference_id}"
 
         async with aiohttp.ClientSession() as session:
-            async with session.request("GET", get_url, headers=self.get_header()) as response:
+            async with session.request("GET", get_url, headers=self.__headers) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     logger.error(f"Failed to fetch invoice data. Status: {response.status}, Response: {error_text}")
@@ -75,7 +69,13 @@ class ExtractAIHandler(BaseHandler):
                 return data
 
 
-    async def process_request(self, post_url, project_id, file_path, file_data):
+    async def process_request(
+            self,
+            post_url,
+            project_id,
+            file_path,
+            file_data
+    ):
         payload = {
             "project_id": project_id,
             "file_name_or_path": file_path,
@@ -83,7 +83,7 @@ class ExtractAIHandler(BaseHandler):
             "instruction_type": self.prompt_name
         }
         async with aiohttp.ClientSession() as session:
-            async with session.post(post_url, headers=self.get_header(), data=json.dumps(payload)) as response:
+            async with session.post(post_url, headers=self.__headers, data=json.dumps(payload)) as response:
                 if response.status == 200:
                     return await response.json()  # Directly parse JSON response
                 else:
@@ -91,7 +91,13 @@ class ExtractAIHandler(BaseHandler):
                     raise Exception(f"Request failed with status code {response.status}: {response.text}")
 
     @tool
-    async def extract_api(self, file_path: str, file_data, poll_interval: int, project_id: Optional[str] = None):
+    async def extract_api(
+            self,
+            file_path: str,
+            file_data,
+            poll_interval: int,
+            project_id: Optional[str] = None
+    ):
         """
         Unified extract method for both DF and SAgentX responses.
         Returns extracted data or None on failure.
@@ -103,8 +109,12 @@ class ExtractAIHandler(BaseHandler):
         if not project_id:
             project_id = self.project_id
 
-        j_res = await self.process_request(f"{self.base_url}{self.API_EXTRACT_ENDPOINT}", project_id=project_id,
-                                           file_path=file_path, file_data=file_data)  # Detect response type
+        j_res = await self.process_request(
+            post_url=f"{self.base_url}{self.API_EXTRACT_ENDPOINT}",
+            project_id=project_id,
+            file_path=file_path,
+            file_data=file_data
+        )  # Detect response type
         if j_res.get('statusCode') == '200':  # DF style
             job_id = j_res['jobId']
             ref_id = j_res['referenceId']
@@ -128,7 +138,8 @@ class ExtractAIHandler(BaseHandler):
             if res.get("status") == "SUCCESS":
                 logger.info(f"Extract SUCCESS for job: {job_id}, Ref: {ref_id}")
                 return res.get("extractJobInfo", {})
-            time.sleep(poll_interval)
+
+            await asyncio.sleep(poll_interval)
 
             logger.info(f'Extracting SUCCESS for JobId: {job_id}, Ref: {ref_id}')
             return res if return_key == 'DF' else res.get('extractJobInfo')
