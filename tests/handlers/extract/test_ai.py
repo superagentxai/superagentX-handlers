@@ -9,10 +9,10 @@ logger=logging.getLogger(__name__)
 
 '''
     1. pytest --log-cli-level=INFO tests/handlers/extract/test_ai.py::TestExtractAI::test_extract_api
-    2. pytest --log-cli-level=INFO tests/handlers/extract/test_ai.py::TestExtractAI::test_extract_status
 
 '''
 
+@pytest.fixture
 def extract_init() -> ExtractAIHandler:
     extract_handler = ExtractAIHandler(
         api_token= "" or os.getenv('API_TOKEN'),
@@ -30,11 +30,5 @@ class TestExtractAI:
             file_data= data,
             file_path="<FILE_PATH>",
             poll_interval=7
-        )
-        logger.info(result)
-
-    async def test_extract_status(self, extract_init: ExtractAIHandler):
-        result = await extract_init.get_invoice_json_data(
-            reference_id="<REFERENCE_ID>"
         )
         logger.info(result)

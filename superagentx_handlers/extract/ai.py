@@ -2,8 +2,8 @@ import base64
 import json
 import logging
 import os
-import time
 import aiohttp
+import asyncio
 
 from typing import Optional
 
@@ -21,8 +21,8 @@ class ExtractAIHandler(BaseHandler):
 
     def __init__(
             self,
-            api_token: str,
             prompt_name: str,
+            api_token: Optional[str],
             base_url: str | None = None,
             project_id: str | None = None
     ):
@@ -63,8 +63,8 @@ class ExtractAIHandler(BaseHandler):
         logger.info(f"Getting invoice json data for {reference_id}")
         get_url = f"{self.base_url}/{self.API_STATUS_ENDPOINT}/{reference_id}"
 
-        async with aiohttp.ClientSession() as session:
-            async with session.request("GET", get_url, headers=self.get_header()) as response:
+        async with aiohttp.ClientSession(headers=self.get_header()) as session:
+            async with session.request("GET", get_url) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     logger.error(f"Failed to fetch invoice data. Status: {response.status}, Response: {error_text}")
@@ -74,16 +74,15 @@ class ExtractAIHandler(BaseHandler):
                 logger.debug(f"Invoice JSON Data: {data}")
                 return data
 
-
-    async def process_request(self, post_url, project_id, file_path, file_data):
+    async def process_request( self, post_url:str, project_id: str, file_path: str, file_data: str):
         payload = {
             "project_id": project_id,
             "file_name_or_path": file_path,
             "file_data": file_data,
             "instruction_type": self.prompt_name
         }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(post_url, headers=self.get_header(), data=json.dumps(payload)) as response:
+        async with aiohttp.ClientSession(headers=self.get_header()) as session:
+            async with session.post(post_url, data=json.dumps(payload)) as response:
                 if response.status == 200:
                     return await response.json()  # Directly parse JSON response
                 else:
@@ -91,10 +90,26 @@ class ExtractAIHandler(BaseHandler):
                     raise Exception(f"Request failed with status code {response.status}: {response.text}")
 
     @tool
-    async def extract_api(self, file_path: str, file_data, poll_interval: int, project_id: Optional[str] = None):
+    async def extract_api(
+            self,
+            file_path: str,
+            file_data: str,
+            poll_interval: int,
+            retry: int = 10,
+            project_id: Optional[str] = None
+    ):
         """
-        Unified extract method for both DF and SAgentX responses.
-        Returns extracted data or None on failure.
+        Initiates a file extraction process and polls for its completion status.
+
+        Args:
+            file_path (str): The local or relative path of the file to be extracted.
+            file_data (str): The base64-encoded content of the file.
+            poll_interval (int): The time interval (in seconds) between polling attempts.
+            retry (int): Retry to get the result. Defaults to 10.
+            project_id (Optional[str], optional): An optional identifier for the project context. Defaults to None.
+
+        Returns:
+           dict or None: The extraction result data if successful, or None if extraction fails.
         """
         if not self.project_id and not project_id:
             raise ValueError(f"Project Id invalid: {project_id}")
@@ -103,32 +118,36 @@ class ExtractAIHandler(BaseHandler):
         if not project_id:
             project_id = self.project_id
 
-        j_res = await self.process_request(f"{self.base_url}{self.API_EXTRACT_ENDPOINT}", project_id=project_id,
-                                           file_path=file_path, file_data=file_data)  # Detect response type
+        j_res = await self.process_request(
+            post_url=f"{self.base_url}{self.API_EXTRACT_ENDPOINT}",
+            project_id=project_id,
+            file_path=file_path,
+            file_data=file_data
+        )  # Detect response type
         if j_res.get('statusCode') == '200':  # DF style
             job_id = j_res['jobId']
             ref_id = j_res['referenceId']
-            return_key = 'DF'
         elif str(j_res.get('status', '')).upper() == 'SUCCESS':  # SAgentX style
             job_info = j_res.get('extractJobInfo', {})
             job_id = job_info.get('jobId')
             ref_id = job_info.get('requestId')
-            return_key = 'SAGENTX'
         else:
             logger.info('Extracting FAILED: Invalid response')
-            return None
-
-        while True:
-            res = await self.get_invoice_json_data(ref_id)
-
-            if res.get("status") == "FAILED":
-                logger.error(f"Extract FAILED for job: {job_id}, Ref: {ref_id}")
-                return None
-
-            if res.get("status") == "SUCCESS":
-                logger.info(f"Extract SUCCESS for job: {job_id}, Ref: {ref_id}")
-                return res.get("extractJobInfo", {})
-            time.sleep(poll_interval)
-
-            logger.info(f'Extracting SUCCESS for JobId: {job_id}, Ref: {ref_id}')
-            return res if return_key == 'DF' else res.get('extractJobInfo')
+            return []
+        for _ in range(0, retry):
+            try:
+                res = await self.get_invoice_json_data(ref_id)
+                if "extractStatus" not in res:
+                    return res
+                if res.get("extractStatus") == "FAILED":
+                    logger.error(f"Extract FAILED for job: {job_id}, Ref: {ref_id}")
+                    return []
+                if res.get("extractStatus") == "FINISHED":
+                    logger.info(f"Extract SUCCESS for job: {job_id}, Ref: {ref_id}")
+                    return res.get("extractJobInfo", {})
+                logger.info(f"Extract attempt {_ + 1}/{retry} waiting {poll_interval}s for JobId: {job_id}, Ref: {ref_id}")
+                await asyncio.sleep(poll_interval)
+            except Exception as ex:
+                logger.warning(f"Error during extract attempt {_ + 1}: {ex}")
+        logger.error(f"All {retry} Extraction failed for job: {job_id}, Ref: {ref_id}")
+        return []
