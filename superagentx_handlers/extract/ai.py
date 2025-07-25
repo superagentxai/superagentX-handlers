@@ -1,11 +1,10 @@
 import asyncio
 import base64
-import json
 import logging
 import os
-from functools import lru_cache
 from typing import Optional
 
+import aiofiles
 import aiohttp
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
@@ -21,7 +20,7 @@ class ExtractAIHandler(BaseHandler):
     def __init__(
             self,
             prompt_name: str,
-            api_token: Optional[str],
+            api_token: str | None = None,
             base_url: str | None = None,
             project_id: str | None = None
     ):
@@ -30,10 +29,7 @@ class ExtractAIHandler(BaseHandler):
         self.api_token = api_token or os.getenv("EXTRACT_API_TOKEN")
         self.base_url = base_url or os.getenv("BASE_URL")
         self.project_id = project_id
-
-    @lru_cache(maxsize=1)
-    def get_header(self):
-        return {
+        self.__headers = {
             'api-token': self.api_token,
             'Content-Type': 'application/json'
         }
@@ -48,21 +44,18 @@ class ExtractAIHandler(BaseHandler):
         try:
             logger.info(f"Reading file {file_path}")
             # Open the PDF file in binary mode
-            with open(file_path, "rb") as pdf_file:
+            async with aiofiles.open(file_path, "rb") as pdf_file:
                 # Read the PDF content and encode it to Base64
-                base64_data = base64.b64encode(pdf_file.read()).decode('utf-8')
-            return base64_data
+                return base64.b64encode(await pdf_file.read()).decode('utf-8')
         except FileNotFoundError:
             logger.info(f"File {file_path} not found...")
-            # print("File not found. Please provide a valid file path.")
-            return None
 
     async def get_invoice_json_data(self, reference_id: str):
         logger.info(f"Getting invoice json data for {reference_id}")
         get_url = f"{self.base_url}/{self.API_STATUS_ENDPOINT}/{reference_id}"
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(get_url, headers=self.get_header()) as response:
+            async with session.get(get_url, headers=self.__headers) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     logger.error(f"Failed to fetch invoice data. Status: {response.status}, Response: {error_text}")
@@ -86,12 +79,11 @@ class ExtractAIHandler(BaseHandler):
             "instruction_type": self.prompt_name
         }
         async with aiohttp.ClientSession() as session:
-            async with session.post(post_url, headers=self.get_header(), data=json.dumps(payload)) as response:
+            async with session.post(post_url, headers=self.__headers, json=payload) as response:
                 if response.status == 200:
                     return await response.json()  # Directly parse JSON response
-                else:
-                    logger.info(f"Request to {post_url} failed with status code {response.status}...")
-                    raise Exception(f"Request failed with status code {response.status}: {response.text}")
+                logger.info(f"Request to {post_url} failed with status code {response.status}...")
+                raise Exception(f"Request failed with status code {response.status}: {response.text}")
 
     @tool
     async def extract_api(
@@ -115,12 +107,9 @@ class ExtractAIHandler(BaseHandler):
         Returns:
            dict or None: The extraction result data if successful, or None if extraction fails.
         """
-        if not self.project_id and not project_id:
+        _project_id = project_id or self.project_id
+        if not _project_id:
             raise ValueError(f"Project Id invalid: {project_id}")
-        if self.project_id:
-            project_id = self.project_id
-        if not project_id:
-            project_id = self.project_id
 
         j_res = await self.process_request(
             post_url=f"{self.base_url}{self.API_EXTRACT_ENDPOINT}",
@@ -149,7 +138,9 @@ class ExtractAIHandler(BaseHandler):
                 if res.get("extractStatus") == "FINISHED":
                     logger.info(f"Extract SUCCESS for job: {job_id}, Ref: {ref_id}")
                     return res.get("extractJobInfo", {})
-                logger.info(f"Extract attempt {_ + 1}/{retry} waiting {poll_interval}s for JobId: {job_id}, Ref: {ref_id}")
+                logger.info(
+                    f"Extract attempt {_ + 1}/{retry} waiting {poll_interval}s for JobId: {job_id}, Ref: {ref_id}"
+                )
                 await asyncio.sleep(poll_interval)
             except Exception as ex:
                 logger.warning(f"Error during extract attempt {_ + 1}: {ex}")
