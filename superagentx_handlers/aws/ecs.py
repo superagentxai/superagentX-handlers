@@ -264,3 +264,133 @@ class AWSECSHandler(BaseHandler):
                 'task_definitions_list': {},
                 'tasks_list': {}
             }
+
+    @tool
+    async def create_cluster(self, cluster_name: str, **kwargs):
+        """
+        Creates a new Amazon ECS cluster.
+
+        Args:
+            cluster_name (str): The name of the cluster to create.
+            **kwargs: Optional additional parameters for the ECS API call.
+                      For example: capacityProviders, defaultCapacityProviderStrategy, tags.
+
+        Returns:
+            dict: API response containing details of the created cluster or error message.
+
+        Docs:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.create_cluster
+        """
+        logger.info(f"Creating ECS cluster '{cluster_name}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.create_cluster,
+                clusterName=cluster_name,
+                **kwargs
+            )
+            logger.info(f"ECS cluster '{cluster_name}' created successfully.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to create ECS cluster '{cluster_name}': {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def create_service(self, cluster_name: str, service_name: str, task_definition: str, **kwargs):
+        """
+        Creates a new Amazon ECS service.
+
+        Args:
+            cluster_name (str): The name of the ECS cluster to create the service in.
+            service_name (str): The name of the service to create.
+            task_definition (str): The task definition to use for the service.
+            **kwargs: Optional additional parameters for the ECS API call.
+                      For example: desiredCount, launchType, platformVersion, deploymentConfiguration, networkConfiguration, etc.
+
+        Returns:
+            dict: API response containing details of the created service or error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.create_service
+        """
+        logger.info(f"Creating ECS service '{service_name}' in cluster '{cluster_name}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.create_service,
+                cluster=cluster_name,
+                serviceName=service_name,
+                taskDefinition=task_definition,
+                **kwargs
+            )
+            logger.info(f"ECS service '{service_name}' created successfully in cluster '{cluster_name}'.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to create ECS service '{service_name}': {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def create_task_set(
+            self,
+            cluster: str,
+            service: str,
+            task_definition: str,
+            **kwargs
+    ):
+        """
+        Creates a new task set in the specified ECS service.
+
+        Args:
+            cluster (str): The short name or full Amazon Resource Name (ARN) of the cluster that hosts the service.
+            service (str): The short name or full Amazon Resource Name (ARN) of the ECS service.
+            task_definition (str): The task definition for the tasks in the task set.
+            **kwargs: Optional additional parameters for the ECS API call.
+                      For example: externalId, networkConfiguration, loadBalancers, launchType, serviceRegistries, etc.
+
+        Returns:
+            dict: API response containing details of the created task set or an error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.create_task_set
+        """
+        logger.info(f"Creating ECS task set for service '{service}' in cluster '{cluster}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.create_task_set,
+                cluster=cluster,
+                service=service,
+                taskDefinition=task_definition,
+                **kwargs
+            )
+            logger.info(f"Task set created successfully in service '{service}' of cluster '{cluster}'.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to create ECS task set in service '{service}': {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def update_capacity_provider(self, name: str, **kwargs):
+        """
+        Updates the specified capacity provider.
+
+        Args:
+            name (str): The name of the capacity provider to update.
+            **kwargs: Optional additional parameters for the ECS API call.
+                      For example: autoScalingGroupProvider.
+
+        Returns:
+            dict: API response containing details of the updated capacity provider or error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.update_capacity_provider
+        """
+        logger.info(f"Updating ECS capacity provider '{name}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.update_capacity_provider,
+                name=name,
+                **kwargs
+            )
+            logger.info(f"Capacity provider '{name}' updated successfully.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to update ECS capacity provider '{name}': {e}")
+            return {"error": str(e)}
