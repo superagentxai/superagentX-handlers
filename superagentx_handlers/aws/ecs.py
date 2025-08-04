@@ -394,3 +394,256 @@ class AWSECSHandler(BaseHandler):
         except ClientError as e:
             logger.error(f"Failed to update ECS capacity provider '{name}': {e}")
             return {"error": str(e)}
+
+    @tool
+    async def update_cluster(self, cluster_name: str, **kwargs):
+        """
+        Updates the cluster settings such as service connect defaults.
+
+        Args:
+            cluster_name (str): The name of the ECS cluster to update.
+            **kwargs: Optional additional parameters for the ECS API call.
+                      For example: serviceConnectDefaults.
+
+        Returns:
+            dict: API response containing details of the updated ECS cluster or error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.update_cluster
+        """
+        logger.info(f"Updating ECS cluster '{cluster_name}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.update_cluster,
+                cluster=cluster_name,
+                **kwargs
+            )
+            logger.info(f"ECS cluster '{cluster_name}' updated successfully.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to update ECS cluster '{cluster_name}': {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def update_cluster_settings(self, cluster_name: str, **kwargs):
+        """
+        Updates the settings for an ECS cluster (e.g., container insights).
+
+        Args:
+            cluster_name (str): The name of the ECS cluster to update.
+            **kwargs: Additional optional parameters for the ECS API call.
+                      For example: settings=[{'name': 'containerInsights', 'value': 'enabled'}]
+
+        Returns:
+            dict: API response containing details of the updated ECS cluster settings or error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.update_cluster_settings
+        """
+        logger.info(f"Updating settings for ECS cluster '{cluster_name}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.update_cluster_settings,
+                cluster=cluster_name,
+                **kwargs
+            )
+            logger.info(f"ECS cluster settings for '{cluster_name}' updated successfully.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to update ECS cluster settings for '{cluster_name}': {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def update_container_agent(self, container_instance: str, cluster: str = None):
+        """
+        Updates the Amazon ECS container agent on a specified container instance.
+
+        Args:
+            container_instance (str): The container instance ID or ARN to update.
+            cluster (str, optional): The cluster name or ARN that hosts the container instance.
+                                     If not specified, the default cluster is assumed.
+
+        Returns:
+            dict: API response containing details of the update or error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.update_container_agent
+        """
+        logger.info(f"Updating container agent on instance '{container_instance}' (Cluster: '{cluster}')...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.update_container_agent,
+                containerInstance=container_instance,
+                cluster=cluster if cluster else "default"
+            )
+            logger.info(f"Container agent updated successfully on instance '{container_instance}'.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to update container agent on instance '{container_instance}': {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def update_container_instances_state(
+            self,
+            cluster: str,
+            container_instances: list,
+            status: str
+    ):
+        """
+        Updates the status of one or more container instances in an ECS cluster.
+
+        Args:
+            cluster (str): The name or ARN of the cluster containing the container instances.
+            container_instances (list): A list of container instance IDs or ARNs to update.
+            status (str): The new status for the container instances. Valid values: 'ACTIVE' | 'DRAINING'
+
+        Returns:
+            dict: API response containing details of the updated instances or an error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.update_container_instances_state
+        """
+        logger.info(f"Updating state of container instances in cluster '{cluster}' to '{status}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.update_container_instances_state,
+                cluster=cluster,
+                containerInstances=container_instances,
+                status=status
+            )
+            logger.info(f"Container instances updated successfully in cluster '{cluster}'.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to update container instances in cluster '{cluster}': {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def update_service(self, cluster: str, service: str, **kwargs):
+        """
+        Updates an existing Amazon ECS service.
+
+        Args:
+            cluster (str): The name or ARN of the cluster that hosts the service.
+            service (str): The name of the service to update.
+            **kwargs: Optional additional parameters for the ECS API call.
+                      For example: desiredCount, taskDefinition, deploymentConfiguration, networkConfiguration, etc.
+
+        Returns:
+            dict: API response containing details of the updated service or error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.update_service
+        """
+        logger.info(f"Updating ECS service '{service}' in cluster '{cluster}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.update_service,
+                cluster=cluster,
+                service=service,
+                **kwargs
+            )
+            logger.info(f"ECS service '{service}' updated successfully in cluster '{cluster}'.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to update ECS service '{service}' in cluster '{cluster}': {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def update_service_primary_task_set(self, cluster: str, service: str, primary_task_set: str):
+        """
+        Updates the primary task set of a service.
+
+        Args:
+            cluster (str): The short name or full Amazon Resource Name (ARN) of the cluster.
+            service (str): The name or ARN of the service that hosts the task set.
+            primary_task_set (str): The ARN of the task set to set as the primary.
+
+        Returns:
+            dict: API response containing the updated service's task set info or error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.update_service_primary_task_set
+        """
+        logger.info(
+            f"Updating primary task set for service '{service}' in cluster '{cluster}' to '{primary_task_set}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.update_service_primary_task_set,
+                cluster=cluster,
+                service=service,
+                primaryTaskSet=primary_task_set
+            )
+            logger.info(f"Primary task set for service '{service}' updated successfully.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to update primary task set for service '{service}': {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def update_task_protection(self, cluster: str, tasks: list, protection_enabled: bool, **kwargs):
+        """
+        Updates the protection status of a task to prevent it from being terminated during scale-in events.
+
+        Args:
+            cluster (str): The short name or full Amazon Resource Name (ARN) of the cluster.
+            tasks (list): A list of task ARNs to update protection status.
+            protection_enabled (bool): Whether to enable or disable protection for the specified tasks.
+            **kwargs: Optional additional parameters such as 'expiresInMinutes'.
+
+        Returns:
+            dict: API response containing the result of the update or an error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.update_task_protection
+        """
+        logger.info(f"Updating task protection for tasks in cluster '{cluster}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.update_task_protection,
+                cluster=cluster,
+                tasks=tasks,
+                protectionEnabled=protection_enabled,
+                **kwargs
+            )
+            logger.info("Task protection updated successfully.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to update task protection: {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def update_task_set(self, cluster: str, service: str, task_set: str, **kwargs):
+        """
+        Updates a specified task set in a service.
+
+        Args:
+            cluster (str): The short name or full Amazon Resource Name (ARN) of the cluster.
+            service (str): The short name or full ARN of the service.
+            task_set (str): The task set ID or full ARN of the task set to update.
+            **kwargs: Optional parameters such as 'scale' with value dict:
+                      {
+                          'value': float,
+                          'unit': 'PERCENT'
+                      }
+
+        Returns:
+            dict: API response containing details of the updated task set or error message.
+
+        Docs:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.update_task_set
+        """
+        logger.info(f"Updating task set '{task_set}' for service '{service}' in cluster '{cluster}'...")
+        try:
+            response = await sync_to_async(
+                self.ecs_client.update_task_set,
+                cluster=cluster,
+                service=service,
+                taskSet=task_set,
+                **kwargs
+            )
+            logger.info(f"Task set '{task_set}' updated successfully.")
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to update task set '{task_set}': {e}")
+            return {"error": str(e)}
+
