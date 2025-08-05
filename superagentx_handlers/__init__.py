@@ -16,3 +16,4 @@ from .websitecrawler import *
 from .wikipedia import WikipediaHandler
 from .zohohirs import ZohoHIRSHandler
 from .github import GitHubHandler
+from .extract import *
