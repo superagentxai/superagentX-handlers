@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 class GitHubHandler(BaseHandler):
     """
     A handler to collect GitHub GRC (Governance, Risk, and Compliance) evidence,
-    focusing on MFA, organizational details, and repository data.
+    focusing on MFA, organizational details, and repository data,
+    and various GitHub Actions related data.
     """
 
     def __init__(
@@ -50,17 +51,12 @@ class GitHubHandler(BaseHandler):
         all_data: list[dict] = []
         current_url = url
         current_params = params.copy() if params is not None else {}
-        page_data_keys = [
-            "items",
-            "workflow_runs",
-            "jobs",
-            "artifacts",
-            "secrets",
-            "repositories",
-            "pull_requests",
-            "branches"
-        ]
 
+        page_data_keys = [
+            "items", "workflow_runs", "jobs", "artifacts", "secrets", "repositories",
+            "pull_requests", "branches", "caches", "runners", "runner_groups",
+            "variables", "workflows", "collaborators"
+        ]
         async with aiohttp.ClientSession() as session:
             while current_url:
                 try:
@@ -83,22 +79,25 @@ class GitHubHandler(BaseHandler):
                                     break
                             if not found_list and page_data:
                                 all_data.append(page_data)
-
                         next_url = None
                         if 'link' in resp.headers:
                             links = resp.headers['link'].split(',')
                             for link in links:
                                 if 'rel="next"' in link:
-                                    next_url = link.split(';')[0].strip('<>')
+                                    next_url = link.split(';')[0].strip('<>').strip()
                                     break
                         current_url = next_url
-                        current_params = {}  # Clear params for subsequent paginated requests
+                        current_params = {}
+
                 except aiohttp.ClientResponseError as e:
                     logger.error(f"HTTP error fetching pages from {current_url}: {e.status} - {e.message}")
+                    break
                 except aiohttp.ClientError as e:
                     logger.error(f"Network or client error fetching pages from {current_url}: {e}")
+                    break
                 except Exception as e:
                     logger.error(f"Unexpected error fetching pages from {current_url}: {e}")
+                    break
         return all_data
 
     @tool
@@ -255,7 +254,7 @@ class GitHubHandler(BaseHandler):
                     evidence["members_with_mfa_enabled"].append(
                         {
                             "login": member_basic["login"],
-                            "id": member_basic["id"]
+                            "id": member_basic["id"]  # Corrected from 'member["id"]'
                         }
                     )
                 evidence["all_members_details"].append(detailed_info)
@@ -816,10 +815,7 @@ class GitHubHandler(BaseHandler):
         repositories_to_process: list[dict] = []
         if username and repository_name:
             logger.info(f"Fetching pull requests for specific repository: {username}/{repository_name}")
-            repositories_to_process.append({
-                "owner_name": username,
-                "name": repository_name
-            })
+            repositories_to_process.append({"owner_name": username, "name": repository_name})
             all_prs_data["total_repositories_processed"] = 1
         else:
             logger.info("Fetching pull requests for all accessible repositories.")
@@ -958,11 +954,10 @@ class GitHubHandler(BaseHandler):
             repo: str
     ) -> dict:
         headers = self._common_headers
-        logger.info(f"Fetching Dependabot secrets for repository: {owner}/{repo}")
-        # Create a new session for this operation
+        logger.info(f"Fetching secrets for repository: {owner}/{repo}")
         async with aiohttp.ClientSession() as session:
             try:
-                secrets_url = f"{self.api_base_url}/repos/{owner}/{repo}/dependabot/secrets"
+                secrets_url = f"{self.api_base_url}/repos/{owner}/{repo}/actions/secrets"
                 async with session.get(
                         url=secrets_url,
                         headers=headers
@@ -979,18 +974,18 @@ class GitHubHandler(BaseHandler):
                                 "updated_at": secret.get("updated_at")
                             })
 
-                    return {
-                        "owner": owner,
-                        "repository": repo,
-                        "total_secrets": len(simplified_secrets),
-                        "secrets": simplified_secrets
-                    }
+                return {
+                    "owner": owner,
+                    "repository": repo,
+                    "total_secrets": len(simplified_secrets),
+                    "secrets": simplified_secrets
+                }
             except aiohttp.ClientResponseError as e:
-                logger.error(f"Error fetching Dependabot secrets for '{owner}/{repo}': {e.status} - {e.message}")
+                logger.error(f"Error fetching secrets for '{owner}/{repo}': {e.status} - {e.message}")
             except aiohttp.ClientError as e:
-                logger.error(f"Network or client error fetching Dependabot secrets for '{owner}/{repo}': {e}")
+                logger.error(f"Network or client error fetching secrets for '{owner}/{repo}': {e}")
             except Exception as e:
-                logger.error(f"Unexpected error fetching Dependabot secrets for '{owner}/{repo}': {e}")
+                logger.error(f"Unexpected error fetching secrets for '{owner}/{repo}': {e}")
             return {
                 "owner": owner,
                 "repository": repo,
@@ -999,13 +994,13 @@ class GitHubHandler(BaseHandler):
             }
 
     @tool
-    async def get_repository_dependabot_secrets(
+    async def get_repository_secrets(
             self,
             username: Optional[str] = None,
             repository_name: Optional[str] = None
     ) -> dict:
         """
-        Retrieves a list of Dependabot secrets (names and metadata, not values) for a specified GitHub repository.
+        Retrieves a list of repository secrets (names and metadata, not values) for a specified GitHub repository.
 
         Args:
             username (str, optional): Repository owner's username.
@@ -1013,22 +1008,22 @@ class GitHubHandler(BaseHandler):
 
         Returns:
             dict: A dictionary with `timestamp`, `total_repositories_processed`,
-             `total_dependabot_secrets_found_overall`, `repositories_dependabot_secrets`
+             `total_secrets_found_overall`, `repositories_secrets`
         """
         all_secrets_data = {
             "timestamp": datetime.now().isoformat(),
             "total_repositories_processed": 0,
-            "total_dependabot_secrets_found_overall": 0,
-            "repositories_dependabot_secrets": []
+            "total_secrets_found_overall": 0,
+            "repositories_secrets": []
         }
 
         repositories_to_process: list[dict] = []
         if username and repository_name:
-            logger.info(f"Fetching Dependabot secrets for specific repository: {username}/{repository_name}")
+            logger.info(f"Fetching secrets for specific repository: {username}/{repository_name}")
             repositories_to_process.append({"owner_name": username, "name": repository_name})
             all_secrets_data["total_repositories_processed"] = 1
         else:
-            logger.info("Fetching Dependabot secrets for all accessible repositories.")
+            logger.info("Fetching secrets for all accessible repositories.")
             all_repos_summary_response = await self.repository_summary()
             repositories_to_process = all_repos_summary_response.get("repositories", [])
             all_secrets_data["total_repositories_processed"] = len(repositories_to_process)
@@ -1044,8 +1039,97 @@ class GitHubHandler(BaseHandler):
                 owner=owner_name,
                 repo=repo_name
             )
-            all_secrets_data["repositories_dependabot_secrets"].append(secret_result)
-            all_secrets_data["total_dependabot_secrets_found_overall"] += secret_result["total_secrets"]
+            all_secrets_data["repositories_secrets"].append(secret_result)
+            all_secrets_data["total_secrets_found_overall"] += secret_result["total_secrets"]
+        return all_secrets_data
+
+    async def _fetch_org_secrets(
+            self,
+            org_name: str
+    ) -> dict:
+        headers = self._common_headers
+        logger.info(f"Fetching organization secrets for: {org_name}")
+        async with aiohttp.ClientSession() as session:
+            try:
+                secrets_url = f"{self.api_base_url}/orgs/{org_name}/actions/secrets"
+                async with session.get(
+                        url=secrets_url,
+                        headers=headers
+                ) as response:
+                    response.raise_for_status()
+                    secrets_data = await response.json()
+                    simplified_secrets = []
+                    if "secrets" in secrets_data and isinstance(secrets_data["secrets"], list):
+                        for secret in secrets_data["secrets"]:
+                            simplified_secrets.append({
+                                "name": secret.get("name"),
+                                "created_at": secret.get("created_at"),
+                                "updated_at": secret.get("updated_at")
+                            })
+                return {
+                    "organization": org_name,
+                    "total_secrets": len(simplified_secrets),
+                    "secrets": simplified_secrets
+                }
+            except aiohttp.ClientResponseError as e:
+                logger.error(f"Error fetching organization secrets for '{org_name}': {e.status} - {e.message}")
+            except aiohttp.ClientError as e:
+                logger.error(f"Network or client error fetching organization secrets for '{org_name}': {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error fetching organization secrets for '{org_name}': {e}")
+            return {
+                "organization": org_name,
+                "total_secrets": 0,
+                "secrets": []
+            }
+
+    @tool
+    async def get_organization_secrets(
+            self,
+            org_name: Optional[str] = None
+    ) -> dict:
+        """
+        Retrieves a list of organization secrets (names and metadata, not values) for a specified GitHub organization
+        or for all accessible organizations.
+
+        Args:
+            org_name (str, optional): Name of the GitHub organization.
+
+        Returns:
+            dict: A dictionary with `timestamp`, `total_organizations_processed`,
+             `total_secrets_found_overall`, `organizations_secrets`
+        """
+        all_secrets_data = {
+            "timestamp": datetime.now().isoformat(),
+            "total_organizations_processed": 0,
+            "total_secrets_found_overall": 0,
+            "organizations_secrets": []
+        }
+
+        orgs_to_process: list[dict] = []
+        if org_name:
+            logger.info(f"Fetching secrets for specific organization: {org_name}")
+            org_details_response = await self.organization_details(org_name=org_name)
+            if org_details_response:
+                orgs_to_process.append(org_details_response)
+            all_secrets_data["total_organizations_processed"] = 1
+        else:
+            logger.info("Fetching secrets for all accessible organizations.")
+            all_orgs_response = await self.organization_details()
+            orgs_to_process = all_orgs_response.get("organizations", [])
+            all_secrets_data["total_organizations_processed"] = len(orgs_to_process)
+
+        for org_summary in orgs_to_process:
+            current_org_name = org_summary.get("login")
+            if not current_org_name:
+                logger.warning(f"Skipping organization entry with missing login: {org_summary}")
+                continue
+
+            secret_result = await self._fetch_org_secrets(
+                org_name=current_org_name
+            )
+            all_secrets_data["organizations_secrets"].append(secret_result)
+            all_secrets_data["total_secrets_found_overall"] += secret_result["total_secrets"]
         return all_secrets_data
 
     async def _fetch_dependencies_for_repo(
@@ -1154,7 +1238,7 @@ class GitHubHandler(BaseHandler):
     async def get_packages(
             self,
             username: Optional[str] = None
-    ) -> dict:
+    ):
         """
         Retrieves a list of packages for a specified GitHub user.
 
@@ -1209,3 +1293,708 @@ class GitHubHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Unexpected error fetching packages: {e}")
         return all_packages_data
+
+    @tool
+    async def get_repository_cache_usage(
+            self,
+            username: Optional[str] = None,
+            repository_name: Optional[str] = None
+    ):
+        """
+        Retrieves GitHub Actions cache usage information for a specific repository
+        or all accessible repositories.
+        Args:
+            username (str, optional): Repository owner's username.
+            repository_name (str, optional): Repository name.
+        Returns:
+            dict: Cache usage grouped by repository.
+        """
+        headers = self._common_headers
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "repositories_cache_usage": []
+        }
+
+        if (username and not repository_name) or (repository_name and not username):
+            raise ValueError("Both 'username' and 'repository_name' must be provided together.")
+
+        if username and repository_name:
+            repos = [{"owner_name": username, "name": repository_name}]
+        else:
+            summary = await self.repository_summary()
+            repos = summary.get("repositories", [])
+
+        async with aiohttp.ClientSession() as session:
+            for repo in repos:
+                owner, name = repo.get("owner_name"), repo.get("name")
+                if not owner or not name:
+                    continue
+                try:
+                    url = f"{self.api_base_url}/repos/{owner}/{name}/actions/cache/usage"
+                    async with session.get(url, headers=headers) as resp:
+                        resp.raise_for_status()
+                        usage = await resp.json()
+
+                    all_data["repositories_cache_usage"].append({
+                        "owner": owner,
+                        "repository": name,
+                        "usage": usage
+                    })
+
+                except Exception as e:
+                    logger.error(f"Cache usage fetch failed for {owner}/{name}: {e}")
+                    continue
+
+        return all_data
+
+    @tool
+    async def get_github_hosted_runners(
+            self,
+            org_name: Optional[str] = None
+    ):
+        """
+        Retrieves GitHub-hosted runners for a specific organization or all accessible organizations.
+        Args:
+            org_name (str, optional): The name of the GitHub organization.
+        Returns:
+            dict: GitHub-hosted runners grouped by organization.
+        """
+        headers = self._common_headers
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "github_hosted_runners": []
+        }
+        if org_name:
+            orgs = [org_name]
+        else:
+            orgs_summary = await self.organization_details()
+            orgs = [org.get("login") for org in orgs_summary.get("organizations", []) if org.get("login")]
+
+        for org in orgs:
+            try:
+                url = f"{self.api_base_url}/orgs/{org}/actions/runners"
+                runners = await self.fetch_all_pages(url, headers)
+
+                all_data["github_hosted_runners"].append({
+                    "organization": org,
+                    "total_runners": len(runners),
+                    "runners": runners
+                })
+
+            except Exception as e:
+                logger.error(f"GitHub-hosted runners fetch failed for org {org}: {e}")
+                continue
+        return all_data
+
+    @tool
+    async def get_organization_oidc_settings(
+            self,
+            org_name: Optional[str] = None
+    ):
+        """
+        Retrieves OIDC subject customization settings for a specific organization or all accessible organizations.
+        Args:
+            org_name (str, optional): The name of the GitHub organization.
+        Returns:
+            dict: OIDC subject customization settings grouped by organization.
+        """
+        headers = self._common_headers
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "organizations_oidc": []
+        }
+
+        if org_name:
+            orgs = [org_name]
+        else:
+            org_summary = await self.organization_details()
+            orgs = [org.get("login") for org in org_summary.get("organizations", []) if org.get("login")]
+
+        async with aiohttp.ClientSession() as session:
+            for org in orgs:
+                try:
+                    url = f"{self.api_base_url}/orgs/{org}/actions/oidc/customization/sub"
+                    async with session.get(url, headers=headers) as resp:
+                        resp.raise_for_status()
+                        oidc = await resp.json()
+
+                    all_data["organizations_oidc"].append({
+                        "organization": org,
+                        "oidc_sub": oidc
+                    })
+
+                except Exception as e:
+                    logger.error(f"OIDC settings fetch failed for org {org}: {e}")
+                    continue
+        return all_data
+
+    @tool
+    async def get_repository_variables(
+            self,
+            username: Optional[str] = None,
+            repository_name: Optional[str] = None
+    ):
+        """
+        Retrieves GitHub Actions variables (names and values) for a specific repository or all accessible repositories.
+        Args:
+            username (str, optional): Repository owner's username.
+            repository_name (str, optional): Repository name.
+        Returns:
+            dict: Variables grouped by repository.
+        """
+        headers = self._common_headers
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "repositories_variables": []
+        }
+
+        if (username and not repository_name) or (repository_name and not username):
+            raise ValueError("Both 'username' and 'repository_name' must be provided together.")
+
+        if username and repository_name:
+            repos = [{"owner_name": username, "name": repository_name}]
+        else:
+            summary = await self.repository_summary()
+            repos = summary.get("repositories", [])
+
+        for repo in repos:
+            owner, name = repo.get("owner_name"), repo.get("name")
+            if not owner or not name:
+                continue
+            try:
+                url = f"{self.api_base_url}/repos/{owner}/{name}/actions/variables"
+                var = await self.fetch_all_pages(url, headers)
+                all_data["repositories_variables"].append({
+                    "owner": owner,
+                    "repository": name,
+                    "variables": var
+                })
+            except Exception as e:
+                logger.error(f"Variable fetch failed for {owner}/{name}: {e}")
+                continue
+        return all_data
+
+    @tool
+    async def get_workflows(
+            self,
+            username: Optional[str] = None,
+            repository_name: Optional[str] = None
+    ):
+        """
+        Retrieves GitHub Actions workflows for a specific repository or all accessible repositories.
+        Args:
+            username (str, optional): Repository owner's username.
+            repository_name (str, optional): Repository name.
+        Returns:
+            dict: Workflows grouped by repository.
+        """
+        headers = self._common_headers
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "repositories_workflows": [],
+            "total_workflows_found_overall": 0
+        }
+
+        if username and repository_name:
+            repositories = [{"owner_name": username, "name": repository_name}]
+        else:
+            summary = await self.repository_summary()
+            repositories = summary.get("repositories", [])
+
+        for repo in repositories:
+            owner = repo.get("owner_name")
+            name = repo.get("name")
+            if not owner or not name:
+                continue
+            try:
+                url = f"{self.api_base_url}/repos/{owner}/{name}/actions/workflows"
+                workflows = await self.fetch_all_pages(url, headers)
+                all_data["repositories_workflows"].append({
+                    "owner": owner,
+                    "repository": name,
+                    "workflows": workflows
+                })
+                all_data["total_workflows_found_overall"] += len(workflows)
+            except Exception as e:
+                logger.error(f"Workflow fetch failed for {owner}/{name}: {e}")
+        return all_data
+
+    @tool
+    async def get_workflow_runs(
+            self,
+            username: Optional[str] = None,
+            repository_name: Optional[str] = None
+    ):
+        """
+        Retrieves the workflow runs for a specified GitHub repository, optionally filtered by a specific workflow.
+        Args:
+            username (str): The owner (user or organization) of the repository.
+            repository_name (str): The name of the repository.
+        Returns:
+            dict: A dictionary containing:
+                - 'total_count' (int): Total number of workflow runs.
+                - 'workflow_runs' (list): A list of workflow run objects, each with details like 'id', 'status', 'conclusion', 'created_at', etc.
+        """
+        headers = self._common_headers
+        repos = (
+            [{"owner_name": username, "name": repository_name}]
+            if username and repository_name
+            else (await self.repository_summary()).get("repositories", [])
+        )
+        all_data = {"timestamp": datetime.now().isoformat(), "repositories_workflow_runs": []}
+        for repo in repos:
+            owner, name = repo.get("owner_name"), repo.get("name")
+            if not owner or not name:
+                continue
+            try:
+                url = f"{self.api_base_url}/repos/{owner}/{name}/actions/runs"
+                runs = await self.fetch_all_pages(url, headers)
+                all_data["repositories_workflow_runs"].append({
+                    "owner": owner, "repository": name, "workflow_runs": runs
+                })
+            except Exception as e:
+                logger.error(f"Workflow runs fetch failed for {owner}/{name}: {e}")
+        return all_data
+
+    @tool
+    async def get_workflow_jobs_(
+            self
+    ):
+        """
+        Retrieves the runner groups configured for a specified GitHub user or organization.
+        Returns:
+            dict: A dictionary containing:
+                - 'total_runner_groups' (int): The number of runner groups found.
+                - 'runner_groups' (list): A list of runner group objects, each including details such as:
+                    'id', 'name', 'visibility', 'default', 'selected_repositories_url', etc.
+                - 'errors' (list, optional): Any errors encountered during the retrieval process.
+        """
+        headers = self._common_headers
+        all_jobs_data = {
+            "timestamp": datetime.now().isoformat(),
+            "repositories_workflow_jobs": [],
+        }
+        repos = (await self.repository_summary()).get("repositories", [])
+
+        for repo in repos:
+            owner, name = repo.get("owner_name"), repo.get("name")
+            if not owner or not name:
+                continue
+            try:
+                run_ids = [r.get("id") for r in (
+                    await self.fetch_all_pages(f"{self.api_base_url}/repos/{owner}/{name}/actions/runs", headers)
+                )]
+                for rid in run_ids:
+                    if rid:
+                        url = f"{self.api_base_url}/repos/{owner}/{name}/actions/runs/{rid}/jobs"
+                        jobs = await self.fetch_all_pages(url, headers)
+                        all_jobs_data["repositories_workflow_jobs"].append({
+                            "owner": owner, "repository": name, "run_id": rid, "jobs": jobs
+                        })
+            except Exception as e:
+                logger.error(f"Workflow jobs fetch failed for {owner}/{name}: {e}")
+        return all_jobs_data
+
+    @tool
+    async def get_runner_groups(
+            self,
+            org_name: Optional[str] = None
+    ):
+        headers = self._common_headers
+
+        if org_name:
+            orgs = [org_name]
+        else:
+            orgs = [org.get("login") for org in (await self.organization_details()).get("organizations", [])]
+
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "organizations_runner_groups": []
+        }
+
+        for org in orgs:
+            try:
+                url = f"{self.api_base_url}/orgs/{org}/actions/runner-groups"
+                groups = await self.fetch_all_pages(url, headers)
+                all_data["organizations_runner_groups"].append({
+                    "organization": org,
+                    "runner_groups": groups
+                })
+            except Exception as e:
+                logger.error(f"Runner groups fetch failed for {org}: {e}")
+        return all_data
+
+    @tool
+    async def get_self_hosted_runners(
+            self,
+            org_name: Optional[str] = None
+    ):
+        """
+        Retrieves information about self-hosted GitHub Actions runners for a specified user, organization, or the authenticated user.
+
+        Args:
+            org_name (str, optional): GitHub username or organization name to fetch self-hosted runners for.
+        Returns:
+            dict: A dictionary containing:
+                - 'total_runners' (int): Total number of self-hosted runners found.
+                - 'runners' (list): List of self-hosted runner details, each as a dictionary with keys such as:
+                    'id', 'name', 'os', 'status', 'busy', 'labels', 'created_at', etc.
+                - 'errors' (list, optional): List of errors encountered during data retrieval, if any.
+        """
+        headers = self._common_headers
+        orgs = [org_name] if org_name else [
+            org.get("login") for org in (await self.organization_details()).get("organizations", [])
+        ]
+
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "organizations_self_hosted_runners": []
+        }
+
+        for org in orgs:
+            try:
+                url = f"{self.api_base_url}/orgs/{org}/actions/runners"
+                runners = await self.fetch_all_pages(url, headers)
+                self_hosted = [r for r in runners if r.get("os") and r.get("name")]
+
+                all_data["organizations_self_hosted_runners"].append({
+                    "organization": org,
+                    "self_hosted_runners": self_hosted
+                })
+            except Exception as e:
+                logger.error(f"Self-hosted runners fetch failed for {org}: {e}")
+        return all_data
+
+    @tool
+    async def get_artifacts_for_repo(
+            self,
+            username: Optional[str] = None,
+            repository_name: Optional[str] = None
+    ):
+        """
+        Retrieves GitHub Actions artifacts for a specific repository or all accessible repositories.
+        Args:
+            username (str, optional): Repository owner's username.
+            repository_name (str, optional): Repository name.
+        Returns:
+            dict: Artifacts grouped by repository.
+        """
+        headers = self._common_headers
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "repositories_artifacts": [],
+            "total_artifacts_found_overall": 0
+        }
+
+        if (username and not repository_name) or (repository_name and not username):
+            raise ValueError("Both 'username' and 'repository_name' must be provided together.")
+
+        if username and repository_name:
+            repositories = [{"owner_name": username, "name": repository_name}]
+        else:
+            summary = await self.repository_summary()
+            repositories = summary.get("repositories", [])
+
+        for repo in repositories:
+            owner = repo.get("owner_name")
+            name = repo.get("name")
+            if not owner or not name:
+                continue
+
+            try:
+                url = f"{self.api_base_url}/repos/{owner}/{name}/actions/artifacts"
+                artifacts = await self.fetch_all_pages(url, headers)
+
+                simplified = [
+                    {
+                        "id": a["id"],
+                        "name": a["name"],
+                        "size": a.get("size_in_bytes"),
+                        "created_at": a.get("created_at"),
+                        "expires_at": a.get("expires_at"),
+                    }
+                    for a in artifacts
+                ]
+
+                all_data["repositories_artifacts"].append({
+                    "owner": owner,
+                    "repository": name,
+                    "artifacts": simplified
+                })
+                all_data["total_artifacts_found_overall"] += len(simplified)
+
+            except Exception as e:
+                logger.error(f"Artifact fetch failed for {owner}/{name}: {e}")
+                continue
+        return all_data
+
+    @tool
+    async def get_repository_permissions(
+            self,
+            username: Optional[str] = None,
+            repository_name: Optional[str] = None
+    ):
+        """
+        Retrieves permission settings for a specific repository or all accessible repositories.
+        Args:
+            username (str, optional): Repository owner's username.
+            repository_name (str, optional): Repository name.
+        Returns:
+            dict: Permissions grouped by repository.
+        """
+        headers = self._common_headers
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "repositories_permissions": []
+        }
+
+        if (username and not repository_name) or (repository_name and not username):
+            raise ValueError("Both 'username' and 'repository_name' must be provided together.")
+
+        if username and repository_name:
+            repositories = [{"owner_name": username, "name": repository_name}]
+        else:
+            summary = await self.repository_summary()
+            repositories = summary.get("repositories", [])
+
+        async with aiohttp.ClientSession() as session:
+            for repo in repositories:
+                owner = repo.get("owner_name")
+                name = repo.get("name")
+                if not owner or not name:
+                    continue
+
+                try:
+                    url = f"{self.api_base_url}/repos/{owner}/{name}/actions/permissions"
+                    async with session.get(url, headers=headers) as resp:
+                        resp.raise_for_status()
+                        permissions = await resp.json()
+
+                    all_data["repositories_permissions"].append({
+                        "owner": owner,
+                        "repository": name,
+                        "permissions": permissions
+                    })
+
+                except Exception as e:
+                    logger.error(f"Permission fetch failed for {owner}/{name}: {e}")
+                    continue
+
+        return all_data
+
+    @tool
+    async def get_repository_secrets(
+            self,
+            username: Optional[str] = None,
+            repository_name: Optional[str] = None
+    ):
+        """
+        Retrieves a list of repository secrets (names and metadata, not values) for a specific repository
+        or for all accessible repositories.
+        Args:
+            username (str, optional): Repository owner's username.
+            repository_name (str, optional): Repository name.
+        Returns:
+            dict: Secrets grouped by repository, with metadata only (not secret values).
+        """
+        headers = self._common_headers
+        all_data = {
+            "timestamp": datetime.now().isoformat(),
+            "repositories_secrets": [],
+            "total_secrets_found_overall": 0
+        }
+
+        if (username and not repository_name) or (repository_name and not username):
+            raise ValueError("Both 'username' and 'repository_name' must be provided together.")
+
+        if username and repository_name:
+            repositories = [{"owner_name": username, "name": repository_name}]
+        else:
+            summary = await self.repository_summary()
+            repositories = summary.get("repositories", [])
+
+        async with aiohttp.ClientSession() as session:
+            for repo in repositories:
+                owner = repo.get("owner_name")
+                name = repo.get("name")
+                if not owner or not name:
+                    continue
+
+                try:
+                    url = f"{self.api_base_url}/repos/{owner}/{name}/actions/secrets"
+                    async with session.get(url, headers=headers) as resp:
+                        resp.raise_for_status()
+                        secrets_json = await resp.json()
+
+                    simplified = [
+                        {
+                            "name": s.get("name"),
+                            "created_at": s.get("created_at"),
+                            "updated_at": s.get("updated_at")
+                        }
+                        for s in secrets_json.get("secrets", [])
+                    ]
+
+                    all_data["repositories_secrets"].append({
+                        "owner": owner,
+                        "repository": name,
+                        "secrets": simplified
+                    })
+                    all_data["total_secrets_found_overall"] += len(simplified)
+
+                except Exception as e:
+                    logger.error(f"Secrets fetch failed for {owner}/{name}: {e}")
+                    continue
+        return all_data
+
+    @tool
+    async def get_all_action_data(
+            self
+    ):
+        """
+         Retrieves comprehensive GitHub Actions workflow run data for a specified user, organization, or the authenticated user.
+        Returns:
+            dict: A dictionary containing:
+                - 'total_workflow_runs' (int): Total number of workflow runs found.
+                - 'workflow_runs' (list): List of workflow run details, each as a dictionary containing keys like:
+                    'repository', 'run_id', 'status', 'conclusion', 'created_at', etc.
+                - 'errors' (list, optional): List of errors encountered during data fetching, if any.
+        """
+        return {
+            "artifacts": await self.get_artifacts_for_repo(),
+            "permissions": await self.get_repository_permissions(),
+            "secrets": await self.get_repository_secrets(),
+            "variables": await self.get_repository_variables(),
+            "workflows": await self.get_workflows(),
+            "workflow_runs": await self.get_workflow_runs(),
+            "workflow_jobs": await self.get_workflow_jobs_(),
+            "runners": await self.get_self_hosted_runners(),
+            "runner_groups": await self.get_runner_groups(),
+            "cache_usage": await self.get_repository_cache_usage(),
+            "hosted_runners": await self.get_github_hosted_runners(),
+            "oidc_settings": await self.get_organization_oidc_settings(),
+        }
+
+    @tool
+    async def detect_ddos_risk(
+            self,
+            threshold: int = 1000
+    ):
+        """
+        Detect potential DDoS risk by checking if the remaining rate limit is below a threshold.
+        Args:
+            threshold (int): The minimum remaining rate limit before flagging potential DDoS risk. Default is 1000.
+        Returns:
+            dict: Information about rate limit and potential DDoS risk.
+        """
+        headers = self._common_headers
+        url = f"{self.api_base_url}/rate_limit"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as resp:
+                    resp.raise_for_status()
+                    data = await resp.json()
+                    remaining = data.get("rate", {}).get("remaining", 0)
+                    limit = data.get("rate", {}).get("limit", 0)
+                    reset_time = data.get("rate", {}).get("reset", 0)
+                    potential_ddos = remaining < threshold
+
+                    return {
+                        "timestamp": datetime.now().isoformat(),
+                        "rate_limit": {
+                            "limit": limit,
+                            "remaining": remaining,
+                            "reset_time": reset_time,
+                        },
+                        "potential_ddos_risk": potential_ddos,
+                        "message": "Warning: High API usage detected, possible DDoS risk." if potential_ddos
+                        else "API usage within safe limits."
+                    }
+        except Exception as e:
+            logger.error(f"Failed to detect DDoS risk: {e}")
+            return {"error": str(e)}
+
+    @tool
+    async def detect_sdos_risk(
+            self,
+            username: Optional[str] = None,
+            repository_name: Optional[str] = None,
+            run_count_threshold: int = 50
+    ) -> dict:
+        """
+        Detect potential SDOS risk by analyzing workflow runs.
+        Args:
+            username (str, optional): GitHub username or org name.
+            repository_name (str, optional): Repository name.
+            run_count_threshold (int): Threshold of workflow runs to flag SDOS risk.
+        Returns:
+            dict: SDOS risk analysis.
+        """
+        headers = self._common_headers
+
+        # Prepare repo list to check
+        if username and repository_name:
+            repos = [{"owner_name": username, "name": repository_name}]
+        else:
+            # Fetch all repos for authenticated user/orgs
+            repo_summary = await self.repository_summary()
+            repos = repo_summary.get("repositories", [])
+
+        all_data = {"timestamp": datetime.now().isoformat(), "sdos_risk_analysis": []}
+
+        for repo in repos:
+            owner = repo.get("owner_name")
+            name = repo.get("name")
+
+            if not owner or not name:
+                continue
+
+            try:
+                url = f"{self.api_base_url}/repos/{owner}/{name}/actions/runs?per_page=100"
+                async with aiohttp.ClientSession as Session:
+                    async with Session.get(url=url, headers=headers) as resp:
+                        resp.raise_for_status()
+                        runs_data = await resp.json()
+                        runs = runs_data.get("workflow_runs", [])
+                        total_runs = len(runs)
+                        failed_runs = sum(1 for run in runs if run.get("conclusion") == "failure")
+                        potential_sdos = total_runs > run_count_threshold
+
+                    all_data["sdos_risk_analysis"].append({
+                        "owner": owner,
+                        "repository": name,
+                        "total_recent_runs": total_runs,
+                        "failed_runs": failed_runs,
+                        "potential_sdos_risk": potential_sdos,
+                        "message": "High workflow activity detected; possible SDOS risk." if potential_sdos
+                        else "Workflow activity within expected limits."
+                    })
+
+            except aiohttp.ClientResponseError as e:
+                all_data["sdos_risk_analysis"].append({
+                    "owner": owner,
+                    "repository": name,
+                    "error": f"HTTP error {e.status}: {e.message}"
+                })
+            except aiohttp.ClientError as e:
+                all_data["sdos_risk_analysis"].append({
+                    "owner": owner,
+                    "repository": name,
+                    "error": f"Network error: {str(e)}"
+                })
+            except Exception as e:
+                all_data["sdos_risk_analysis"].append({
+                    "owner": owner,
+                    "repository": name,
+                    "error": f"Unexpected error: {str(e)}"
+                })
+
+        return all_data
+
+
+
+
+
+
+

@@ -60,8 +60,8 @@ class TestPipeGitHub:
             agents=[agent],
         )
 
-        result = await pipe.flow(query_instruction="List the branch protection for all my repositories")
+        result = await pipe.flow(query_instruction="List the dependencies for all my repositories")
 
         logger.info(result)
-        logger.info(f"result =>{result}")
+
 

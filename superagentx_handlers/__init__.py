@@ -1,4 +1,4 @@
-from defender365 import DefenderO365GetHandler
+from .defender365 import DefenderO365GetHandler
 from .atlassian import *
 from .aws import *
 from .azure import *
