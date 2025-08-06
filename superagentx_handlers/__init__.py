@@ -5,6 +5,7 @@ from .crm import *
 from .cybersecurity import *
 from .datadog import *
 from .ecommerce import *
+from .extract import *
 from .gcp import *
 from .gitlab import GitlabHandler
 from .scrape import ScrapeHandler
