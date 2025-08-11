@@ -13,6 +13,31 @@ logger = logging.getLogger(__name__)
 
 
 class ExtractAIHandler(BaseHandler):
+    """
+        Handler class for interacting with the Extract AI API service.
+
+        This class provides methods to send extraction requests and check
+        their processing status by communicating with the configured
+        Extract AI API endpoints.
+
+        Attributes:
+            API_EXTRACT_ENDPOINT (str): Relative path to the API endpoint for performing extractions.
+            API_STATUS_ENDPOINT (str): Relative path to the API endpoint for checking extraction status.
+            prompt_name (str): Name of the prompt configuration to be used for the extraction process.
+            api_token (str | None): API authentication token. If not provided, will be fetched from
+                the 'EXTRACT_API_TOKEN' environment variable.
+            base_url (str | None): Base URL of the Extract AI API. If not provided, will be fetched
+                from the 'BASE_URL' environment variable.
+            project_id (str | None): Optional project identifier associated with the extraction request.
+            __headers (dict): Default request headers containing authentication and content type.
+
+        Args:
+            prompt_name (str): Name of the prompt configuration to use for extraction.
+            api_token (str | None, optional): API authentication token. Defaults to None.
+            base_url (str | None, optional): Base URL for the API endpoints. Defaults to None.
+            project_id (str | None, optional): Optional project identifier for the request.
+
+    """
 
     API_EXTRACT_ENDPOINT: str = '/extutil/api/v1/do'
     API_STATUS_ENDPOINT: str = '/extutil/api/v1/status'
@@ -95,14 +120,25 @@ class ExtractAIHandler(BaseHandler):
             project_id: Optional[str] = None
     ):
         """
-        Initiates a file extraction process and polls for its completion status.
+        Extracts data from a file using the external extraction API.
+
+        This method uploads a file (or its base64-encoded data) to an extraction API,
+        polls the API for results at a given interval, and returns the extracted output.
 
         Args:
-            file_path (str): The local or relative path of the file to be extracted.
-            file_data (str): The base64-encoded content of the file.
-            poll_interval (int): The time interval (in seconds) between polling attempts.
-            retry (int): Retry to get the result. Defaults to 10.
-            project_id (Optional[str], optional): An optional identifier for the project context. Defaults to None.
+            file_path (str):
+                Absolute or relative path to the file to be processed.
+            file_data (str):
+                Base64-encoded file content to be sent to the extraction API.
+            poll_interval (int):
+                Time in seconds between polling attempts for extraction results.
+            retry (int, optional):
+                Maximum number of retry attempts while polling.
+                Defaults to 10.
+            project_id (Optional[str], optional):
+                Identifier for the project in the extraction service.
+                If None, the default project will be used.
+
 
         Returns:
            dict or None: The extraction result data if successful, or None if extraction fails.
