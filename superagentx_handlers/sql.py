@@ -283,3 +283,43 @@ class SQLHandler(BaseHandler):
                 text(stmt),
                 values
             )
+
+    @tool
+    async def get_schemas(self):
+        """
+        Asynchronously fetches a list of schemas from the connected database.
+
+        Returns:
+            list[str]: A list of schema names available in the database.
+        """
+
+        match self.database_type:
+            case "postgres":
+                query = "SELECT schema_name FROM information_schema.schemata ORDER BY schema_name"
+
+            case "mysql" | "mariadb":
+                query = "SELECT schema_name FROM information_schema.schemata ORDER BY schema_name"
+
+            case "sqlite":
+                # SQLite has no schemas; return main + attached databases
+                query = "PRAGMA database_list"  # returns: seq, name, file
+
+            case "oracle":
+                # Oracle schemas = users
+                query = "SELECT username AS schema_name FROM all_users ORDER BY username"
+
+            case "mssql":
+                query = "SELECT name AS schema_name FROM sys.schemas ORDER BY name"
+
+            case _:
+                raise InvalidDatabase(f"Unsupported database type `{self.database_type}`")
+
+        async with self._engine.connect() as conn:
+            res = await conn.execute(text(query))
+
+            if self.database_type == "sqlite":
+                # Return attached database names (e.g. main, temp, etc.)
+                return [row[1] for row in res]
+
+            # All other DBs return a column named `schema_name`
+            return [row[0] for row in res]
