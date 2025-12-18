@@ -43,7 +43,11 @@ class SlackHandler(BaseHandler):
             logger.error(f"Error sending message: {e.response['error']}")
 
     @tool
-    async def get_messages_from_channel(self, channel_id: str, limit: int = 5):
+    async def get_messages_from_channel(
+            self,
+            channel_id: str,
+            limit: int = 5
+    ):
 
         """
             Retrieves messages from a specified Slack channel.

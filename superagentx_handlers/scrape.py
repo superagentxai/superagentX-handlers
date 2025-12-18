@@ -1,9 +1,7 @@
-from superagentx.handler.base import BaseHandler
-
 from crawl4ai import AsyncWebCrawler
-
-from superagentx.utils.helper import iter_to_aiter
+from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.utils.helper import iter_to_aiter
 
 
 class ScrapeHandler(BaseHandler):
@@ -52,3 +50,4 @@ class ScrapeHandler(BaseHandler):
                 return [
                     res.markdown async for res in iter_to_aiter(results) if res
                 ]
+        return []

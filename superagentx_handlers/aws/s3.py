@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
@@ -493,10 +494,22 @@ class AWSS3Handler(BaseHandler):
     @tool
     async def get_all_buckets_info(self):
         """
-        Retrieves a list of all buckets and its properties in the specified AWS S3 account.
+        Retrieves detailed information for all S3 buckets in the AWS account.
+
+        For each bucket, this method gathers:
+        - Bucket name and creation date
+        - Bucket policy (if any)
+        - Bucket encryption configuration (if any)
+        - Public accessibility status (based on Block Public Access and bucket ACL)
+
+        Utilizes various `get_bucket_*` methods from the boto3 S3 client such as:
+        - `get_bucket_policy`
+        - `get_bucket_encryption`
+        - `get_bucket_acl`
+        - `get_public_access_block`
 
         Returns:
-            list: List of buckets and its properties.
+            list: A list of dictionaries containing bucket name and associated properties.
         """
         buckets_info = []
         _list_buckets = await self.list_buckets()
@@ -528,8 +541,8 @@ class AWSS3Handler(BaseHandler):
     async def list_files(
             self,
             bucket_name: str,
-            prefix: str = None,
-            delimiter: str = None
+            prefix: Optional[str] = None,
+            delimiter: Optional[str] = None
     ):
         """
         Lists files (objects) in a S3 bucket under a specified prefix.
@@ -583,7 +596,7 @@ class AWSS3Handler(BaseHandler):
     async def upload_file(
             self,
             file_name: str,
-            object_name: str = None
+            object_name: Optional[str] = None
     ):
         """
         Asynchronously uploads a file to an S3 bucket, specifying the file name and optional object name in the bucket.
@@ -611,7 +624,7 @@ class AWSS3Handler(BaseHandler):
     async def download_file(
             self,
             object_name: str,
-            file_name: str = None
+            file_name: Optional[str] = None
     ):
         """
         Asynchronously downloads a file from an S3 bucket to a local path.
