@@ -14,6 +14,8 @@ from .sql import SQLHandler
 from .twitter import TwitterHandler
 from .weather import WeatherHandler
 from .websitecrawler import *
+from .azure import *
+from .google import *
 from .wikipedia import WikipediaHandler
 from .zohohirs import ZohoHIRSHandler
 from .github import GitHubHandler
