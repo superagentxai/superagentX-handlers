@@ -1,15 +1,19 @@
 # gmail_handler.py
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build, logger
+from googleapiclient.discovery import build
 from superagentx.handler.base import BaseHandler
 import base64
+import asyncio
 import os
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 
 from superagentx.handler.decorators import tool
+
+logger = logging.getLogger(__name__)
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -58,6 +62,7 @@ class GmailHandler(BaseHandler):
         PermissionError: If OAuth scopes are insufficient.
         ValueError: If required parameters are missing or invalid.
     """
+
     def __init__(
             self,
             access_token: str,
@@ -87,6 +92,11 @@ class GmailHandler(BaseHandler):
         self.credentials = Credentials(token=self.access_token)
         self.service = build("gmail", "v1", credentials=self.credentials)
 
+    @staticmethod
+    async def sync_to_async(func):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, func)
+
     # ------------------------------
     # Send email
     # ------------------------------
@@ -115,9 +125,11 @@ class GmailHandler(BaseHandler):
 
             raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
-            sent_msg = self.service.users().messages().send(
-                userId="me", body={'raw': raw}
-            ).execute()
+            sent_msg = await self.sync_to_async(
+                lambda: self.service.users().messages().send(
+                    userId="me", body={"raw": raw}
+                ).execute()
+            )
 
             return {"status": "success", "id": sent_msg.get("id")}
         except Exception as e:
@@ -183,10 +195,10 @@ class GmailHandler(BaseHandler):
             # Encode message
             raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
-            sent_msg = self.service.users().messages().send(
+            sent_msg = await self.sync_to_async(lambda: self.service.users().messages().send(
                 userId="me",
                 body={"raw": raw}
-            ).execute()
+            ).execute())
 
             return {"status": "success", "id": sent_msg.get("id")}
 
@@ -199,26 +211,15 @@ class GmailHandler(BaseHandler):
     # ------------------------------
     @tool
     async def read_latest_email(self, max_results: int = 5):
-        """
-           Reads the latest emails from the Gmail inbox.
-
-           Args:
-               max_results (int, optional): The maximum number of emails to fetch. Defaults to 5.
-
-           Returns:
-               list[dict] | None: A list of dictionaries representing each email. Each dictionary contains:
-                   - id (str): The Gmail message ID.
-                   - from (str): The sender's email address.
-                   - to (str): The recipient's email address.
-                   - subject (str): The subject line of the email.
-                   - date (str): The date of the email.
-                   - body (str): The plain text body of the email.
-               Returns None if there are no new emails or if an error occurs.
-           """
         try:
-            result = self.service.users().messages().list(
-                userId="me", maxResults=max_results
-            ).execute()
+            result = await self.sync_to_async(
+                lambda: self.service.users().messages().list(
+                    userId="me",
+                    maxResults=max_results
+                ).execute()
+            )
+
+            logger.info(f"Read Mail: {result}")
 
             messages = result.get("messages", [])
             if not messages:
@@ -231,9 +232,12 @@ class GmailHandler(BaseHandler):
                 if msg_id == self.last_seen_id:
                     break
 
-                msg_data = self.service.users().messages().get(
-                    userId="me", id=msg_id
-                ).execute()
+                msg_data = await self.sync_to_async(
+                    lambda msg_id=msg_id: self.service.users().messages().get(
+                        userId="me",
+                        id=msg_id
+                    ).execute()
+                )
 
                 payload = msg_data.get("payload", {})
                 headers = payload.get("headers", [])
@@ -241,22 +245,21 @@ class GmailHandler(BaseHandler):
                 email_info = {"id": msg_id}
                 for header in headers:
                     name = header["name"].lower()
-                    value = header["value"]
                     if name in ("from", "to", "subject", "date"):
-                        email_info[name] = value
+                        email_info[name] = header["value"]
 
-                # extract body
+                # Extract body safely
                 body = ""
                 if "parts" in payload:
                     for part in payload["parts"]:
                         data = part.get("body", {}).get("data")
                         if data:
-                            body = base64.urlsafe_b64decode(data).decode()
+                            body = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
                             break
                 else:
                     data = payload.get("body", {}).get("data")
                     if data:
-                        body = base64.urlsafe_b64decode(data).decode()
+                        body = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
 
                 email_info["body"] = body
                 new_emails.append(email_info)
@@ -265,7 +268,7 @@ class GmailHandler(BaseHandler):
             return new_emails or None
 
         except Exception as e:
-            logger.error(f"Error reading Gmail → {e}")
+            logger.exception("Error reading Gmail")
             return None
 
     # ------------------------------
@@ -288,9 +291,9 @@ class GmailHandler(BaseHandler):
             Returns an empty list if no attachments are found or an error occurs.
         """
         try:
-            msg = self.service.users().messages().get(
+            msg = await self.sync_to_async(self.service.users().messages().get(
                 userId="me", id=message_id
-            ).execute()
+            ).execute())
 
             parts = msg.get("payload", {}).get("parts", [])
             attachments = []
@@ -299,9 +302,9 @@ class GmailHandler(BaseHandler):
                 if part.get("filename") and part.get("body", {}).get("attachmentId"):
                     attachment_id = part["body"]["attachmentId"]
 
-                    attachment = self.service.users().messages().attachments().get(
+                    attachment = await self.sync_to_async(self.service.users().messages().attachments().get(
                         userId="me", messageId=message_id, id=attachment_id
-                    ).execute()
+                    ).execute())
 
                     data = base64.urlsafe_b64decode(attachment["data"])
                     attachments.append({
@@ -332,9 +335,9 @@ class GmailHandler(BaseHandler):
             dict: {"status": "success"} or {"status": "failed", "error": "..."}.
         """
         try:
-            self.service.users().messages().delete(
+            await self.sync_to_async(self.service.users().messages().delete(
                 userId="me", id=message_id
-            ).execute()
+            ).execute())
 
             return {"status": "success"}
 
@@ -357,11 +360,11 @@ class GmailHandler(BaseHandler):
             dict: {"status": "success"} or {"status": "failed", "error": "..."}.
         """
         try:
-            self.service.users().messages().modify(
+            await self.sync_to_async(self.service.users().messages().modify(
                 userId="me",
                 id=message_id,
                 body={"removeLabelIds": ["UNREAD"]}
-            ).execute()
+            ).execute())
 
             return {"status": "success"}
 
@@ -384,11 +387,11 @@ class GmailHandler(BaseHandler):
             dict: {"status": "success"} or {"status": "failed", "error": "..."}.
         """
         try:
-            self.service.users().messages().modify(
+            await self.sync_to_async(self.service.users().messages().modify(
                 userId="me",
                 id=message_id,
                 body={"addLabelIds": ["UNREAD"]}
-            ).execute()
+            ).execute())
 
             return {"status": "success"}
 
@@ -417,9 +420,9 @@ class GmailHandler(BaseHandler):
               Returns None on error.
         """
         try:
-            msg = self.service.users().messages().get(
+            msg = await self.sync_to_async(self.service.users().messages().get(
                 userId="me", id=message_id, format="full"
-            ).execute()
+            ).execute())
 
             payload = msg.get("payload", {})
             headers_list = payload.get("headers", [])
@@ -466,5 +469,3 @@ class GmailHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error reading full Gmail email → {e}")
             return None
-
-
