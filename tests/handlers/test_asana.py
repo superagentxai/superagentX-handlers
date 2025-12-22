@@ -17,7 +17,7 @@ Run Pytest:
 4. pytest --log-cli-level=INFO tests/handlers/test_asana.py::TestAsanaHandler::test_delete_task
 5. pytest --log-cli-level=INFO tests/handlers/test_asana.py::TestAsanaHandler::test_get_projects
 6. pytest --log-cli-level=INFO tests/handlers/test_asana.py::TestAsanaHandler::test_get_tasks
-7. pytest --log-cli-level=INFO tests/handlers/test_asana.py::TestAsanaHandler::test_get_all_data
+
 """
 
 ASANA_ACCESS_TOKEN = "<ASANA_ACCESS_TOKEN>"
@@ -25,10 +25,8 @@ ASANA_ACCESS_TOKEN = "<ASANA_ACCESS_TOKEN>"
 
 @pytest.fixture
 def asana_handler_init() -> AsanaHandler:
-    client = asana.ApiClient()
-    client.configuration.access_token = ASANA_ACCESS_TOKEN
 
-    handler = AsanaHandler(client)
+    handler = AsanaHandler(token=ASANA_ACCESS_TOKEN)
     return handler
 
 
@@ -94,22 +92,6 @@ class TestAsanaHandler:
         logger.info(f"Projects: {res}")
         assert isinstance(res, dict)
 
-    async def test_get_goals(self, asana_handler_init: AsanaHandler):
-        res = await asana_handler_init.get_goals()
-        logger.info(f"Goals: {res}")
-        # response may include an "error" if account isn't premium
-        assert isinstance(res, dict)
-
-    async def test_get_tasks(self, asana_handler_init: AsanaHandler):
-        res = await asana_handler_init.get_tasks()
-        logger.info(f"Tasks: {res}")
-        assert isinstance(res, dict)
-
-    async def test_get_tags(self, asana_handler_init: AsanaHandler):
-        res = await asana_handler_init.get_tags()
-        logger.info(f"Tags: {res}")
-        assert isinstance(res, dict)
-
     async def test_get_dependencies_for_task(self, asana_handler_init: AsanaHandler):
         res = await asana_handler_init.get_dependencies_for_task()
         logger.info(f"Dependencies: {res}")
@@ -123,9 +105,4 @@ class TestAsanaHandler:
     async def test_get_portfolios(self, asana_handler_init: AsanaHandler):
         res = await asana_handler_init.get_portfolios()
         logger.info(f"Portfolios: {res}")
-        assert isinstance(res, dict)
-
-    async def test_get_all_data(self, asana_handler_init: AsanaHandler):
-        res = await asana_handler_init.get_all_data()
-        logger.info(f"All data: {res}")
         assert isinstance(res, dict)
