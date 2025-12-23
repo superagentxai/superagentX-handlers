@@ -14,9 +14,29 @@ logger = logging.getLogger(__name__)
 
 class JiraHandler(BaseHandler):
     """
-        A handler class for managing interactions with the Jira API.
-        This class extends BaseHandler and provides methods for performing various Jira operations,
-        such as creating, updating, retrieving, and managing issues and projects within a Jira environment.
+        JiraHandler — Async Jira Operations Handler
+
+        This handler centralizes authenticated, asynchronous interactions with
+        Atlassian Jira Cloud. It initializes a Jira API client using email + API
+        token authentication and exposes a collection of LLM-friendly tool methods
+        that perform project discovery, sprint management, issue workflows, ticket
+        retrieval, and GRC-focused analysis.
+
+            - get_list_projects            : List all Jira projects
+            - get_active_sprint            : Retrieve the active (or filtered) sprint for a board
+            - create_sprint                : Create a new sprint with optional dates and description
+            - add_issue_to_sprint          : Add an issue into the active sprint
+            - move_to_backlog              : Move an issue back to the backlog
+            - get_issue                    : Retrieve full details of an issue
+            - add_comment_for_issue        : Add a comment to an issue
+            - active_sprint_get_all_issues : Fetch all issues from the active sprint
+            - active_sprint_issues_by_assignee : Fetch sprint issues assigned to a specific user
+            - active_sprint_filter_issues_by_status : Fetch sprint issues filtered by status (To Do, In Progress, etc.)
+            - list_all_tickets             : List all Jira tickets with full metadata
+            - get_workflow_details         : Retrieve workflow transitions for recent issues
+            - get_all_tickets              : Retrieve enriched ticket data useful for auditing, traceability, access control, and
+                                             change management evidence. Includes:(descriptions,linked issues,attachmentscomments (normalized text),
+                                             worklogs,time tracking details)
     """
 
     def __init__(
@@ -51,6 +71,8 @@ class JiraHandler(BaseHandler):
     ):
         """
         Retrieves a list of projects.
+        Discover project names, keys, IDs
+        Useful before querying issues, sprints, boards, or workflows
 
         Returns:
             List[dict]: A list of dictionaries, where each dictionary represents
@@ -84,15 +106,10 @@ class JiraHandler(BaseHandler):
         Retrieves the active sprint for a specified board, allowing optional pagination and
         state filtering. This returns details of the active sprint based on the provided board ID and parameters.
 
-           parameters:
-                board_id (int): The unique identifier of the board for which to retrieve the active sprint.
-                start (int | 0, optional): The index from which to start retrieving sprints, defaulting
-                                             to 0 for the first item.
-                size (int | 1, optional): The maximum number of sprints to return, defaulting to 1.
-                                             If set to 1, all available sprints may be returned.
-                state (str | 'active', optional): The state of the sprints to filter by, defaulting to 'active'.
-                                                This can be used to specify different sprint states.
-
+            - board_id:	int	ID of the Jira board
+            - start	int:	Starting index for pagination
+            - end	int:	Number of sprints to return
+            - state	str:	Filter by sprint state (active, closed, future)
         """
 
         try:
@@ -122,14 +139,11 @@ class JiraHandler(BaseHandler):
             Creates a new sprint for the specified board, allowing optional start and end dates
             along with a description.
 
-            parameter:
-                name (str): The name of the sprint to be created.
-                board_id (int): The unique identifier of the board to which the sprint belongs.
-                start_date (Any | None, optional): The start date of the sprint, which can be a datetime object or None.
-                Defaults to None.
-                end_date (Any | None, optional): The end date of the sprint, which can be a datetime object or None.
-                Defaults to None.
-                description (str | None, optional): A brief description of the sprint. Defaults to None.
+                - name	str:	Name of the new sprint
+                - board_id:	int	Board to attach the sprint to
+                - start_date:	Any or None	Optional sprint start date
+                - end_date:	Any or None	Optional sprint end date
+                - description:	str or None	Sprint goal/summary
 
         """
 

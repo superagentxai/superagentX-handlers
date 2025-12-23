@@ -15,6 +15,56 @@ logger = logging.getLogger(__name__)
 
 
 class AWSEC2Handler(BaseHandler):
+    """
+    AWSEC2Handler — Async AWS EC2 Resource Collection & Inventory Handler
+
+    This handler provides fully asynchronous, LLM-friendly access to Amazon EC2
+    resources, enabling automated cloud asset discovery, inventory generation,
+    security posture assessment, instance inspection, and infrastructure mapping.
+
+    It exposes granular tool functions for retrieving EC2 instances, security groups,
+    EBS volumes, AMIs, snapshots, key pairs, and network interfaces. It also offers a
+    high-level function to collect the entire EC2 inventory concurrently.
+
+    This handler is ideal for DevOps copilots, cloud automation agents, security
+    auditing bots, asset-discovery systems, migration planning tools, and operational
+    visibility assistants.
+
+    Supported Operations
+    --------------------
+    • EC2 Instances
+        - get_instances
+          Retrieves full instance metadata including networking, AMIs, tags, volumes,
+          security groups, and lifecycle state.
+
+    • Security Groups
+        - get_security_groups
+          Fetch inbound/outbound rules, tags, and VPC details.
+
+    • EBS Volumes
+        - get_volumes
+          Collect volume type, encryption, size, attachments, and lifecycle status.
+
+    • AMIs
+        - get_amis
+          Retrieves all AMIs owned by the account.
+
+    • EBS Snapshots
+        - get_snapshots
+          Retrieves snapshots owned by the account with encryption and metadata info.
+
+    • EC2 Key Pairs
+        - get_key_pairs
+          Lists key pairs, fingerprint, usage type, and tags.
+
+    • Network Interfaces
+        - get_network_interfaces
+          Retrieves ENI configuration, attachments, IPs, and group associations.
+
+    • Full EC2 Collection
+        - collect_all_ec2
+          Executes all EC2 data collectors concurrently for full AWS EC2 discovery.
+    """
 
     def __init__(
             self,

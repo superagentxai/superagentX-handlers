@@ -12,9 +12,24 @@ logger = logging.getLogger(__name__)
 
 class AWSCloudFrontHandler(BaseHandler):
     """
-    A handler for managing interactions with AWS CloudFront.
-    This class provides methods to retrieve details about CloudFront distributions,
-    associated certificates, cache behaviors, and access control configurations.
+    AWSCloudFrontHandler — Async AWS CloudFront Operations Handler
+
+    This handler provides asynchronous, LLM-friendly access to AWS CloudFront and
+    AWS Certificate Manager (ACM). It authenticates using AWS credentials and
+    exposes a collection of tool methods that retrieve CloudFront configuration
+    metadata, security settings, cache behaviors, and certificate information.
+
+    The handler abstracts pagination, error handling, and multi-distribution
+    aggregation to make AWS CloudFront data retrieval simple for agents and LLMs.
+
+        - list_distributions:   Retrieve all CloudFront distributions with full metadata, including origins, behaviors,
+                                aliases, and status information.
+        - list_certificates:   Retrieve all SSL/TLS certificates in ACM (primarily us-east-1),
+                                commonly used for CloudFront edge-optimized distributions.
+        - list_cache_behaviors: Collect default and ordered cache behaviors across all distributions,
+                                including path patterns, TTL settings, forwarding rules, and query string behavior.
+        - list_access_control_configs:  Retrieve Geo-restrictions, WebACL (WAF) associations, and other
+                                        distribution-level access control configurations.
     """
 
     def __init__(

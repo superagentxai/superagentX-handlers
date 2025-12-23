@@ -15,9 +15,19 @@ class InvalidSQLAction(Exception):
 
 class SQLHandler(BaseHandler):
     """
-        A handler class for managing SQL database operations.
-        This class extends BaseHandler and provides methods to execute various SQL queries, such as creating,
-        updating, deleting, and retrieving records from the database.
+    SQLHandler — Async SQL operations handler
+
+    This handler centralizes asynchronous SQL database interactions across multiple
+    dialects (PostgreSQL, MySQL/MariaDB, SQLite, Oracle, MSSQL). It creates an
+    async SQLAlchemy engine (connection pool) from the provided connection parameters
+    and exposes a set of decorated async methods (tools) to perform common SQL tasks:
+
+        - select:     execute read-only SELECT queries
+        - insert:     execute parameterized INSERT(s)
+        - update:     execute parameterized UPDATE(s)
+        - delete:     execute parameterized DELETE(s)
+        - create_table/drop_table/alter_table: DDL operations
+        - get_schema_metadata: introspect database schema, columns and DDL
     """
 
     def __init__(
@@ -30,6 +40,17 @@ class SQLHandler(BaseHandler):
             username: str | None = None,
             password: str | None = None
     ):
+        """
+        Initialize SQLHandler.
+
+        Args:
+            database_type: one of "postgres", "mysql", "mariadb", "sqlite", "oracle", "mssql"
+            database: database name, or for sqlite the file path
+            host: hostname or IP (sqlite ignores)
+            port: TCP port (defaults provided per dialect)
+            username: DB user (sqlite typically doesn't use this)
+            password: DB password
+        """
         super().__init__()
         self.database_type = database_type.lower()
         self.host = host or "localhost"
@@ -283,3 +304,171 @@ class SQLHandler(BaseHandler):
                 text(stmt),
                 values
             )
+
+    @tool
+    async def get_schema_metadata(self, schema: str = None):
+        """
+        Fetch full metadata for the given database schema.
+
+        Supports:
+            - PostgreSQL
+            - MySQL / MariaDB
+            - SQLite
+
+        Returned metadata:
+        {
+            "schema": "public",
+            "tables": [
+                {
+                    "name": "users",
+                    "ddl": "CREATE TABLE ...",
+                    "columns": [
+                        {"name": "id", "type": "integer", "nullable": false, "default": "..."}
+                    ]
+                }
+            ]
+        }
+
+        Args:
+            schema (str, optional):
+                - PostgreSQL: default "public"
+                - MySQL: current database
+                - SQLite: schema ignored
+
+        Returns:
+            dict: schema → tables → columns + ddl
+        """
+        async with self._engine.connect() as conn:
+            dialect = conn.dialect.name.lower()
+
+            # -------- Set Default Schema -------- #
+            if dialect == "postgresql" and schema is None:
+                schema = "public"
+
+            if dialect == "mysql" and schema is None:
+                result = await conn.execute(text("SELECT DATABASE();"))
+                schema = result.scalar()
+
+            if dialect == "sqlite":
+                schema = "main"  # SQLite has no schemas
+
+            final = {"schema": schema, "tables": []}
+
+            # ============================================================
+            # 1. TABLE LIST
+            # ============================================================
+            if dialect == "postgresql":
+                query_tables = text("""
+                    SELECT tablename AS table_name
+                    FROM pg_catalog.pg_tables
+                    WHERE schemaname = :schema;
+                """)
+                rows = await conn.execute(query_tables, {"schema": schema})
+                table_list = [{"table_name": r._mapping["table_name"]} for r in rows]
+
+            elif dialect == "mysql":
+                query_tables = text("""
+                    SELECT TABLE_NAME AS table_name
+                    FROM information_schema.tables
+                    WHERE table_schema = :schema;
+                """)
+                rows = await conn.execute(query_tables, {"schema": schema})
+                table_list = [{"table_name": r._mapping["table_name"]} for r in rows]
+
+            elif dialect == "sqlite":
+                query_tables = text("""
+                    SELECT name AS table_name
+                    FROM sqlite_master
+                    WHERE type='table' AND name NOT LIKE 'sqlite_%';
+                """)
+                rows = await conn.execute(query_tables)
+                table_list = [{"table_name": r._mapping["table_name"]} for r in rows]
+
+            else:
+                return {"error": f"Unsupported dialect: {dialect}"}
+
+            # ============================================================
+            # 2. PER-TABLE METADATA
+            # ============================================================
+            for t in table_list:
+                table_name = t["table_name"]
+
+                # -----------------------------------
+                # Columns
+                # -----------------------------------
+                if dialect in ("postgresql", "mysql"):
+                    query_columns = text("""
+                        SELECT
+                            column_name,
+                            data_type,
+                            is_nullable,
+                            column_default
+                        FROM information_schema.columns
+                        WHERE table_schema = :schema
+                          AND table_name = :table
+                        ORDER BY ordinal_position;
+                    """)
+                    rows = await conn.execute(
+                        query_columns, {"schema": schema, "table": table_name}
+                    )
+
+                    columns = []
+                    for r in rows:
+                        m = r._mapping
+                        columns.append({
+                            "name": m["column_name"],
+                            "type": m["data_type"],
+                            "nullable": m["is_nullable"] in ("YES", "yes", True, "1"),
+                            "default": m["column_default"]
+                        })
+
+                elif dialect == "sqlite":
+                    rows = await conn.execute(text(f"PRAGMA table_info({table_name});"))
+
+                    columns = []
+                    for r in rows:
+                        m = r._mapping
+                        columns.append({
+                            "name": m["name"],
+                            "type": m["type"],
+                            "nullable": not m["notnull"],
+                            "default": m["dflt_value"]
+                        })
+
+                # -----------------------------------
+                # DDL
+                # -----------------------------------
+                if dialect == "postgresql":
+                    query_ddl = text("""
+                        SELECT
+                            'CREATE TABLE ' || table_schema || '.' || table_name || E'\n(\n' ||
+                            string_agg('    ' || column_name || ' ' || data_type, E',\n') ||
+                            E'\n);' AS ddl
+                        FROM information_schema.columns
+                        WHERE table_schema = :schema
+                          AND table_name = :table
+                        GROUP BY table_schema, table_name;
+                    """)
+                    ddl = (await conn.execute(query_ddl, {"schema": schema, "table": table_name})).scalar()
+
+                elif dialect == "mysql":
+                    row = await conn.execute(text(f"SHOW CREATE TABLE `{schema}`.`{table_name}`;"))
+                    ddl = row.fetchone()[1]
+
+                elif dialect == "sqlite":
+                    row = await conn.execute(
+                        text("SELECT sql FROM sqlite_master WHERE name=:name;"),
+                        {"name": table_name},
+                    )
+                    ddl = row.scalar()
+
+                # -----------------------------------
+                # Build output
+                # -----------------------------------
+                final["tables"].append({
+                    "name": table_name,
+                    "ddl": ddl,
+                    "columns": columns
+                })
+
+            return final

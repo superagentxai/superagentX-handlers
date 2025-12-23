@@ -10,6 +10,28 @@ logger = logging.getLogger(__name__)
 
 
 class AWSCloudWatchHandler(BaseHandler):
+    """
+        AWSCloudWatchHandler — Async AWS CloudWatch Metrics Operations Handler
+
+        This handler provides asynchronous, LLM-friendly access to AWS CloudWatch for
+        fetching metric data across AWS services (EC2, Lambda, RDS, API Gateway,
+        ECS, and more). It authenticates using AWS credentials and exposes tool
+        methods for retrieving time-series monitoring data, statistics, and
+        dimension-filtered metrics.
+
+        The handler is designed for observability assistants, cloud monitoring bots,
+        performance analysis tools, DevOps agents, and AI-driven troubleshooting
+        workflows.
+
+        Supported Operations
+        --------------------
+        • Metric Retrieval
+            - get_metric_data
+                Retrieve time-series metric data (CPUUtilization, Latency,
+                Invocations, MemoryUtilization, DiskReadOps, etc.) using CloudWatch’s
+                metrics API. Supports filtering by namespace, dimension, and
+                statistics with fully configurable time windows.
+    """
 
     def __init__(
             self,

@@ -13,6 +13,59 @@ logger = logging.getLogger(__name__)
 
 
 class AWSECSHandler(BaseHandler):
+    """
+    AWSECSHandler — Async AWS ECS Cluster, Service & Task Inventory Handler
+
+    This handler provides fully asynchronous, LLM-friendly access to Amazon ECS,
+    enabling automated discovery of clusters, services, tasks, task definitions,
+    deployments, container instances, and running containers across an AWS account.
+
+    It centralizes all ECS metadata collection—ideal for container visibility,
+    service-mapping, DevOps automation, troubleshooting copilots, security audits,
+    and infrastructure inventory systems.
+
+    • ECS Clusters
+        - list_clusters / describe_clusters
+          Retrieves cluster ARNs and full cluster metadata including status,
+          registered/running tasks, capacity providers, settings, and tags.
+
+    • ECS Services
+        - list_services / describe_services
+          Retrieves service definitions, desired/running task counts, deployments,
+          load balancers, launch type, scheduling, and namespaces.
+
+    • ECS Tasks
+        - list_tasks / describe_tasks
+          Fetches detailed task runtime metadata, networking, container statuses,
+          task lifecycle state, launch type, AZ info, and timestamps.
+
+    • Task Definitions
+        - list_task_definitions / describe_task_definition
+          Retrieves container definitions including CPU, memory, images, ports,
+          environment variables, logging configuration, and essential flags.
+
+    • Container Instances
+        - list_container_instances / describe_container_instances
+          Collects EC2 container host attributes, agent connection status, resources,
+          remaining capacity, and container registrations.
+
+    • Deployments, Revisions & Task Sets
+        - describe_service_deployments
+        - describe_service_revisions
+        - describe_task_sets
+          Provides detailed information on rolling deployments, blue/green revisions,
+          and pending/active task sets.
+
+    • Running Container Inventory
+        - Extracted automatically from task + task definition data
+          Includes cluster, task, container name, image, CPU/memory, ports,
+          environment variables, and runtime state.
+
+    • Full ECS Collection
+        - get_all_ecs_data
+          Executes all ECS discovery operations across clusters, services, tasks,
+          and definitions, returning a complete ECS environment snapshot.
+    """
 
     def __init__(
         self,
