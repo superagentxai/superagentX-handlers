@@ -469,3 +469,62 @@ class GmailHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error reading full Gmail email → {e}")
             return None
+
+    # ------------------------------
+    # Get Gmail labels
+    # ------------------------------
+    @tool
+    async def get_labels(self):
+        """
+        Retrieve all Gmail labels for the authenticated user.
+
+        This method uses the Gmail API to fetch both system and user-created
+        labels associated with the Gmail account identified by the provided
+        OAuth access token. It requires the access token to have at least the
+        following scope:
+
+            - https://www.googleapis.com/auth/gmail.readonly
+
+        No client ID, client secret, or refresh token is required at runtime,
+        as the access token is assumed to be already authorized.
+
+        Returns:
+            dict: A dictionary containing:
+                - status (str): "success" or "failed"
+                - count (int): Total number of labels (on success)
+                - labels (list): List of label objects with:
+                    - id (str): Label ID
+                    - name (str): Human-readable label name
+                    - type (str): "system" or "user"
+                - error (str, optional): Error message (on failure)
+        """
+        try:
+            results = await self.sync_to_async(
+                lambda: self.service.users()
+                .labels()
+                .list(userId="me")
+                .execute()
+            )
+
+            labels = results.get("labels", [])
+            logger.info(labels)
+
+            return {
+                "status": "success",
+                "count": len(labels),
+                "labels": [
+                    {
+                        "id": label.get("id"),
+                        "name": label.get("name"),
+                        "type": label.get("type")
+                    }
+                    for label in labels
+                ]
+            }
+
+        except Exception as e:
+            logger.exception("Error fetching Gmail labels")
+            return {
+                "status": "failed",
+                "error": str(e)
+            }
