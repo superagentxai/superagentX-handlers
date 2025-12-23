@@ -10,6 +10,44 @@ logger = logging.getLogger(__name__)
 
 
 class AsanaHandler(BaseHandler):
+
+    """
+       Asynchronous handler for interacting with the Asana API.
+
+       This handler initializes and manages authenticated Asana API clients
+       for multiple resource domains such as workspaces, users, projects,
+       tasks, portfolios, and goals. It is designed to be used within
+       agentic or tool-based workflows where Asana operations are exposed
+       as callable tools.
+
+       Authentication is performed using a Personal Access Token (PAT),
+       which can be provided directly or read from the environment.
+
+       Workspaces:
+            - get_workspaces()
+
+        Users:
+            - get_users()
+
+        Projects:
+            - get_projects()
+
+        Tasks:
+            - create_task(name, workspace_id, project_id=None,
+                          assignee_id=None, due_on=None)
+            - update_task(task_id, name=None, completed=None,
+                          assignee_id=None, due_on=None)
+            - delete_task(task_id)
+
+        Task Dependencies:
+            - get_dependencies_for_task(task_id)
+            - get_dependents_for_task(task_id)
+
+        Portfolios:
+            - get_portfolios()
+
+    """
+
     def __init__(self, token: Optional[str] = None):
         super().__init__()
 
@@ -46,6 +84,13 @@ class AsanaHandler(BaseHandler):
 
     @tool
     async def get_workspaces(self):
+        """
+           Retrieve all Asana workspaces accessible to the authenticated user.
+
+           This method queries the Asana Workspaces API and returns a list of
+           workspaces the user has access to.
+
+        """
         req = self.workspaces_api.get_workspaces(async_req=True, opts={})
         return await self._fetch(req)
 
@@ -62,6 +107,24 @@ class AsanaHandler(BaseHandler):
             assignee_id: Optional[str] = None,
             due_on: Optional[str] = None,
     ):
+        """
+            Create a new task in Asana.
+
+            The task is created within a specified workspace and can optionally
+            be assigned to a user, given a due date, and added to a project.
+
+            Args:
+                name (str): The name/title of the task.
+                workspace_id (str): The GID of the workspace where the task is created.
+                project_id (Optional[str]): The GID of the project to associate
+                    the task with after creation.
+                assignee_id (Optional[str]): The GID of the user to assign the task to.
+                due_on (Optional[str]): The due date of the task in ISO format (YYYY-MM-DD).
+
+            Returns:
+                dict: The created task object containing task metadata such as
+                      task GID, name, completion status, and timestamps.
+            """
         body = {
             "data": {
                 "name": name,
@@ -106,6 +169,23 @@ class AsanaHandler(BaseHandler):
         assignee_id: Optional[str] = None,
         due_on: Optional[str] = None,
     ):
+        """
+            Create a new task in Asana.
+
+            The task is created within a specified workspace and can optionally
+            be assigned to a user, given a due date, and added to a project.
+
+            Args:
+                task_id (str): The GID of the task to update.
+                name (Optional[str]): New name for the task.
+                completed (Optional[bool]): Mark the task as completed or incomplete.
+                assignee_id (Optional[str]): Update the task assignee.
+                due_on (Optional[str]): Update the task due date (YYYY-MM-DD).
+
+            Returns:
+                dict: The created task object containing task metadata such as
+                      task GID, name, completion status, and timestamps.
+            """
         data = {}
         if name is not None:
             data["name"] = name
@@ -121,6 +201,14 @@ class AsanaHandler(BaseHandler):
 
     @tool
     async def delete_task(self, task_id: str):
+        """
+            Delete a task from Asana.
+
+            This operation permanently removes the task.
+
+            Args:
+                task_id (str): The GID of the task to delete.
+        """
         req = self.tasks_api.delete_task(task_id, async_req=True)
         await self._fetch(req)
         return {"success": True, "task_id": task_id}
@@ -131,6 +219,17 @@ class AsanaHandler(BaseHandler):
 
     @tool
     async def get_users(self):
+        """
+            Retrieve all users across all accessible workspaces.
+
+            The method iterates through each workspace and fetches
+            users associated with that workspace.
+
+            Returns:
+                dict: A dictionary containing a list of users under "data".
+                      Each user entry includes its associated workspace metadata.
+            """
+
         results = []
         workspaces = (await self.get_workspaces()).get("data", [])
 
@@ -153,6 +252,16 @@ class AsanaHandler(BaseHandler):
 
     @tool
     async def get_projects(self):
+        """
+            Retrieve all projects across all accessible workspaces.
+
+            Each project returned is enriched with its corresponding
+            workspace information.
+
+            Returns:
+                dict: A dictionary containing project data under "data".
+                      Each project includes workspace context.
+            """
         results = []
         workspaces = (await self.get_workspaces()).get("data", [])
 
@@ -175,6 +284,19 @@ class AsanaHandler(BaseHandler):
 
     @tool
     async def get_dependencies_for_task(self, task_id: str):
+        """
+           Retrieve tasks that the specified task depends on.
+
+           Dependencies represent tasks that must be completed
+           before the given task can start.
+
+           Args:
+               task_id (str): The GID of the task.
+
+           Returns:
+               dict: A dictionary containing dependency task data.
+           """
+
         req = self.tasks_api.get_dependencies_for_task(
             task_id,
             opts={},
@@ -184,6 +306,17 @@ class AsanaHandler(BaseHandler):
 
     @tool
     async def get_dependents_for_task(self, task_id: str):
+        """
+            Retrieve tasks that depend on the specified task.
+
+            Dependents are tasks that are blocked by the given task.
+
+            Args:
+                task_id (str): The GID of the task.
+
+            Returns:
+                dict: A dictionary containing dependent task data.
+            """
         req = self.tasks_api.get_dependents_for_task(
             task_id,
             opts={},
@@ -197,6 +330,14 @@ class AsanaHandler(BaseHandler):
 
     @tool
     async def get_portfolios(self):
+        """
+            Retrieve tasks that depend on the specified task.
+
+            Dependents are tasks that are blocked by the given task.
+
+            Returns:
+                dict: A dictionary containing dependent task data.
+            """
         results = []
         workspaces = (await self.get_workspaces()).get("data", [])
 
