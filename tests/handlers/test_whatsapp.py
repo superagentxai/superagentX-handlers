@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 '''
 
-
 @pytest.fixture
 def whatsapp_init() -> WhatsappHandler:
     handler = WhatsappHandler(
