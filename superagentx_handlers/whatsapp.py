@@ -1,10 +1,12 @@
 import os
 import httpx
-import logger
+import logging
 
 from typing import Any, Dict, Optional
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+
+logger = logging.getLogger(__name__)
 
 
 class WhatsappHandler(BaseHandler):
@@ -54,7 +56,7 @@ class WhatsappHandler(BaseHandler):
             self,
             to_number: str,
             message_text: str,
-    ) -> Dict[str, Any] | None:
+    ):
         """
             Send a WhatsApp text message using the WhatsApp Cloud API.
 

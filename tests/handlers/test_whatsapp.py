@@ -27,7 +27,7 @@ class TestWhatsappHandler:
 
     async def test_send_message(self, whatsapp_init: WhatsappHandler):
         res = await whatsapp_init.send_whatsapp_message(
-            to_number = "917648762349",
+            to_number = "918298357658",
             message_text = "Hello."
         )
         logger.info(f'whatsapp Content Results =>\n{res}')
