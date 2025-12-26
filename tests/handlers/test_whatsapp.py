@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
  Run Pytest:  
 
     1.pytest --log-cli-level=INFO tests/handlers/test_whatsapp.py::TestWhatsappHandler::test_send_message    
-    pytest --log-cli-level=INFO tests/handlers/test_whatsapp.py::TestWhatsappHandler::test_check_new_attachments   
 
 '''
 
