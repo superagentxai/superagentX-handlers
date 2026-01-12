@@ -11,6 +11,26 @@ logger = logging.getLogger(__name__)
 
 
 class AWSCloudWatchHandler(BaseHandler):
+    """
+        AWS CloudWatch integration handler.
+
+        This class provides asynchronous utilities for interacting with
+        AWS CloudWatch Metrics and CloudWatch Logs, including:
+
+        - Fetching metric data and listing available metrics
+        - Inspecting CloudWatch Logs retention policies
+        - Retrieving CloudWatch Logs resource access policies
+        - Aggregating CloudWatch metadata for agent/tool consumption
+
+        Public Tool Methods
+        -------------------
+        get_cloudwatch_data():
+            Executes when the tool name is **AWS CLOUDWATCH**.
+            Aggregates CloudWatch metadata, including metrics and
+            (optionally) log retention and access policies.
+
+            See `get_cloudwatch_data.__doc__` for full details.
+    """
 
     def __init__(
             self,
