@@ -1,4 +1,3 @@
-from typing import Any
 import asyncio
 import base64
 import logging
@@ -14,11 +13,6 @@ from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
-
-SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.send"
-]
 
 
 class GmailHandler(BaseHandler):
