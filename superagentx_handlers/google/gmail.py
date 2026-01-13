@@ -1,24 +1,18 @@
-# gmail_handler.py
+import asyncio
+import base64
+import logging
+import os
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from superagentx.handler.base import BaseHandler
-import base64
-import asyncio
-import os
-import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
-
 from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
-
-SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.send"
-]
 
 
 class GmailHandler(BaseHandler):
@@ -101,23 +95,25 @@ class GmailHandler(BaseHandler):
     # Send email
     # ------------------------------
     @tool
-    async def send_email(self, to: str, subject: str, body: str, attachments: list = None):
+    async def send_email(
+            self,
+            to: str,
+            subject: str,
+            body: str
+    ):
         """
-    Sends an email using the Gmail API.
+        Sends an email using the Gmail API.
 
-    Args:
-        to (str): The recipient's email address.
-        subject (str): The subject line of the email.
-        body (str): The plain text body of the email.
-        attachments (list, optional): A list of file paths to attach to the email. Defaults to None.
+        Args:
+            to (str): The recipient's email address.
+            subject (str): The subject line of the email.
+            body (str): The plain text body of the email.
 
-    Returns:
-        dict: A dictionary containing the status of the send operation and the Gmail message ID if successful.
-              Example: {"status": "success", "id": "1234567890"} or {"status": "failed", "error": "..."}.
-    """
+        Returns:
+            dict: A dictionary containing the status of the send operation and the Gmail message ID if successful.
+                  Example: {"status": "success", "id": "1234567890"} or {"status": "failed", "error": "..."}.
+        """
         try:
-            from email.mime.text import MIMEText
-            import base64
 
             message = MIMEText(body)
             message['to'] = to
@@ -136,35 +132,26 @@ class GmailHandler(BaseHandler):
             logger.error(f"Error sending Gmail → {e}")
             return {"status": "failed", "error": str(e)}
 
-    # ------------------------------
-    # Send mail with attachments
-    # ------------------------------
-    async def send_email_with_attachments(self, to: str, subject: str, body: str, attachments: list = None):
+    async def send_email_with_attachments(
+            self,
+            to: str,
+            subject: str,
+            body: str,
+            attachments: list | None = None,
+    ):
         """
-        Sends an email using the Gmail API with optional file attachments.
+        Sends an email using the Gmail API with optional base64 attachments.
 
-        This method composes a multipart email message, attaches files if provided,
-        encodes the message using Base64, and sends it through the authenticated
-        Gmail API client.
-
-        Args:
-            to (str): Recipient email address.
-            subject (str): Email subject line.
-            body (str): Plain text content of the email body.
-            attachments (list[str], optional): List of absolute file paths to attach
-                to the email. Each file must exist on the local filesystem.
-                Defaults to None.
-
-        Returns:
-            dict: Result of the email send operation.
-                - On success:
-                    {"status": "success", "id": "<gmail_message_id>"}
-                - On failure:
-                    {"status": "failed", "error": "<error_message>"}
-
-        Raises:
-            FileNotFoundError: If any attachment path does not exist.
+        Attachments are expected in the format:
+        [
+            {
+                "name": "file.pdf",
+                "type": "application/pdf",
+                "base64": "<base64-string>"
+            }
+        ]
         """
+
         try:
             # Create multipart email
             message = MIMEMultipart()
@@ -174,37 +161,60 @@ class GmailHandler(BaseHandler):
             # Email body
             message.attach(MIMEText(body, "plain"))
 
-            # Attach files
+            # Attach base64 files
             if attachments:
-                for file_path in attachments:
-                    if not os.path.exists(file_path):
-                        raise FileNotFoundError(f"Attachment not found: {file_path}")
+                if not isinstance(attachments, list):
+                    raise TypeError("attachments must be a list")
 
-                    filename = os.path.basename(file_path)
-                    with open(file_path, "rb") as f:
-                        part = MIMEBase("application", "octet-stream")
-                        part.set_payload(f.read())
+                for attachment in attachments:
+                    if not isinstance(attachment, dict):
+                        raise TypeError("Each attachment must be a dict")
 
+                    filename = attachment.get("name")
+                    mime_type = attachment.get("type", "application/octet-stream")
+                    b64_data = attachment.get("base64")
+
+                    if not filename or not b64_data:
+                        raise ValueError("Attachment must contain 'name' and 'base64'")
+
+                    # Split mime type
+                    main_type, sub_type = mime_type.split("/", 1)
+
+                    # Decode base64
+                    file_bytes = base64.b64decode(b64_data)
+
+                    part = MIMEBase(main_type, sub_type)
+                    part.set_payload(file_bytes)
                     encoders.encode_base64(part)
+
                     part.add_header(
                         "Content-Disposition",
                         f'attachment; filename="{filename}"'
                     )
+
                     message.attach(part)
 
-            # Encode message
+            # Encode message for Gmail API
             raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
-            sent_msg = await self.sync_to_async(lambda: self.service.users().messages().send(
-                userId="me",
-                body={"raw": raw}
-            ).execute())
+            sent_msg = await self.sync_to_async(
+                lambda: self.service.users().messages().send(
+                    userId="me",
+                    body={"raw": raw}
+                ).execute()
+            )
 
-            return {"status": "success", "id": sent_msg.get("id")}
+            return {
+                "status": "success",
+                "id": sent_msg.get("id")
+            }
 
         except Exception as e:
-            logger.error(f"Error sending Gmail → {e}")
-            return {"status": "failed", "error": str(e)}
+            logger.error(f"Error sending Gmail → {e}", exc_info=True)
+            return {
+                "status": "failed",
+                "error": str(e)
+            }
 
     # ------------------------------
     # Read latest emails
@@ -302,9 +312,11 @@ class GmailHandler(BaseHandler):
                 if part.get("filename") and part.get("body", {}).get("attachmentId"):
                     attachment_id = part["body"]["attachmentId"]
 
-                    attachment = await self.sync_to_async(self.service.users().messages().attachments().get(
+                    attachment = await self.sync_to_async(
+                        self.service.users().messages().attachments().get(
                         userId="me", messageId=message_id, id=attachment_id
-                    ).execute())
+                    ).execute()
+                    )
 
                     data = base64.urlsafe_b64decode(attachment["data"])
                     attachments.append({
@@ -402,129 +414,174 @@ class GmailHandler(BaseHandler):
     # ------------------------------
     # Read full email details
     # ------------------------------
-    @tool
-    async def read_email_details(self, message_id: str):
-        """
-        Reads the full details of a Gmail message, including headers, body, and attachments.
+    # @tool
+    # async def read_email_details(self, message_id: str):
+    #     """
+    #     Reads the full details of a Gmail message, including headers, body, and attachments.
+    #
+    #     Args:
+    #         message_id (str): The Gmail message ID to read.
+    #
+    #     Returns:
+    #         dict | None: A dictionary containing:
+    #             - id (str): Email ID
+    #             - headers (dict): Key/value parsed headers
+    #             - body_plain (str): Plain text body
+    #             - body_html (str): HTML body (if available)
+    #             - attachments (list): List of extracted attachments
+    #           Returns None on error.
+    #     """
+    #     try:
+    #         msg = await self.sync_to_async(self.service.users().messages().get(
+    #             userId="me", id=message_id, format="full"
+    #         ).execute())
+    #
+    #         payload = msg.get("payload", {})
+    #         headers_list = payload.get("headers", [])
+    #
+    #         headers = {h["name"]: h["value"] for h in headers_list}
+    #
+    #         # extract body
+    #         body_plain, body_html = "", ""
+    #
+    #         def extract_parts(parts):
+    #             nonlocal body_plain, body_html
+    #             for part in parts:
+    #                 mime = part.get("mimeType")
+    #                 data = part.get("body", {}).get("data")
+    #
+    #                 if data:
+    #                     decoded = base64.urlsafe_b64decode(data).decode(errors="ignore")
+    #                     if mime == "text/plain":
+    #                         body_plain = decoded
+    #                     elif mime == "text/html":
+    #                         body_html = decoded
+    #
+    #                 if part.get("parts"):
+    #                     extract_parts(part["parts"])
+    #
+    #         if payload.get("parts"):
+    #             extract_parts(payload["parts"])
+    #         else:
+    #             data = payload.get("body", {}).get("data")
+    #             if data:
+    #                 body_plain = base64.urlsafe_b64decode(data).decode(errors="ignore")
+    #
+    #         # attachments
+    #         attachments = await self.get_email_attachments(message_id)
+    #
+    #         return {
+    #             "id": message_id,
+    #             "headers": headers,
+    #             "body_plain": body_plain,
+    #             "body_html": body_html,
+    #             "attachments": attachments
+    #         }
+    #
+    #     except Exception as e:
+    #         logger.error(f"Error reading full Gmail email → {e}")
+    #         return None
 
-        Args:
-            message_id (str): The Gmail message ID to read.
+    @tool
+    async def download_attachments(
+            self,
+            download_dir: str,
+            max_results: int
+    ):
+        """
+        Reads latest Gmail messages and downloads attachments from new emails.
 
         Returns:
-            dict | None: A dictionary containing:
-                - id (str): Email ID
-                - headers (dict): Key/value parsed headers
-                - body_plain (str): Plain text body
-                - body_html (str): HTML body (if available)
-                - attachments (list): List of extracted attachments
-              Returns None on error.
+            list[dict]: Email metadata with downloaded attachment info
         """
+
         try:
-            msg = await self.sync_to_async(self.service.users().messages().get(
-                userId="me", id=message_id, format="full"
-            ).execute())
+            # Ensure download directory exists
+            os.makedirs(download_dir, exist_ok=True)
 
-            payload = msg.get("payload", {})
-            headers_list = payload.get("headers", [])
-
-            headers = {h["name"]: h["value"] for h in headers_list}
-
-            # extract body
-            body_plain, body_html = "", ""
-
-            def extract_parts(parts):
-                nonlocal body_plain, body_html
-                for part in parts:
-                    mime = part.get("mimeType")
-                    data = part.get("body", {}).get("data")
-
-                    if data:
-                        decoded = base64.urlsafe_b64decode(data).decode(errors="ignore")
-                        if mime == "text/plain":
-                            body_plain = decoded
-                        elif mime == "text/html":
-                            body_html = decoded
-
-                    if part.get("parts"):
-                        extract_parts(part["parts"])
-
-            if payload.get("parts"):
-                extract_parts(payload["parts"])
-            else:
-                data = payload.get("body", {}).get("data")
-                if data:
-                    body_plain = base64.urlsafe_b64decode(data).decode(errors="ignore")
-
-            # attachments
-            attachments = await self.get_email_attachments(message_id)
-
-            return {
-                "id": message_id,
-                "headers": headers,
-                "body_plain": body_plain,
-                "body_html": body_html,
-                "attachments": attachments
-            }
-
-        except Exception as e:
-            logger.error(f"Error reading full Gmail email → {e}")
-            return None
-
-    # ------------------------------
-    # Get Gmail labels
-    # ------------------------------
-    @tool
-    async def get_labels(self):
-        """
-        Retrieve all Gmail labels for the authenticated user.
-
-        This method uses the Gmail API to fetch both system and user-created
-        labels associated with the Gmail account identified by the provided
-        OAuth access token. It requires the access token to have at least the
-        following scope:
-
-            - https://www.googleapis.com/auth/gmail.readonly
-
-        No client ID, client secret, or refresh token is required at runtime,
-        as the access token is assumed to be already authorized.
-
-        Returns:
-            dict: A dictionary containing:
-                - status (str): "success" or "failed"
-                - count (int): Total number of labels (on success)
-                - labels (list): List of label objects with:
-                    - id (str): Label ID
-                    - name (str): Human-readable label name
-                    - type (str): "system" or "user"
-                - error (str, optional): Error message (on failure)
-        """
-        try:
-            results = await self.sync_to_async(
-                lambda: self.service.users()
-                .labels()
-                .list(userId="me")
-                .execute()
+            result = await self.sync_to_async(
+                lambda: self.service.users().messages().list(
+                    userId="me",
+                    maxResults=max_results
+                ).execute()
             )
 
-            labels = results.get("labels", [])
-            logger.info(labels)
+            messages = result.get("messages", [])
+            if not messages:
+                return None
 
-            return {
-                "status": "success",
-                "count": len(labels),
-                "labels": [
-                    {
-                        "id": label.get("id"),
-                        "name": label.get("name"),
-                        "type": label.get("type")
-                    }
-                    for label in labels
-                ]
-            }
+            new_emails = []
+
+            for msg in messages:
+                msg_id = msg["id"]
+
+                # Stop if we reached last seen email
+                if msg_id == self.last_seen_id:
+                    break
+
+                msg_data = await self.sync_to_async(
+                    lambda msg_id=msg_id: self.service.users().messages().get(
+                        userId="me",
+                        id=msg_id
+                    ).execute()
+                )
+
+                payload = msg_data.get("payload", {})
+                headers = payload.get("headers", [])
+
+                email_info = {
+                    "id": msg_id,
+                    "attachments": []
+                }
+
+                # Extract headers
+                for header in headers:
+                    name = header["name"].lower()
+                    if name in ("from", "to", "subject", "date"):
+                        email_info[name] = header["value"]
+
+                # Process attachments
+                parts = payload.get("parts", [])
+                for part in parts:
+                    filename = part.get("filename")
+                    attachment_id = part.get("body", {}).get("attachmentId")
+
+                    if filename and attachment_id:
+                        attachment = await self.sync_to_async(
+                            lambda attachment_id=attachment_id: self.service
+                            .users()
+                            .messages()
+                            .attachments()
+                            .get(
+                                userId="me",
+                                messageId=msg_id,
+                                id=attachment_id
+                            )
+                            .execute()
+                        )
+
+                        file_data = base64.urlsafe_b64decode(attachment["data"])
+                        file_path = os.path.join(download_dir, filename)
+
+                        with open(file_path, "wb") as f:
+                            f.write(file_data)
+
+                        email_info["attachments"].append({
+                            "filename": filename,
+                            "mimeType": part.get("mimeType"),
+                            "size": part.get("body", {}).get("size", 0),
+                            "path": file_path
+                        })
+
+                        logger.info(f"Downloaded attachment → {file_path}")
+
+                new_emails.append(email_info)
+
+            # Update last seen message ID
+            self.last_seen_id = messages[0]["id"]
+
+            return new_emails or None
 
         except Exception as e:
-            logger.exception("Error fetching Gmail labels")
-            return {
-                "status": "failed",
-                "error": str(e)
-            }
+            logger.exception("Error reading emails and downloading attachments")
+            return None
