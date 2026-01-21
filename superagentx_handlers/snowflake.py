@@ -118,7 +118,10 @@ class SnowflakeHandler(BaseHandler):
 
     # ------------------------------------------------------------------
     @tool
-    async def fetch_query_history(self, limit: int):
+    async def fetch_query_history(
+            self,
+            limit: int
+    ):
         """
            Action: Fetch query execution history from Snowflake.
 
@@ -156,7 +159,10 @@ class SnowflakeHandler(BaseHandler):
     # ------------------------------------------------------------------
 
     @tool
-    async def get_query_events(self, limit: int = 10):
+    async def get_query_events(
+            self,
+            limit: int = 10
+    ):
         """
            Action: Fetch recent Snowflake query events.
 
@@ -175,7 +181,10 @@ class SnowflakeHandler(BaseHandler):
         return await self.fetch_query_history(limit)
 
     # ------------------------------------------------------------------
-    async def create_table(self, table_name: str):
+    async def create_table(
+            self,
+            table_name: str
+    ):
         """
            Action: Create a table in the configured database and schema.
 
@@ -524,10 +533,3 @@ class SnowflakeHandler(BaseHandler):
                 conn.close()
 
         return await sync_to_async(_run)
-
-
-
-
-
-
-

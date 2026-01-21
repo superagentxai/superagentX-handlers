@@ -80,7 +80,7 @@ class GoogleSheetsHandler(BaseHandler):
 
         self.credentials = Credentials(
             token=access_token,
-            scopes=SCOPES,
+            # scopes=SCOPES,
         )
 
         self.client = gspread.authorize(self.credentials)
@@ -154,7 +154,10 @@ class GoogleSheetsHandler(BaseHandler):
             raise ValueError(f"Worksheet '{worksheet_name}' not found")
 
     @tool
-    async def create_spreadsheet(self, title: str):
+    async def create_spreadsheet(
+            self,
+            title: str
+    ):
         """
         Creates a new Google Spreadsheet.
 

@@ -36,7 +36,10 @@ class SFTPHandler(BaseHandler):
 
     # -------------------- CONNECTION --------------------
 
-    def _connect(self, host: str, port: int = 22):
+    def _connect(
+            self, host: str,
+            port: int = 22
+    ):
         """
         Connect to an SFTP server.
         Args:
@@ -54,7 +57,11 @@ class SFTPHandler(BaseHandler):
     # -------------------- FILE OPERATIONS --------------------
 
     @tool
-    async def list_files(self, host: str, remote_path: str = ".", port: str = "22"):
+    async def list_files(
+            self, host: str,
+            remote_path: str = ".",
+            port: str = "22"
+    ):
         """List files and directories in a remote path."""
 
         def _run():
@@ -81,7 +88,12 @@ class SFTPHandler(BaseHandler):
         return await sync_to_async(_run)
 
     @tool
-    async def download_file(self, host: str, remote_path: str, local_path: str, port: int = 22):
+    async def download_file(
+            self, host: str,
+            remote_path: str,
+            local_path: str,
+            port: int = 22
+    ):
         """Download a file from remote SFTP to local."""
 
         def _run():
@@ -156,7 +168,11 @@ class SFTPHandler(BaseHandler):
         return await sync_to_async(_run)
 
     @tool
-    async def delete_file(self, host: str, remote_path: str, port: int = 22):
+    async def delete_file(
+            self, host: str,
+            remote_path: str,
+            port: int = 22
+    ):
         """Delete a remote file."""
 
         def _run():
@@ -174,7 +190,11 @@ class SFTPHandler(BaseHandler):
         return await sync_to_async(_run)
 
     @tool
-    async def create_directory(self, host: str, remote_path: str, port: int = 22):
+    async def create_directory(
+            self, host: str,
+            remote_path: str,
+            port: int = 22
+    ):
         """Create a directory on the remote server."""
 
         def _run():
@@ -192,7 +212,11 @@ class SFTPHandler(BaseHandler):
         return await sync_to_async(_run)
 
     @tool
-    async def get_file_info(self, host: str, remote_path: str, port: int = 22):
+    async def get_file_info(
+            self, host: str,
+            remote_path: str,
+            port: int = 22
+    ):
         """Get metadata of a remote file or directory."""
 
         def _run():
