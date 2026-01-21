@@ -14,20 +14,21 @@ from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
 
-# SCOPES = [
-#     "https://www.googleapis.com/auth/calendar",
-#     "https://www.googleapis.com/auth/calendar.events"
-# ]
-
 
 class GoogleCalendarHandler(BaseHandler):
     """
-    Google Calendar handler using ACCESS TOKEN ONLY.
+        Google Calendar handler that operates using an access token only.
 
-    ✔ No refresh token
-    ✔ No expiry math
-    ✔ No invalid property assignment
-    ✔ pytest + parallel safe
+        This handler provides async-safe utility methods for creating,
+        rescheduling, listing, and deleting Google Calendar events using
+        the Google Calendar v3 API.
+
+        Design characteristics:
+        - Uses access-token–only authentication (no refresh token).
+        - Avoids token expiry handling and refresh logic.
+        - Wraps blocking Google API calls using asyncio executors.
+        - Safe for concurrent execution and pytest environments.
+
     """
 
     def __init__(self, access_token: str):
@@ -37,8 +38,7 @@ class GoogleCalendarHandler(BaseHandler):
         super().__init__()
 
         credentials = Credentials(
-            token=access_token,
-            # scopes=SCOPES
+            token=access_token
         )
 
         def _no_refresh(request: Request):
@@ -61,6 +61,23 @@ class GoogleCalendarHandler(BaseHandler):
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, func)
 
+    @staticmethod
+    def _parse_local_datetime(
+            date_str: str,
+            time_str: str,
+            timezone_name: str
+    ) -> datetime:
+        """
+        Parse date & time strings into a timezone-aware datetime
+        without converting to UTC.
+        """
+        tz = ZoneInfo(timezone_name)
+        dt = datetime.strptime(
+            f"{date_str} {time_str}",
+            "%d-%m-%Y %H:%M"
+        )
+        return dt.replace(tzinfo=tz)
+
     @tool
     async def create_meeting(
             self,
@@ -69,22 +86,36 @@ class GoogleCalendarHandler(BaseHandler):
             start_time: str,  # "HH:MM"
             end_date: str,  # "DD-MM-YYYY"
             end_time: str,  # "HH:MM"
-            attendees: Optional[List[str]] = None,
+            attendees: Optional[List] = None,
             description: Optional[str] = None,
             timezone: str = "Asia/Kolkata"  # 👈 local timezone
     ) -> Dict[str, Any]:
+        """
+            Create a new Google Calendar meeting.
+
+            The meeting is created using local timezone-aware datetimes
+            and optional attendee notifications.
+
+            Args:
+                summary: Event title.
+                start_date: Start date in "DD-MM-YYYY" format.
+                start_time: Start time in "HH:MM" format.
+                end_date: End date in "DD-MM-YYYY" format.
+                end_time: End time in "HH:MM" format.
+                attendees: Optional list of attendee email addresses.
+                description: Optional event description.
+                timezone: IANA timezone name for the event.
+
+            Returns:
+                A dictionary containing the status and event metadata.
+            """
         try:
-            tz = ZoneInfo(timezone)
-
-            def _parse(date_str: str, time_str: str) -> datetime:
-                dt = datetime.strptime(
-                    f"{date_str} {time_str}",
-                    "%d-%m-%Y %H:%M"
-                )
-                return dt.replace(tzinfo=tz)  # 👈 NO UTC conversion
-
-            start_dt = _parse(start_date, start_time)
-            end_dt = _parse(end_date, end_time)
+            start_dt = self._parse_local_datetime(
+                start_date, start_time, timezone
+            )
+            end_dt = self._parse_local_datetime(
+                end_date, end_time, timezone
+            )
 
             if end_dt <= start_dt:
                 raise ValueError("end time must be after start time")
@@ -128,30 +159,36 @@ class GoogleCalendarHandler(BaseHandler):
     async def reschedule_meeting(
             self,
             summary: str,
-            search_date: str,  # "DD-MM-YYYY"
-            new_start_date: str,  # "DD-MM-YYYY"
-            new_start_time: str,  # "HH:MM"
-            new_end_date: str,  # "DD-MM-YYYY"
-            new_end_time: str  # "HH:MM"
+            search_date: str,
+            new_start_date: str,
+            new_start_time: str,
+            new_end_date: str,
+            new_end_time: str
     ) -> Dict[str, Any]:
         """
-        Reschedules an existing meeting by subject and search_date.
-        Uses ISO datetime with LOCAL timezone from handler (not UTC).
-        """
+            Reschedule an existing meeting identified by its summary and date.
+
+            The method searches for a single matching event on the specified
+            date and updates its start and end times using local timezone
+            semantics.
+
+            Args:
+                summary: Event title to search for.
+                search_date: Date to search in "DD-MM-YYYY" format.
+                new_start_date: New start date in "DD-MM-YYYY" format.
+                new_start_time: New start time in "HH:MM" format.
+                new_end_date: New end date in "DD-MM-YYYY" format.
+                new_end_time: New end time in "HH:MM" format.
+
+            Returns:
+                A dictionary containing the status and updated event metadata.
+
+            Raises:
+                ValueError: If no matching event or multiple events are found.
+            """
         try:
-            # Use handler's default timezone or fallback
             tz_name = getattr(self, "timezone", "Asia/Kolkata")
             tz = ZoneInfo(tz_name)
-
-            # -----------------------------
-            # Helper functions
-            # -----------------------------
-            def _parse(date_str: str, time_str: str) -> datetime:
-                dt = datetime.strptime(
-                    f"{date_str} {time_str}",
-                    "%d-%m-%Y %H:%M"
-                )
-                return dt.replace(tzinfo=tz)  # ISO local
 
             def _day_range(date_str: str):
                 day = datetime.strptime(date_str, "%d-%m-%Y").date()
@@ -159,54 +196,57 @@ class GoogleCalendarHandler(BaseHandler):
                 end = datetime.combine(day, time.max).replace(tzinfo=tz)
                 return start.isoformat(), end.isoformat()
 
-            def _reschedule():
-                service = self.service
+            # Find meeting
+            time_min, time_max = _day_range(search_date)
 
-                # Find meeting on that day
-                time_min, time_max = _day_range(search_date)
-
-                events = service.events().list(
+            events = await self.sync_to_async(
+                lambda: self.service.events().list(
                     calendarId="primary",
                     q=summary,
                     timeMin=time_min,
                     timeMax=time_max,
                     singleEvents=True,
                     orderBy="startTime"
-                ).execute().get("items", [])
+                ).execute()
+            )
 
-                if not events:
-                    raise ValueError(
-                        f"No meeting found with subject '{summary}' on {search_date}"
-                    )
+            items = events.get("items", [])
 
-                if len(events) > 1:
-                    raise ValueError(
-                        "Multiple meetings found. Use unique subject or adjust search_date."
-                    )
+            if not items:
+                raise ValueError(
+                    f"No meeting found with subject '{summary}' on {search_date}"
+                )
 
-                event = events[0]
+            if len(items) > 1:
+                raise ValueError(
+                    "Multiple meetings found. Use unique subject or adjust search_date."
+                )
 
-                # Parse new times
-                start_dt = _parse(new_start_date, new_start_time)
-                end_dt = _parse(new_end_date, new_end_time)
+            event = items[0]
 
-                if end_dt <= start_dt:
-                    raise ValueError("new end time must be after new start time")
+            start_dt = self._parse_local_datetime(
+                new_start_date, new_start_time, tz_name
+            )
+            end_dt = self._parse_local_datetime(
+                new_end_date, new_end_time, tz_name
+            )
 
-                # Update event
-                event["start"]["dateTime"] = start_dt.isoformat()
-                event["start"]["timeZone"] = tz_name
-                event["end"]["dateTime"] = end_dt.isoformat()
-                event["end"]["timeZone"] = tz_name
+            if end_dt <= start_dt:
+                raise ValueError("new end time must be after new start time")
 
-                return service.events().update(
+            event["start"]["dateTime"] = start_dt.isoformat()
+            event["start"]["timeZone"] = tz_name
+            event["end"]["dateTime"] = end_dt.isoformat()
+            event["end"]["timeZone"] = tz_name
+
+            updated = await self.sync_to_async(
+                lambda: self.service.events().update(
                     calendarId="primary",
                     eventId=event["id"],
                     body=event,
                     sendUpdates="all"
                 ).execute()
-
-            updated = await self.sync_to_async(_reschedule)
+            )
 
             return {
                 "status": "success",
@@ -218,12 +258,26 @@ class GoogleCalendarHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error rescheduling meeting → {e}")
             return {"status": "failed", "error": str(e)}
+
+
+
     @tool
     async def list_meetings(
         self,
         max_results: int = 10,
         from_now: bool = True
     ):
+        """
+           List upcoming Google Calendar meetings.
+
+           Args:
+               max_results: Maximum number of events to return.
+               from_now: If True, only events starting from the current
+                         UTC time are included.
+
+           Returns:
+               A list of meeting dictionaries containing basic event details.
+           """
         try:
             params = {
                 "calendarId": "primary",
@@ -260,7 +314,7 @@ class GoogleCalendarHandler(BaseHandler):
     @tool
     async def clear_all_meetings(
             self,
-            start_date: str = None  # Optional: "DD-MM-YYYY", if not provided, defaults to today
+            start_date: Optional[str] = None  # Optional: "DD-MM-YYYY", if not provided, defaults to today
     ) -> Dict[str, Any]:
         """
         Deletes all Google Calendar events starting from start_date (or today if None).

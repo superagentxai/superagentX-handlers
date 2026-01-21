@@ -13,12 +13,15 @@ from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
 
-# SCOPES = ["https://www.googleapis.com/auth/youtube"]
-
 
 class YouTubeHandler(BaseHandler):
     """
-    YouTube handler using ACCESS TOKEN ONLY.
+    YouTube Data API handler using access-token–only authentication.
+
+    This handler provides async-safe utilities for interacting with
+    the YouTube Data API v3, including uploading videos, updating
+    metadata, managing thumbnails, retrieving comments, and
+    fetching channel details.
 
     """
 
@@ -33,7 +36,6 @@ class YouTubeHandler(BaseHandler):
 
         credentials = Credentials(
             token=access_token,
-            # scopes=SCOPES
         )
 
         # Override refresh to do nothing (no refresh token)
@@ -66,6 +68,29 @@ class YouTubeHandler(BaseHandler):
             category_id: str = "22",
             privacy_status: str = "private"
     ):
+        """
+            Upload a video to YouTube.
+
+            The upload is performed using resumable uploads and reports
+            progress through logging. The video is uploaded to the
+            authenticated user's channel.
+
+            Args:
+                video_path: Local filesystem path to the video file.
+                title: Video title.
+                description: Video description.
+                tags: Optional list of video tags.
+                category_id: YouTube video category ID (default is "People & Blogs").
+                privacy_status: Privacy status of the video
+                                ("private", "unlisted", or "public").
+
+            Returns:
+                The YouTube API response containing uploaded video metadata.
+
+            Raises:
+                FileNotFoundError: If the video file does not exist.
+                ValueError: If privacy_status is invalid.
+        """
         if not os.path.exists(video_path):
             raise FileNotFoundError("Video file not found")
         if privacy_status not in {"private", "unlisted", "public"}:
@@ -103,6 +128,25 @@ class YouTubeHandler(BaseHandler):
             tags: Optional[List[str]] = None,
             category_id: str = "22"
     ):
+        """
+           Update the title and metadata of an existing YouTube video.
+
+           The video must belong to the authenticated user's channel.
+
+           Args:
+               video_id: YouTube video ID.
+               title: New video title.
+               description: Optional new video description.
+               tags: Optional list of tags to replace existing ones.
+               category_id: YouTube video category ID.
+
+           Returns:
+               The updated video resource from the YouTube API.
+
+           Raises:
+               ValueError: If the video does not exist or is not owned
+                           by the authenticated channel.
+           """
         if not video_id or not title:
             raise ValueError("video_id and title are required")
 
@@ -139,6 +183,19 @@ class YouTubeHandler(BaseHandler):
             video_id: str,
             thumbnail_path: str
     ):
+        """
+            Update the thumbnail image of a YouTube video.
+
+            Args:
+                video_id: YouTube video ID.
+                thumbnail_path: Local filesystem path to the thumbnail image.
+
+            Returns:
+                The YouTube API response for the thumbnail update.
+
+            Raises:
+                FileNotFoundError: If the thumbnail file does not exist.
+        """
         if not os.path.exists(thumbnail_path):
             raise FileNotFoundError("Thumbnail file not found")
 
@@ -161,6 +218,20 @@ class YouTubeHandler(BaseHandler):
             video_id: str,
             max_results: int = 20
     ):
+        """
+           Retrieve recent comments for a YouTube video.
+
+           Comments are returned in chronological order, starting
+           from the most recent.
+
+           Args:
+               video_id: YouTube video ID.
+               max_results: Maximum number of comments to retrieve.
+
+           Returns:
+               A list of dictionaries containing comment metadata,
+               including author, text, likes, and publish time.
+        """
         def _fetch():
             comments = []
             request = self.service.commentThreads().list(
@@ -195,6 +266,21 @@ class YouTubeHandler(BaseHandler):
             self,
             channel_name: str
     ):
+        """
+           Retrieve public details of a YouTube channel by its name.
+
+           The method performs a search query and returns basic
+           channel metadata and statistics if found.
+
+           Args:
+               channel_name: Display name of the YouTube channel.
+
+           Returns:
+               A dictionary containing channel details such as
+               channel ID, title, description, subscriber count,
+               video count, and total views. Returns an empty
+               dictionary if the channel is not found.
+        """
         def _fetch():
             search = self.service.search().list(
                 part="snippet",

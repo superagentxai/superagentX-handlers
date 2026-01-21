@@ -12,12 +12,6 @@ from superagentx.handler.decorators import tool
 
 logger = logging.getLogger(__name__)
 
-# SCOPES = [
-#     "https://www.googleapis.com/auth/spreadsheets",
-#     "https://www.googleapis.com/auth/drive",
-# ]
-
-
 class GoogleSheetsHandler(BaseHandler):
     """
     GoogleSheetsHandler provides async utility methods for interacting with
@@ -80,7 +74,6 @@ class GoogleSheetsHandler(BaseHandler):
 
         self.credentials = Credentials(
             token=access_token,
-            # scopes=SCOPES,
         )
 
         self.client = gspread.authorize(self.credentials)
