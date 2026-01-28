@@ -1,5 +1,6 @@
 import logging
 import os
+import uuid
 from typing import Any
 
 import boto3  # Using boto3
@@ -41,7 +42,7 @@ class AWSCloudFrontHandler(BaseHandler):
         super().__init__()
         self.aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         self.aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
-        self.region_name = region_name or os.getenv("AWS_REGION", "us-east-1")
+        self.region_name = region_name or os.getenv("AWS_REGION", "ap-south-1")
 
         self.session = boto3.Session(
             aws_access_key_id=self.aws_access_key_id,
@@ -229,3 +230,86 @@ class AWSCloudFrontHandler(BaseHandler):
                 f"An error occurred while listing CloudFront access control configurations: {e}",
                 exc_info=True)
         return all_access_controls
+
+
+    @tool
+    async def create_invalidation(
+            self,
+            paths: list[str],
+            distribution_id: str | None = None,
+
+    ) -> dict:
+        """
+        Creates a CloudFront cache invalidation for the given distribution.
+
+        Args:
+            distribution_id (str): CloudFront distribution ID
+            paths (list[str]): List of paths to invalidate (e.g. ["/*", "/index.html"])
+
+        Returns:
+            dict: Invalidation details including ID and status
+        """
+        distribution_id = distribution_id  or os.getenv("CLOUDFRONT_DISTRIBUTION_ID")
+
+        if not distribution_id:
+            return {
+                "error": "MissingEnv",
+                "message": "CLOUDFRONT_DISTRIBUTION_ID env variable not set"
+            }
+        try:
+            if not paths:
+                raise ValueError("At least one invalidation path must be provided")
+
+            caller_reference = f"invalidation-{uuid.uuid4()}"
+
+            response = await sync_to_async(
+                self.cloudfront_client.create_invalidation,
+                DistributionId=distribution_id,
+                InvalidationBatch={
+                    "Paths": {
+                        "Quantity": len(paths),
+                        "Items": paths
+                    },
+                    "CallerReference": caller_reference
+                }
+            )
+
+            invalidation = response.get("Invalidation", {})
+
+            result = {
+                "DistributionId": distribution_id,
+                "InvalidationId": invalidation.get("Id"),
+                "Status": invalidation.get("Status"),
+                "CreateTime": invalidation.get("CreateTime").isoformat()
+                if invalidation.get("CreateTime") else None,
+                "Paths": paths
+            }
+
+            logger.info(
+                f"Successfully created invalidation {result['InvalidationId']} "
+                f"for distribution {distribution_id}"
+            )
+
+            return result
+
+        except ClientError as e:
+            logger.error(
+                f"AWS Client error while creating invalidation for {distribution_id}: {e}",
+                exc_info=True
+            )
+            return {
+                "error": "AWSClientError",
+                "message": str(e),
+                "DistributionId": distribution_id
+            }
+
+        except Exception as e:
+            logger.error(
+                f"Unexpected error while creating invalidation for {distribution_id}: {e}",
+                exc_info=True
+            )
+            return {
+                "error": "UnexpectedError",
+                "message": str(e),
+                "DistributionId": distribution_id
+            }
