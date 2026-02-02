@@ -1,14 +1,23 @@
 import asyncio
+import json
 import logging
 import os
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 from typing import Any
-
+from msgraph.generated.models.user import User
+from msgraph.generated.models.password_profile import PasswordProfile
 from azure.identity import ClientSecretCredential
 from msgraph import GraphServiceClient
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import iter_to_aiter
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 logger = logging.getLogger(__name__)
 
@@ -479,3 +488,90 @@ class EntraIAMHandler(BaseHandler):
         logger.debug(
             "\nFinished collecting all Microsoft Entra ID IAM evidence.")
         return all_evidence
+
+    @staticmethod
+    def generate_strong_password(length: int = 14):
+        if length < 12:
+            raise ValueError("Password length must be at least 12 characters")
+
+        lowercase = string.ascii_lowercase
+        uppercase = string.ascii_uppercase
+        digits = string.digits
+        special = "!@#$%^&*-_+="
+
+        password_chars = [
+            secrets.choice(lowercase),
+            secrets.choice(uppercase),
+            secrets.choice(digits),
+            secrets.choice(special),
+        ]
+
+        all_chars = lowercase + uppercase + digits + special
+        password_chars.extend(
+            secrets.choice(all_chars) for _ in range(length - 4)
+        )
+
+        secrets.SystemRandom().shuffle(password_chars)
+        return "".join(password_chars)
+
+    @tool
+    async def reset_user_password(
+            self,
+            user_id: str,
+            force_change_next_signin: bool = True
+    ):
+        """
+        Resets a user's password in Microsoft Entra ID by auto-generating
+        a new strong password.
+        """
+        try:
+            logger.debug(f"Checking existence of user: {user_id}")
+
+            user = await self.graph_client.users.by_user_id(user_id).get()
+
+            if not user:
+                return {
+                    "status": "failed",
+                    "reason": "User does not exist",
+                    "user": user_id
+                }
+
+            new_password = self.generate_strong_password()
+
+            password_profile = PasswordProfile(
+                password=new_password,
+                force_change_password_next_sign_in=force_change_next_signin
+            )
+
+            user_update = User(
+                password_profile=password_profile
+            )
+
+            await self.graph_client.users.by_user_id(user.id).patch(
+                body=user_update
+            )
+
+            logger.info(
+                f"Password reset successful for {user.user_principal_name}"
+            )
+
+            return {
+                "status": "success",
+                "userId": user.id,
+                "userPrincipalName": user.user_principal_name,
+                "temporaryPassword": new_password,
+                "forceChangePasswordNextSignIn": force_change_next_signin
+            }
+
+        except Exception as e:
+            logger.error(
+                f"Password reset failed for {user_id}: {e}",
+                exc_info=True
+            )
+            return {
+                "status": "error",
+                "user": user_id,
+                "message": str(e)
+            }
+
+
