@@ -521,8 +521,25 @@ class EntraIAMHandler(BaseHandler):
             force_change_next_signin: bool = True
     ):
         """
-        Resets a user's password in Microsoft Entra ID by auto-generating
-        a new strong password.
+        Resets a user's password in Microsoft Entra ID by generating
+        a new strong temporary password and updating the user's
+        password profile.
+
+        Optionally forces the user to change their password
+        at the next sign-in.
+
+        Requires the 'User.ReadWrite.All' Microsoft Graph API permission.
+
+        Args:
+            user_id (str): The user ID or user principal name of the user
+                           whose password will be reset.
+            force_change_next_signin (bool): Whether the user must change
+                                             the password at the next sign-in.
+
+        Returns:
+            dict: A dictionary containing the status of the operation,
+                  user identifiers, and the generated temporary password
+                  on success, or error details on failure.
         """
         try:
             logger.debug(f"Checking existence of user: {user_id}")
