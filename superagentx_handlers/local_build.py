@@ -6,6 +6,8 @@ import logging
 
 from superagentx.handler.decorators import tool
 from superagentx.handler.base import BaseHandler
+from superagentx.utils.helper import sync_to_async
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +23,13 @@ class BuildProcessHandler(BaseHandler):
         self,
         frontend_path: str,
         command: list[str],
-        env: dict | None = None
+        env: Optional[dict] = None
     ):
         """
-           Execute a React (or frontend) build command inside a local project directory.
+           Execute a React (or frontend) build_source command inside a local project directory.
 
-           This method runs any frontend-related command (build, start, or custom)
-           such as `npm run build`, `npx vite build`, `yarn build`, or `pnpm build`
+           This method runs any frontend-related command (build_source, start, or custom)
+           such as `npm run build_source`, `npx vite build_source`, `yarn build_source`, or `pnpm build_source`
            inside the specified frontend path.
 
         Args:
@@ -35,10 +37,10 @@ class BuildProcessHandler(BaseHandler):
                                  containing `package.json`.
             command (list[str]): Build or run command as a list of strings.
                                  Example:
-                                     ["npm", "run", "build"]
-                                     ["npx", "vite", "build"]
-                                     ["yarn", "build"]
-                                     ["pnpm", "build"]
+                                     ["npm", "run", "build_source"]
+                                     ["npx", "vite", "build_source"]
+                                     ["yarn", "build_source"]
+                                     ["pnpm", "build_source"]
             env (dict | None): Optional environment variables to inject
                                during command execution.
 
@@ -58,7 +60,7 @@ class BuildProcessHandler(BaseHandler):
             raise BuildError("Unsafe shell tokens detected in command")
 
         #  Resolve executable cross-platform
-        exe = shutil.which(command[0])
+        exe = await sync_to_async(shutil.which, command[0])
         if not exe:
             raise BuildError(
                 f"Executable '{command[0]}' not found in PATH "
@@ -81,7 +83,8 @@ class BuildProcessHandler(BaseHandler):
             if not npm_exe:
                 raise BuildError("npm not found for dependency installation")
 
-            install = subprocess.run(
+            install = await sync_to_async(
+                subprocess.run,
                 [npm_exe, "install", "--legacy-peer-deps"],
                 cwd=frontend_path,
                 env=build_env,
@@ -94,8 +97,8 @@ class BuildProcessHandler(BaseHandler):
                     f"npm install failed\n\nSTDERR:\n{install.stderr}"
                 )
 
-        #  Run build / start / custom command
-        result = subprocess.run(
+        #  Run build_source / start / custom command
+        result = await sync_to_async(subprocess.run,
             cmd,
             cwd=frontend_path,
             env=build_env,
@@ -109,11 +112,11 @@ class BuildProcessHandler(BaseHandler):
             )
 
         if sys.platform == "win32":
-            out = "build"
+            out = "build_source"
         elif sys.platform == "linux" or sys.platform == "darwin":
             out = "dist"
         else:
-            out = "build"
+            out = "build_source"
         output_path = os.path.join(frontend_path, out)
         if os.path.isdir(output_path):
             logger.info(f"Build Successfully Completed: {output_path}")
@@ -129,5 +132,71 @@ class BuildProcessHandler(BaseHandler):
             "status": "success",
             "command": cmd,
             "stdout": result.stdout,
-            "note": "No build output directory detected"
+            "note": "No build_source output directory detected"
         }
+
+    ## Docker Local Build
+    @tool
+    async def docker_build(
+            self,
+            project_path: str,
+            image_name: str,
+            dockerfile: str = "Dockerfile",
+            tag: str = "latest"
+    ):
+        """
+        Builds a Docker image from a given project directory.
+
+        This handler performs a container image build using a specified Dockerfile
+        and tags the resulting image for later use (run, push, or deployment).
+        It is designed to work with any application type (FastAPI, Python, Java,
+        Node.js, etc.) as long as a valid Dockerfile is present.
+
+        Args:
+            project_path (str): Absolute or relative path to the project directory
+                that contains the Dockerfile and application source.
+            image_name (str): Name of the Docker image to be built.
+            dockerfile (str, optional): Name or path of the Dockerfile to use.
+                Defaults to "Dockerfile".
+            tag (str, optional): Tag to apply to the built image.
+                Defaults to "latest".
+        """
+
+        if not os.path.isdir(project_path):
+            raise BuildError(f"Project path not found: {project_path}")
+
+        docker_exe = shutil.which("docker")
+        if not docker_exe:
+            raise BuildError("Docker not installed or not in PATH")
+
+        dockerfile_path = os.path.join(project_path, dockerfile)
+        if not os.path.isfile(dockerfile_path):
+            raise BuildError(f"Dockerfile not found: {dockerfile_path}")
+
+        cmd = [
+            docker_exe,
+            "build",
+            "-f", dockerfile_path,
+            "-t", f"{image_name}:{tag}",
+            "."
+        ]
+
+        result = await sync_to_async(
+            subprocess.run,
+            cmd,
+            cwd=project_path,
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode != 0:
+            raise BuildError(
+                f"Docker build failed\n\nSTDERR:\n{result.stderr}"
+            )
+
+        return {
+            "status": "success",
+            "image": f"{image_name}:{tag}",
+            "stdout": result.stdout
+        }
+

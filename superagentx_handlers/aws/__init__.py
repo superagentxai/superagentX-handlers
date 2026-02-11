@@ -1,4 +1,5 @@
 from .api_gateway import AWSAPIGatewayHandler
+from .cloudfront import AWSCloudFrontHandler
 from .cloudwatch import AWSCloudWatchHandler
 from .ec2 import AWSEC2Handler
 from .ecs import AWSECSHandler
@@ -6,5 +7,6 @@ from .elasticache import AWSElasticCacheHandler
 from .elb import AWSElasticLoadBalancerHandler
 from .iam import AWSIAMHandler
 from .rds import AWSRDSHandler
+from .s3 import AWSS3Handler
 from .security_groups import AWSSecurityGroupsHandler
 from .serverless import AWSLambdaHandler

@@ -252,10 +252,7 @@ class AWSCloudFrontHandler(BaseHandler):
         distribution_id = distribution_id  or os.getenv("CLOUDFRONT_DISTRIBUTION_ID")
 
         if not distribution_id:
-            return {
-                "error": "MissingEnv",
-                "message": "CLOUDFRONT_DISTRIBUTION_ID env variable not set"
-            }
+            raise ValueError("CLOUDFRONT_DISTRIBUTION_ID env variable is missing.")
         try:
             if not paths:
                 raise ValueError("At least one invalidation path must be provided")
