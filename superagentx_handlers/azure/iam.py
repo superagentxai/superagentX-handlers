@@ -4,20 +4,21 @@ import logging
 import os
 import secrets
 import string
-from datetime import datetime, timedelta, timezone
-from typing import Any
-from msgraph.generated.models.user import User
-from msgraph.generated.models.password_profile import PasswordProfile
+from datetime import datetime, timezone
+from datetime import timedelta
+from msgraph.generated.models.reference_create import ReferenceCreate
 from azure.identity import ClientSecretCredential
+from dotenv import load_dotenv
 from msgraph import GraphServiceClient
+from msgraph.generated.models.password_profile import PasswordProfile
+from msgraph.generated.models.user import User
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import iter_to_aiter
-
-from dotenv import load_dotenv
-
+from msgraph.generated.audit_logs.sign_ins.sign_ins_request_builder import (
+    SignInsRequestBuilder
+)
 load_dotenv()
-
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +33,11 @@ class EntraIAMHandler(BaseHandler):
     """
 
     def __init__(
-        self,
-        *,
-        tenant_id: str | None = None,
-        client_id: str | None = None,
-        client_secret: str | None = None
+            self,
+            *,
+            tenant_id: str | None = None,
+            client_id: str | None = None,
+            client_secret: str | None = None
     ):
         super().__init__()
         """
@@ -324,7 +325,8 @@ class EntraIAMHandler(BaseHandler):
                         # This is the correct attribute from UserRegistrationDetails
                         "isMfaRegistered": detail.is_mfa_registered,
                         "isMfaCapable": detail.is_mfa_capable,
-                        "registeredMethodsSummary": list(detail.methods_registered) if detail.methods_registered else [],
+                        "registeredMethodsSummary": list(
+                            detail.methods_registered) if detail.methods_registered else [],
                         # Detailed methods via authentication/methods, fetched separately
                         "registeredAuthenticationMethods": [],
                         "recentMfaAttempts": []
@@ -356,6 +358,7 @@ class EntraIAMHandler(BaseHandler):
                             f"Could not retrieve authentication methods "
                             f"for {u_data.get('userPrincipalName', u_id)}. Error: {e}"
                         )
+
                 tasks.append(fetch_auth_methods(user_id, user_data))
 
             # Run all tasks concurrently
@@ -458,7 +461,7 @@ class EntraIAMHandler(BaseHandler):
 
         return mfa_evidence
 
-    # @tool
+    @tool
     async def collect_all_entra_iam_evidence(self) -> dict:
         """
         Collects IAM related information for all accessible users, groups, applications,
@@ -521,26 +524,26 @@ class EntraIAMHandler(BaseHandler):
             force_change_next_signin: bool = True
     ):
         """
-        Resets a user's password in Microsoft Entra ID by generating
-        a new strong temporary password and updating the user's
-        password profile.
+        Resets a user's password in Microsoft Entra ID by generating a new
+        strong temporary password and updating the user's password profile.
 
-        Optionally forces the user to change their password
-        at the next sign-in.
+        This operation is executed immediately and does NOT require
+        any prior user permission or confirmation.
 
-        Requires the 'User.ReadWrite.All' Microsoft Graph API permission.
+        The user is forced to change the password at the next sign-in.
 
         Args:
-            user_id (str): The user ID or user principal name of the user
+            user_id (str): The user ID or User Principal Name (UPN) of the user
                            whose password will be reset.
-            force_change_next_signin (bool): Whether the user must change
-                                             the password at the next sign-in.
+            force_change_next_signin (bool): Whether the user must change the
+                                             password at the next sign-in.
 
         Returns:
-            dict: A dictionary containing the status of the operation,
-                  user identifiers, and the generated temporary password
-                  on success, or error details on failure.
+            dict: A dictionary containing the operation status, user identifiers,
+                  and the generated temporary password on success, or error
+                  details on failure.
         """
+
         try:
             logger.debug(f"Checking existence of user: {user_id}")
 
@@ -591,4 +594,260 @@ class EntraIAMHandler(BaseHandler):
                 "message": str(e)
             }
 
+    @tool
+    async def collect_login_logs(self, days_ago: int = 7) -> list:
+        """
+        Collect Microsoft Entra ID sign-in (login) logs.
 
+        Requires:
+            AuditLog.Read.All
+        """
+
+        logs = []
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days_ago)
+
+        try:
+            response = await self.graph_client.audit_logs.sign_ins.get()
+
+            while response:
+                if response.value:
+                    async for s in iter_to_aiter(response.value):
+                        if s.created_date_time and s.created_date_time < cutoff:
+                            continue
+
+                        logs.append({
+                            "time": s.created_date_time.isoformat()
+                            if s.created_date_time else None,
+                            "user": s.user_principal_name,
+                            "app": s.app_display_name,
+                            "ip": s.ip_address,
+                            "mfa": s.authentication_requirement,
+                            "status": (
+                                "success"
+                                if s.status and s.status.is_successful
+                                else "failed"
+                            )
+                        })
+
+                if response.odata_next_link:
+                    response = await self.graph_client.audit_logs.sign_ins.by_sign_in_id(
+                        response.odata_next_link
+                    ).get()
+                else:
+                    break
+
+        except Exception as e:
+            logger.error(f"Failed to collect login logs: {e}", exc_info=True)
+
+        return logs
+
+    @tool
+    async def change_user_role(
+        self,
+        user_id: str,
+        role_display_name: str,
+        action: str  # "assign" or "remove"
+    ) -> dict:
+        """
+        Assigns or removes a Microsoft Entra ID directory role for a user.
+
+        Requires:
+            RoleManagement.ReadWrite.Directory
+            Directory.Read.All
+            User.Read.All
+
+        Args:
+            user_id (str): User ID or UPN
+            role_display_name (str): Display name of the directory role
+            action (str): "assign" or "remove"
+
+        Returns:
+            dict
+        """
+
+        try:
+            logger.debug(f"Validating user: {user_id}")
+
+            # 1️⃣ Validate user exists
+            user = await self.graph_client.users.by_user_id(user_id).get()
+
+            if not user:
+                return {
+                    "status": "failed",
+                    "reason": "User not found",
+                    "user": user_id
+                }
+
+            logger.debug(f"User found: {user.user_principal_name}")
+
+            # 2️⃣ Get activated directory roles
+            roles_response = await self.graph_client.directory_roles.get()
+
+            target_role = None
+
+            if roles_response and roles_response.value:
+                async for role in iter_to_aiter(roles_response.value):
+                    if role.display_name == role_display_name:
+                        target_role = role
+                        break
+
+            if not target_role:
+                return {
+                    "status": "failed",
+                    "reason": f"Role '{role_display_name}' not found or not activated in tenant."
+                }
+
+            logger.debug(f"Target role found: {target_role.display_name}")
+
+            # 3️⃣ ASSIGN ROLE
+            if action.lower() == "assign":
+
+                reference = ReferenceCreate(
+                    odata_id=f"https://graph.microsoft.com/v1.0/directoryObjects/{user.id}"
+                )
+
+                await self.graph_client.directory_roles.by_directory_role_id(
+                    target_role.id
+                ).members.ref.post(
+                    body=reference
+                )
+
+                logger.info(
+                    f"Assigned role '{role_display_name}' to {user.user_principal_name}"
+                )
+
+                return {
+                    "status": "success",
+                    "action": "assigned",
+                    "userId": user.id,
+                    "userPrincipalName": user.user_principal_name,
+                    "role": role_display_name
+                }
+
+            # 4️⃣ REMOVE ROLE
+            elif action.lower() == "remove":
+
+                await self.graph_client.directory_roles.by_directory_role_id(
+                    target_role.id
+                ).members.by_directory_object_id(user.id).ref.delete()
+
+                logger.info(
+                    f"Removed role '{role_display_name}' from {user.user_principal_name}"
+                )
+
+                return {
+                    "status": "success",
+                    "action": "removed",
+                    "userId": user.id,
+                    "userPrincipalName": user.user_principal_name,
+                    "role": role_display_name
+                }
+
+            else:
+                return {
+                    "status": "failed",
+                    "reason": "Invalid action. Must be 'assign' or 'remove'."
+                }
+
+        except Exception as e:
+            logger.error(
+                f"Error changing role for {user_id}: {e}",
+                exc_info=True
+            )
+            return {
+                "status": "error",
+                "user": user_id,
+                "message": str(e)
+            }
+
+    @tool
+    async def collect_login_logs(self, days_ago: int = 7) -> list:
+        """
+        Collect Microsoft Entra ID sign-in logs.
+
+        Requires:
+            AuditLog.Read.All (Application permission)
+        """
+
+        logs = []
+
+        try:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days_ago)
+
+            filter_string = (
+                f"createdDateTime ge "
+                f"{cutoff.isoformat(timespec='seconds').replace('+00:00', 'Z')}"
+            )
+
+            query_params = SignInsRequestBuilder.SignInsRequestBuilderGetQueryParameters(
+                filter=filter_string,
+                top=999,
+                select=[
+                    "id",
+                    "userId",
+                    "userPrincipalName",
+                    "createdDateTime",
+                    "appDisplayName",
+                    "ipAddress",
+                    "status"
+                ]
+            )
+
+            request_config = (
+                SignInsRequestBuilder.SignInsRequestBuilderGetRequestConfiguration(
+                    query_parameters=query_params
+                )
+            )
+
+            response = await self.graph_client.audit_logs.sign_ins.get(
+                request_configuration=request_config
+            )
+
+            while response:
+
+                if response.value:
+                    async for s in iter_to_aiter(response.value):
+                        logs.append({
+                            "id": s.id,
+                            "time": s.created_date_time.isoformat()
+                            if s.created_date_time else None,
+                            "userId": s.user_id,
+                            "userPrincipalName": s.user_principal_name,
+                            "application": s.app_display_name,
+                            "ipAddress": s.ip_address,
+                            "status": (
+                                "success"
+                                if s.status and s.status.error_code == 0
+                                else "failed"
+                            )
+                        })
+
+                if response.odata_next_link:
+                    response = await self.graph_client.audit_logs.sign_ins.by_url(
+                        response.odata_next_link
+                    ).get()
+                else:
+                    break
+
+            logger.info(f"Collected {len(logs)} login records.")
+
+        except Exception as e:
+            logger.error(
+                f"Failed to collect login logs: {e}",
+                exc_info=True
+            )
+
+        return logs
+
+
+if __name__ == "__main__":
+    handler = EntraIAMHandler()
+
+
+    async def main():
+        res = await handler.change_user_role(user_id="arul@DecisionFactsAI.onmicrosoft.com",role_display_name="Authentication Administrator",action="remove")
+        # res = await handler.collect_roles_definitions()
+        print(json.dumps(res, indent=2))
+
+
+    asyncio.run(main())
