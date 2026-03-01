@@ -241,14 +241,3 @@ class SlackHandler(BaseHandler):
                 f"{e.response['error']}"
             )
             raise
-
-if __name__ == "__main__":
-    handler = SlackHandler()
-
-
-    async def main():
-        res = await handler.send_slack_message(text="hi")
-        print(json.dumps(res, indent=2))
-
-
-    asyncio.run(main())

@@ -838,16 +838,3 @@ class EntraIAMHandler(BaseHandler):
             )
 
         return logs
-
-
-if __name__ == "__main__":
-    handler = EntraIAMHandler()
-
-
-    async def main():
-        res = await handler.change_user_role(user_id="arul@DecisionFactsAI.onmicrosoft.com",role_display_name="Authentication Administrator",action="remove")
-        # res = await handler.collect_roles_definitions()
-        print(json.dumps(res, indent=2))
-
-
-    asyncio.run(main())
