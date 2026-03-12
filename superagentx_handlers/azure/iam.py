@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from datetime import timedelta
 from msgraph.generated.models.reference_create import ReferenceCreate
 from azure.identity import ClientSecretCredential
-from dotenv import load_dotenv
 from msgraph import GraphServiceClient
 from msgraph.generated.models.password_profile import PasswordProfile
 from msgraph.generated.models.user import User
@@ -18,7 +17,6 @@ from superagentx.utils.helper import iter_to_aiter
 from msgraph.generated.audit_logs.sign_ins.sign_ins_request_builder import (
     SignInsRequestBuilder
 )
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -595,53 +593,6 @@ class EntraIAMHandler(BaseHandler):
             }
 
     @tool
-    async def collect_login_logs(self, days_ago: int = 7) -> list:
-        """
-        Collect Microsoft Entra ID sign-in (login) logs.
-
-        Requires:
-            AuditLog.Read.All
-        """
-
-        logs = []
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days_ago)
-
-        try:
-            response = await self.graph_client.audit_logs.sign_ins.get()
-
-            while response:
-                if response.value:
-                    async for s in iter_to_aiter(response.value):
-                        if s.created_date_time and s.created_date_time < cutoff:
-                            continue
-
-                        logs.append({
-                            "time": s.created_date_time.isoformat()
-                            if s.created_date_time else None,
-                            "user": s.user_principal_name,
-                            "app": s.app_display_name,
-                            "ip": s.ip_address,
-                            "mfa": s.authentication_requirement,
-                            "status": (
-                                "success"
-                                if s.status and s.status.is_successful
-                                else "failed"
-                            )
-                        })
-
-                if response.odata_next_link:
-                    response = await self.graph_client.audit_logs.sign_ins.by_sign_in_id(
-                        response.odata_next_link
-                    ).get()
-                else:
-                    break
-
-        except Exception as e:
-            logger.error(f"Failed to collect login logs: {e}", exc_info=True)
-
-        return logs
-
-    @tool
     async def change_user_role(
         self,
         user_id: str,
@@ -763,12 +714,39 @@ class EntraIAMHandler(BaseHandler):
     @tool
     async def collect_login_logs(self, days_ago: int = 7) -> list:
         """
-        Collect Microsoft Entra ID sign-in logs.
+    Retrieve Microsoft Entra ID (Azure AD) sign-in logs for the specified time range.
 
-        Requires:
-            AuditLog.Read.All (Application permission)
-        """
+    This method queries the Microsoft Graph Audit Logs endpoint to collect
+    authentication events such as user logins, application sign-ins, and
+    conditional access evaluations.
 
+    The logs can be used for security monitoring, auditing, and troubleshooting
+    authentication-related issues.
+
+    Args:
+        days_ago (int, optional):
+            Number of days in the past from the current time to retrieve sign-in logs.
+            For example, `days_ago=7` returns logs from the last 7 days.
+            Default is 7.
+
+    Returns:
+        list:
+            A list of sign-in log records returned by Microsoft Graph. Each record
+            may include fields such as:
+            - userPrincipalName
+            - appDisplayName
+            - createdDateTime
+            - ipAddress
+            - location
+            - status (success or failure)
+            - conditionalAccessStatus
+
+    Permissions Required:
+        - AuditLog.Read.All (Application permission)
+
+    Microsoft Graph Endpoint:
+        GET /auditLogs/signIns
+    """
         logs = []
 
         try:
@@ -838,3 +816,17 @@ class EntraIAMHandler(BaseHandler):
             )
 
         return logs
+
+
+if __name__ == "__main__":
+    handler = EntraIAMHandler()
+
+
+    async def main():
+        res = await handler.change_user_role(user_id="arul@DecisionFactsAI.onmicrosoft.com",role_display_name="Authentication Administrator",action="remove")
+        # res = await handler.reset_user_password(user_id="arul@DecisionFactsAI.onmicrosoft.com")
+        # res = await handler.collect_roles_definitions()
+        print(json.dumps(res, indent=2))
+
+
+    asyncio.run(main())
