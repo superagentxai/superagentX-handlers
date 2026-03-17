@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+from typing import Optional
 
 import aio_pika
 from slack_sdk.errors import SlackApiError
@@ -15,8 +16,8 @@ logger = logging.getLogger(__name__)
 class SlackHandler(BaseHandler):
     def __init__(
             self,
-            bot_token: str | None = None,
-            channel_id: str | None = None
+            bot_token: Optional[str] = None,
+            channel_id: Optional[str] = None,
     ):
         super().__init__()
 
@@ -32,7 +33,7 @@ class SlackHandler(BaseHandler):
         self.client = AsyncWebClient(token=self.bot_token)
 
     @tool
-    async def send_slack_message(self, text: str):
+    async def send_slack_message(self, text: Optional[str] = None):
         """
         Sends a message to the configured Slack channel.
 
@@ -54,7 +55,7 @@ class SlackHandler(BaseHandler):
             raise
 
     @tool
-    async def get_messages_from_channel(self, limit: int = 5):
+    async def get_messages_from_channel(self, limit: Optional[int]= None):
         """
         Retrieves messages from the configured Slack channel.
 
@@ -89,7 +90,7 @@ class SlackHandler(BaseHandler):
             raise
 
     @tool
-    async def get_channel_id(self, channel_name: str):
+    async def get_channel_id(self, channel_name: Optional[str]= None):
         """
         Retrieves the Slack channel ID for a given channel name.
 
@@ -111,8 +112,8 @@ class SlackHandler(BaseHandler):
     @tool
     async def send_message_by_channel_name(
             self,
-            channel_name: str,
-            text: str
+            channel_name: Optional[str]= None,
+            text: Optional[str]= None
     ):
         """
         Sends a Slack message using a channel name instead of channel ID.
@@ -151,8 +152,8 @@ class SlackHandler(BaseHandler):
     @tool
     async def consume_and_forward_to_slack(
             self,
-            amqp_url: str,
-            queue_name: str
+            amqp_url: Optional[str]= None,
+            queue_name: Optional[str]= None
     ):
         """
         Connects to RabbitMQ using given amqp_url,

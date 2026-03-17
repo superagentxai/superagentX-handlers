@@ -1,11 +1,12 @@
 import asyncio
-import json
 import logging
 import os
 import secrets
 import string
 from datetime import datetime, timezone
 from datetime import timedelta
+from typing import Optional
+
 from msgraph.generated.models.reference_create import ReferenceCreate
 from azure.identity import ClientSecretCredential
 from msgraph import GraphServiceClient
@@ -33,9 +34,9 @@ class EntraIAMHandler(BaseHandler):
     def __init__(
             self,
             *,
-            tenant_id: str | None = None,
-            client_id: str | None = None,
-            client_secret: str | None = None
+            tenant_id: Optional[str] = None,
+            client_id: Optional[str] = None,
+            client_secret: Optional[str] = None,
     ):
         super().__init__()
         """
@@ -75,7 +76,7 @@ class EntraIAMHandler(BaseHandler):
                 f"Error initializing Microsoft Graph client: {e}", exc_info=True)
             raise
 
-    async def _get_user_details_and_roles(self, user_id: str) -> dict:
+    async def _get_user_details_and_roles(self, user_id: Optional[str]) -> dict:
         """
         Helper method to fetch details and assigned roles for a given user.
         This method is internal and not exposed as a tool directly.
@@ -99,7 +100,7 @@ class EntraIAMHandler(BaseHandler):
                 f"Error retrieving user details or roles for {user_id}. Error: {e}", exc_info=True)
         return {}
 
-    async def _get_group_details_and_members(self, group_id: str) -> dict:
+    async def _get_group_details_and_members(self, group_id: Optional[str]) -> dict:
         """
         Helper method to fetch details and members for a given group.
         This method is internal and not exposed as a tool directly.
@@ -135,7 +136,7 @@ class EntraIAMHandler(BaseHandler):
                 f"Error retrieving group details or members for {group_id}. Error: {e}", exc_info=True)
         return {}
 
-    async def _get_application_details_and_owners(self, app_id: str) -> dict:
+    async def _get_application_details_and_owners(self, app_id: Optional[str]) -> dict:
         """
         Helper method to fetch details and owners for a given application (Service Principal).
         This method is internal and not exposed as a tool directly.
@@ -518,7 +519,7 @@ class EntraIAMHandler(BaseHandler):
     @tool
     async def reset_user_password(
             self,
-            user_id: str,
+            user_id: Optional[str],
             force_change_next_signin: bool = True
     ):
         """
@@ -595,9 +596,9 @@ class EntraIAMHandler(BaseHandler):
     @tool
     async def change_user_role(
         self,
-        user_id: str,
-        role_display_name: str,
-        action: str  # "assign" or "remove"
+        user_id: Optional[str],
+        role_display_name: Optional[str],
+        action: Optional[str]  # "assign" or "remove"
     ) -> dict:
         """
         Assigns or removes a Microsoft Entra ID directory role for a user.
@@ -816,17 +817,3 @@ class EntraIAMHandler(BaseHandler):
             )
 
         return logs
-
-
-if __name__ == "__main__":
-    handler = EntraIAMHandler()
-
-
-    async def main():
-        res = await handler.change_user_role(user_id="arul@DecisionFactsAI.onmicrosoft.com",role_display_name="Authentication Administrator",action="remove")
-        # res = await handler.reset_user_password(user_id="arul@DecisionFactsAI.onmicrosoft.com")
-        # res = await handler.collect_roles_definitions()
-        print(json.dumps(res, indent=2))
-
-
-    asyncio.run(main())
