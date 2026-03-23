@@ -1,13 +1,13 @@
-import asyncio
 import json
 import base64
 import logging
-
 import aiofiles
 from io import BytesIO
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 from pdf2image import convert_from_bytes
+from PIL import Image
 
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
@@ -16,34 +16,53 @@ from superagentx.llm.models import ChatCompletionParams, Message
 
 logger = logging.getLogger(__name__)
 
+# Supported file types
+PDF_EXTENSIONS = {".pdf"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"}
+
 
 class ExtractHandler(BaseHandler):
 
     def __init__(
-            self,
-            model: str,
-            api_key: str,
-            base_url: Optional[str] = None,
-            llm_type: Optional[str] = None,
-            api_version: Optional[str] = None
+            self, llm_config: Dict
     ):
         super().__init__()
+        self.llm_client = LLMClient(llm_config=llm_config)
 
-        self.llm_client = LLMClient(
-            llm_config={
-                "model": model,
-                "llm_type": llm_type,
-                "api_key": api_key,
-                "base_url": base_url,
-                "api_version": api_version,
-            }
-        )
-
-    async def _pdf_to_images(self, pdf_bytes: bytes):
+    async def _pdf_to_images(self, pdf_bytes: bytes) -> list:
         return convert_from_bytes(pdf_bytes)
+
+    async def _load_images(self, file_path: str) -> tuple[list, str]:
+        """
+        Load images from a file path.
+        Supports both PDF and image files.
+        Returns (images, file_type)
+        """
+        path = Path(file_path)
+        ext = path.suffix.lower()
+
+        if ext in PDF_EXTENSIONS:
+            async with aiofiles.open(file_path, "rb") as f:
+                pdf_bytes = await f.read()
+            images = await self._pdf_to_images(pdf_bytes)
+            return images, "pdf"
+
+        elif ext in IMAGE_EXTENSIONS:
+            async with aiofiles.open(file_path, "rb") as f:
+                img_bytes = await f.read()
+            image = Image.open(BytesIO(img_bytes))
+            return [image], "image"
+
+        else:
+            raise ValueError(
+                f"Unsupported file type '{ext}'. "
+                f"Supported: PDF {PDF_EXTENSIONS}, Image {IMAGE_EXTENSIONS}"
+            )
 
     def _image_to_base64(self, image) -> str:
         buffer = BytesIO()
+        if image.mode in ("RGBA", "P", "LA"):
+            image = image.convert("RGB")
         image.save(buffer, format="JPEG")
         return base64.b64encode(buffer.getvalue()).decode()
 
@@ -69,29 +88,33 @@ class ExtractHandler(BaseHandler):
     async def extract_data(
             self,
             prompt: str,
-            pdf_path: Optional[str] = None,
+            file_path: Optional[str] = None,
             base64_pdf: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Extract information from a PDF using the configured LLM via SuperAgentX LLMClient.
+        Extract information from a PDF or image file using the configured LLM.
+        Supports PDF (.pdf) and image (.jpg, .jpeg, .png, .bmp, .tiff, .webp) files.
         """
         try:
-            pdf_bytes = None
+            images = []
+            file_type = None
 
-            if pdf_path:
-                async with aiofiles.open(pdf_path, "rb") as f:
-                    pdf_bytes = await f.read()
+            if file_path:
+                images, file_type = await self._load_images(file_path)
+
             elif base64_pdf:
                 pdf_bytes = base64.b64decode(base64_pdf)
+                images = await self._pdf_to_images(pdf_bytes)
+                file_type = "pdf"
+
             else:
                 return {
                     "success": False,
-                    "error": "Either pdf_path or base64_pdf must be provided",
+                    "error": "Either file_path or base64_pdf must be provided",
                     "pages_processed": 0,
+                    "file_type": None,
                     "data": None
                 }
-
-            images = await self._pdf_to_images(pdf_bytes)
 
             content: List[Any] = [{"type": "text", "text": prompt}]
             for img in images:
@@ -111,6 +134,7 @@ class ExtractHandler(BaseHandler):
             return {
                 "success": True,
                 "pages_processed": len(images),
+                "file_type": file_type,
                 "data": self._parse_json(text_output)
             }
 
@@ -120,5 +144,6 @@ class ExtractHandler(BaseHandler):
                 "success": False,
                 "error": str(e),
                 "pages_processed": 0,
+                "file_type": None,
                 "data": None
             }
