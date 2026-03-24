@@ -1,6 +1,7 @@
 import json
 import base64
 import logging
+
 import aiofiles
 from io import BytesIO
 from pathlib import Path
@@ -59,6 +60,21 @@ class ExtractHandler(BaseHandler):
                 f"Supported: PDF {PDF_EXTENSIONS}, Image {IMAGE_EXTENSIONS}"
             )
 
+    async def _load_images_from_base64(self, b64_data: str) -> tuple[list, str]:
+        """
+        Decode a base64 string and return (images, file_type).
+        File type is auto-detected from magic bytes — no need for separate
+        base64_pdf / base64_image parameters.
+        """
+        raw = base64.b64decode(b64_data)
+
+        if raw[:4] == b"%PDF":
+            images = await self._pdf_to_images(raw)
+            return images, "pdf"
+
+        image = Image.open(BytesIO(raw))
+        return [image], "image"
+
     def _image_to_base64(self, image) -> str:
         buffer = BytesIO()
         if image.mode in ("RGBA", "P", "LA"):
@@ -89,11 +105,15 @@ class ExtractHandler(BaseHandler):
             self,
             prompt: str,
             file_path: Optional[str] = None,
-            base64_pdf: Optional[str] = None
+            base64_data: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Extract information from a PDF or image file using the configured LLM.
         Supports PDF (.pdf) and image (.jpg, .jpeg, .png, .bmp, .tiff, .webp) files.
+
+        Accepts input via:
+          - file_path   : local path to a PDF or image file
+          - base64_data : raw base64 string of a PDF or image; type is auto-detected
         """
         try:
             images = []
@@ -102,15 +122,13 @@ class ExtractHandler(BaseHandler):
             if file_path:
                 images, file_type = await self._load_images(file_path)
 
-            elif base64_pdf:
-                pdf_bytes = base64.b64decode(base64_pdf)
-                images = await self._pdf_to_images(pdf_bytes)
-                file_type = "pdf"
+            elif base64_data:
+                images, file_type = await self._load_images_from_base64(base64_data)
 
             else:
                 return {
                     "success": False,
-                    "error": "Either file_path or base64_pdf must be provided",
+                    "error": "Either file_path or base64_data must be provided.",
                     "pages_processed": 0,
                     "file_type": None,
                     "data": None
