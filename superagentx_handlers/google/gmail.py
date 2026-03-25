@@ -132,6 +132,92 @@ class GmailHandler(BaseHandler):
             logger.error(f"Error sending Gmail → {e}")
             return {"status": "failed", "error": str(e)}
 
+    @tool
+    async def search_unread_emails_by_keywords(
+            self,
+            keywords: str,
+            max_results: int = 10,
+    ):
+        """
+        Search UNREAD Gmail emails by keywords and return sender, subject, and body.
+
+        Returns:
+            list[dict]: [
+                {
+                    "from": "sender@example.com",
+                    "subject": "Email subject",
+                    "body": "Email body text"
+                }
+            ]
+        """
+        try:
+            # Always unread
+            query = f"is:unread {keywords}".strip()
+
+            result = await self.sync_to_async(
+                lambda: self.service.users().messages().list(
+                    userId="me",
+                    q=query,
+                    maxResults=max_results
+                ).execute()
+            )
+
+            messages = result.get("messages", [])
+            if not messages:
+                return []
+
+            emails = []
+
+            for msg in messages:
+                msg_data = await self.sync_to_async(
+                    lambda msg_id=msg["id"]: self.service.users().messages().get(
+                        userId="me",
+                        id=msg_id
+                    ).execute()
+                )
+
+                payload = msg_data.get("payload", {})
+                headers = payload.get("headers", [])
+
+                sender = subject = ""
+
+                for header in headers:
+                    name = header["name"].lower()
+                    if name == "from":
+                        sender = header["value"]
+                    elif name == "subject":
+                        subject = header["value"]
+
+                # Extract body (plain text preferred)
+                body = ""
+                if payload.get("parts"):
+                    for part in payload["parts"]:
+                        if part.get("mimeType") == "text/plain":
+                            data = part.get("body", {}).get("data")
+                            if data:
+                                body = base64.urlsafe_b64decode(data).decode(
+                                    "utf-8", errors="ignore"
+                                )
+                                break
+                else:
+                    data = payload.get("body", {}).get("data")
+                    if data:
+                        body = base64.urlsafe_b64decode(data).decode(
+                            "utf-8", errors="ignore"
+                        )
+
+                emails.append({
+                    "from": sender,
+                    "subject": subject,
+                    "body": body
+                })
+
+            return emails
+
+        except Exception as e:
+            logger.error(f"Error searching unread Gmail emails → {e}", exc_info=True)
+            return []
+
     async def send_email_with_attachments(
             self,
             to: str,
