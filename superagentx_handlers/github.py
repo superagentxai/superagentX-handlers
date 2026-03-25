@@ -1,25 +1,64 @@
+import asyncio
 import logging
 import os
+import shutil
+import subprocess
 from datetime import datetime
 from typing import Optional
 
 import aiohttp
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.utils.helper import sync_to_async
 
 logger = logging.getLogger(__name__)
 
 
 class GitHubHandler(BaseHandler):
     """
-    A handler to collect GitHub GRC (Governance, Risk, and Compliance) evidence,
-    focusing on MFA, organizational details, and repository data.
-    """
+      GitHubHandler — Async GitHub GRC & Repository Intelligence Handler
 
+      This handler provides asynchronous, LLM-friendly access to the GitHub REST API.
+      It authenticates using a GitHub personal access token and exposes a collection
+      of tool methods for collecting Governance, Risk, and Compliance (GRC) evidence
+      across users, organizations, and repositories.
+
+      The handler abstracts pagination, authentication, error handling, and
+      cross-organization aggregation to simplify large-scale GitHub metadata
+      retrieval for agents and LLMs.
+
+          - sync_repo:                 Clone a GitHub repository locally for evidence
+                                       collection without modifying existing repos.
+          - organization_details:      Retrieve organization metadata or all organizations
+                                       accessible to the authenticated user.
+          - user_details:              Retrieve profile details for a GitHub user or the
+                                       authenticated account.
+          - fetch_all_pages:           Transparently handle paginated GitHub API responses.
+          - mfa_evidence:              Collect MFA enforcement evidence and member-level MFA
+                                       compliance across organizations.
+          - repository_summary:        Retrieve repository inventory across users and
+                                       organizations, including visibility and archival status.
+          - list_organization_members: Retrieve organization members with optional role
+                                       and 2FA-based filtering.
+          - repository_branches:       Retrieve branches for repositories or across all
+                                       accessible repositories.
+          - branch_protection:         Collect branch protection rules across repositories
+                                       and branches.
+          - pull_requests:             Retrieve pull request metadata across repositories
+                                       with state filtering.
+          - get_dependabot_alerts:     Collect Dependabot security alerts across repositories.
+          - get_repository_dependabot_secrets:
+                                       Retrieve Dependabot secret metadata (names only).
+          - list_repository_dependencies:
+                                       Retrieve SBOM-based dependency information for
+                                       repositories.
+          - get_packages:              Retrieve GitHub Packages metadata for users.
+      """
     def __init__(
             self,
             api_base_url: str | None = None,
-            github_token: str | None = None
+            github_token: str | None = None,
+            **kwargs
     ):
         super().__init__()
         self.api_base_url = api_base_url or os.getenv('GITHUB_API_BASE_URL') or "https://api.github.com"
@@ -28,6 +67,156 @@ class GitHubHandler(BaseHandler):
             "Authorization": f"token {self.github_token}",
             "Accept": "application/vnd.github.v3+json",
         }
+
+    @tool
+    async def sync_repo(
+            self,
+            repo_url: str,
+            branch_name: str,
+            local_path: str
+    ) -> dict:
+        """
+        Clone or synchronize a GitHub repository branch to a local directory.
+
+        This method performs one of the following actions based on the local state:
+
+        - repo_url → The HTTPS URL of the GitHub repository to clone or pull.
+        - branch_name →This branch will be cloned initially or pulled if the repo already exists.
+        - local_path → The local filesystem path where the repository should exist.
+
+        - **Clone**: If the repository does not already exist at `local_path`
+          (i.e., `.git` directory is missing), the repository is cloned from
+          the given `repo_url` and the specified `branch_name`.
+
+        - **Pull**: If the repository already exists, the method fetches and pulls
+          the latest changes from the specified branch without re-cloning.
+        """
+
+        if not repo_url or not branch_name or not local_path:
+            raise ValueError("repo_url, branch_name, and local_path are required")
+
+        #  Inject token for private repos
+        if self.github_token and repo_url.startswith("https://"):
+            safe_repo_url = repo_url.replace(
+                "https://",
+                f"https://{self.github_token}@",
+                1
+            )
+        else:
+            safe_repo_url = repo_url
+
+        git_dir = os.path.join(local_path, ".git")
+
+        try:
+            #  Resolve git executable
+            git_exe = shutil.which("git")
+            if not git_exe:
+                raise RuntimeError(
+                    "Git executable not found. "
+                    "Install Git and ensure it is available on PATH."
+                )
+
+            # ==========================
+            #  CLONE (FIRST TIME)
+            # ==========================
+            if not os.path.isdir(git_dir):
+                if os.path.exists(local_path):
+                    logger.warning(f"Removing non-git directory: {local_path}")
+                    await asyncio.to_thread(shutil.rmtree, local_path)
+
+                logger.info(f"Cloning repo into {local_path}")
+
+                await asyncio.to_thread(
+                    subprocess.run,
+                    [
+                        git_exe,
+                        "clone",
+                        "--branch", branch_name,
+                        "--single-branch",
+                        safe_repo_url,
+                        local_path
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+
+                return {
+                    "status": "cloned",
+                    "path": local_path,
+                    "branch": branch_name,
+                    "changed": True
+                }
+
+            # ==========================
+            #  PULL (ALREADY CLONED)
+            # ==========================
+            logger.info(f"Repository exists. Pulling latest changes for {branch_name}")
+
+            await asyncio.to_thread(
+                subprocess.run,
+                [git_exe, "fetch", "origin"],
+                cwd=local_path,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+
+            await asyncio.to_thread(
+                subprocess.run,
+                [git_exe, "checkout", branch_name],
+                cwd=local_path,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+
+            diff = await asyncio.to_thread(
+                subprocess.run,
+                [
+                    git_exe,
+                    "diff",
+                    "--name-only",
+                    f"HEAD..origin/{branch_name}"
+                ],
+                cwd=local_path,
+                capture_output=True,
+                text=True
+            )
+
+            await asyncio.to_thread(
+                subprocess.run,
+                [git_exe, "pull", "origin", branch_name],
+                cwd=local_path,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+
+            changed = bool(diff.stdout.strip())
+
+            return {
+                "status": "updated" if changed else "no-change",
+                "path": local_path,
+                "branch": branch_name,
+                "changed": changed,
+                "files_changed": diff.stdout.splitlines()
+            }
+
+        except subprocess.CalledProcessError as e:
+            logger.exception("Git operation failed")
+            return {
+                "status": "error",
+                "message": "Git operation failed",
+                "details": e.stderr or str(e)
+            }
+
+        except Exception as e:
+            logger.exception("Unexpected error during sync_repo")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
 
     @tool
     async def fetch_all_pages(
