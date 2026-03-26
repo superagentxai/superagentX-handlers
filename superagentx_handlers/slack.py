@@ -149,6 +149,7 @@ class SlackHandler(BaseHandler):
             )
             raise
 
+
     @tool
     async def consume_and_forward_to_slack(
             self,
