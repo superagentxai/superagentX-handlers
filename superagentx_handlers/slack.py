@@ -33,7 +33,7 @@ class SlackHandler(BaseHandler):
         self.client = AsyncWebClient(token=self.bot_token)
 
     @tool
-    async def send_slack_message(self, text: Optional[str] = None):
+    async def send_slack_message(self, text: str, **kwargs):
         """
         Sends a message to the configured Slack channel.
 
@@ -43,13 +43,17 @@ class SlackHandler(BaseHandler):
         Returns:
             dict: Slack API response
         """
+
         try:
+            previous_agent_result = kwargs.get("previous_agent_result")
+            if previous_agent_result:
+                text = previous_agent_result
             response = await self.client.chat_postMessage(
                 channel=self.channel_id,
                 text=text
             )
             logger.debug(f"Message sent: {response['ts']}")
-            return response.data  # ✅ THIS FIXES IT
+            return response.data
         except SlackApiError as e:
             logger.error(f"Error sending message: {e.response['error']}")
             raise
@@ -148,6 +152,7 @@ class SlackHandler(BaseHandler):
                 f"{e.response['error']}"
             )
             raise
+
 
     @tool
     async def consume_and_forward_to_slack(
