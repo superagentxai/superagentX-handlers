@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import mimetypes
 import os
 from typing import Optional
 
@@ -8,25 +10,64 @@ from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 from superagentx.utils.helper import sync_to_async, iter_to_aiter
 
+UPLOAD_SEM = asyncio.Semaphore(10)
+
 logger = logging.getLogger(__name__)
 
 
 class AWSS3Handler(BaseHandler):
     """
-    A handler class for managing interactions with Amazon S3 (Simple Storage Service).
-    This class extends BaseHandler and provides methods for uploading, downloading, deleting,
-    and managing objects in S3 buckets, facilitating efficient storage and retrieval of data in the cloud.
+    AWSS3Handler — Async AWS S3 Storage Operations Handler
+
+    This handler provides asynchronous, LLM-friendly access to AWS S3. It authenticates
+    using AWS credentials and exposes a comprehensive collection of tool methods to
+    retrieve bucket configuration metadata, security controls, storage settings,
+    object information, and to perform file upload and download operations.
+
+    The handler abstracts boto3’s synchronous API, error handling, concurrency control,
+    and multi-bucket aggregation to make AWS S3 inventory, security posture, and
+    storage management simple for agents and LLM-driven workflows.
+
+        - list_buckets:                     Retrieve all S3 buckets in the AWS account.
+        - get_bucket:                       Retrieve basic bucket existence and metadata.
+        - get_bucket_accelerate_config:     Retrieve transfer acceleration configuration.
+        - get_bucket_acl:                   Retrieve bucket Access Control List (ACL).
+        - get_bucket_analytics_config:      Retrieve bucket analytics configuration.
+        - get_bucket_cors:                  Retrieve Cross-Origin Resource Sharing (CORS) rules.
+        - get_bucket_encryption:            Retrieve server-side encryption configuration.
+        - get_bucket_intelligent_tiering_config:
+                                            Retrieve Intelligent-Tiering configuration.
+        - get_bucket_inventory_config:      Retrieve bucket inventory configuration.
+        - get_bucket_lifecycle_config:      Retrieve lifecycle management rules.
+        - get_bucket_location:              Retrieve bucket region information.
+        - get_bucket_logging:               Retrieve access logging configuration.
+        - get_bucket_metadata_table_config: Retrieve metadata table configuration.
+        - get_bucket_metrics_config:        Retrieve CloudWatch metrics configuration.
+        - get_bucket_notification_config:   Retrieve event notification configuration.
+        - get_bucket_ownership_controls:    Retrieve object ownership controls.
+        - get_bucket_policy:                Retrieve bucket policy document.
+        - get_bucket_policy_status:         Determine whether the bucket is publicly accessible.
+        - get_bucket_replication:            Retrieve replication configuration.
+        - get_bucket_req_payment:            Retrieve requester pays configuration.
+        - get_bucket_tagging:                Retrieve bucket tags.
+        - get_bucket_versioning:             Retrieve versioning configuration.
+        - get_all_buckets_info:              Aggregate security and configuration details
+                                            across all buckets in the account.
+        - list_files:                        List objects within a bucket by prefix or delimiter.
+        - get_file_info:                    Retrieve object metadata and properties.
+        - upload:                            Upload a file or directory to S3 with
+                                            concurrency control and cache optimization.
+        - download_file:                    Download an object from S3 to a local path.
     """
 
     def __init__(
             self,
             aws_access_key_id: str | None = None,
             aws_secret_access_key: str | None = None,
-            bucket_name: str | None = None,
-            region_name: str | None = None
+            region_name: str | None = None,
+            **kwargs
     ):
         super().__init__()
-        self.bucket_name = bucket_name
         self.region = region_name or os.getenv("AWS_REGION")
         self._storage = boto3.client(
            's3',
@@ -593,37 +634,93 @@ class AWSS3Handler(BaseHandler):
             return {}
 
     @tool
-    async def upload_file(
+    async def upload(
             self,
-            file_name: str,
-            object_name: Optional[str] = None
+            filename_or_path: str,
+            bucket_name: str,
+            prefix: str = "",  # optional S3 prefix (recommended)
     ):
         """
-        Asynchronously uploads a file to an S3 bucket, specifying the file name and optional object name in the bucket.
-        This method facilitates the storage of files in AWS S3, allowing users to manage their cloud data effectively.
+        Upload a file or directory to an S3 bucket.
+
+            This method supports uploading:
+                - A single file (uploaded as one S3 object)
 
         Args:
-           file_name (str): The name of the file to be uploaded, including its path.
-           object_name (str | None, optional): The name to assign to the object in the S3 bucket.
-           If None, the object name will default to the file name. Defaults to None.
-        """
+            filename_or_path (str): Local file path or directory path to upload.
+            bucket_name (str): Target S3 bucket name.
+            prefix (str, optional): Optional S3 key prefix (folder path in S3).
+                                    Example:
+                                        "frontend/"
+                                        "content/account/user/ui/"
+                                    Defaults to empty string.
 
-        if not object_name:
-            object_name = file_name
-        try:
-            await sync_to_async(self._storage.upload_file,
-                Filename=file_name,
-                Bucket=self.bucket_name,
-                Key=object_name
-            )
-            logger.info(f"File '{file_name}' uploaded to '{self.bucket_name}/{object_name}'.")
-        except (FileNotFoundError, NoCredentialsError, ClientError) as ex:
-            logger.error(f'File {file_name} upload failed!', exc_info=ex)
+
+        """
+        if not os.path.exists(filename_or_path):
+            raise FileNotFoundError(f"Path not found: {filename_or_path}")
+
+        loop = asyncio.get_running_loop()
+        base_path = os.path.abspath(filename_or_path)
+
+        async def _upload_file(local_path: str):
+            # Always calculate key relative to base folder
+            relative = os.path.relpath(local_path, base_path)
+            key = os.path.join(prefix, relative).replace("\\", "/")
+
+            content_type, _ = mimetypes.guess_type(local_path)
+
+            extra_args = {
+                "ContentType": content_type or "application/octet-stream",
+            }
+
+            # SPA cache rules
+            if local_path.endswith("index.html"):
+                extra_args["CacheControl"] = "no-cache, no-store, must-revalidate"
+            else:
+                extra_args["CacheControl"] = "public, max-age=31536000, immutable"
+
+            async with UPLOAD_SEM:
+                await loop.run_in_executor(
+                    None,
+                    self._storage.upload_file,
+                    local_path,
+                    bucket_name,
+                    key,
+                    extra_args,
+                )
+
+        # ---------- SINGLE FILE ----------
+        if os.path.isfile(base_path):
+            await _upload_file(base_path)
+            return {"type": "file", "key": base_path}
+
+        # ---------- FOLDER ----------
+        tasks = []
+        for root, _, files in os.walk(base_path):
+            for name in files:
+                tasks.append(_upload_file(os.path.join(root, name)))
+
+                # prevent task explosion
+                if len(tasks) >= 50:
+                    await asyncio.gather(*tasks)
+                    tasks.clear()
+
+        if tasks:
+            await asyncio.gather(*tasks)
+
+        return {
+            "type": "folder",
+            "bucket": bucket_name,
+            "prefix": prefix,
+            "status": "uploaded",
+        }
 
     @tool
     async def download_file(
             self,
             object_name: str,
+            bucket_name: str,
             file_name: Optional[str] = None
     ):
         """
@@ -632,6 +729,7 @@ class AWSS3Handler(BaseHandler):
 
         Args:
             file_name (str): The name of the file to be uploaded, including its path.
+            bucket_name (str): The name of the bucket to be saved.
             object_name (str | None, optional): The name to assign to the object in the S3 bucket.
         """
 
@@ -639,10 +737,10 @@ class AWSS3Handler(BaseHandler):
             file_name = object_name
         try:
             await sync_to_async(self._storage.download_file,
-                Bucket=self.bucket_name,
+                Bucket=bucket_name,
                 Key=object_name,
                 Filename=file_name
             )
-            logger.info(f"File '{file_name}' downloaded from '{self.bucket_name}/{object_name}'.")
+            logger.info(f"File '{file_name}' downloaded from '{bucket_name}'.")
         except (NoCredentialsError, ClientError) as ex:
             logger.error(f'File {file_name} download failed!', exc_info=ex)

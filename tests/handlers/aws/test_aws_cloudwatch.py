@@ -10,13 +10,17 @@ logger = logging.getLogger(__name__)
 '''
  Run Pytest:  
 
-   1.pytest --log-cli-level=INFO tests/handlers/test_aws_cloudwatch.py::TestAWSCloudwatch::test_get_metric_data
+   1.pytest --log-cli-level=INFO tests/handlers/aws/test_aws_cloudwatch.py::TestAWSCloudwatch::test_get_metric_data
 '''
 
 
 @pytest.fixture
 def aws_cloudwatch_client_init() -> AWSCloudWatchHandler:
-    cloudwatch_handler = AWSCloudWatchHandler()
+    cloudwatch_handler = AWSCloudWatchHandler(
+        aws_access_key_id="<ACCESS_KEY_ID>",
+        aws_secret_access_key="<SECRET_ACCESS_KEY>",
+        region_name="<REGION_NAME>"
+    )
     return cloudwatch_handler
 
 
@@ -25,18 +29,10 @@ class TestAWSCloudwatch:
     async def test_get_metric_data(self, aws_cloudwatch_client_init: AWSCloudWatchHandler):
         try:
             end_time = datetime.datetime.utcnow()
-            start_time = end_time - datetime.timedelta(hours=1)
-            response = await aws_cloudwatch_client_init.get_metric_data(
-                namespace="AWS/EC2",
-                region_name="eu-central-1",
-                metric_name="CPUUtilization",
-                start_time=start_time,
-                end_time=end_time,
-                period=300,  # 5 minutes
-                statistics=["Average"],
-                dimensions=[{"Name": "InstanceId", "Value": "i-0cf72e3f766a27e0f"}]
-            )
-            return response
+            start_time = end_time - datetime.timedelta()
+            response = await aws_cloudwatch_client_init.get_metric_data()
+            logger.info(len(response))
+            return start_time
         except Exception as e:
             logging.error(f"Error fetching metric data: {e}")
             return None
