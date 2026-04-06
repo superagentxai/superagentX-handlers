@@ -1,7 +1,9 @@
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+import logging
+from typing import Dict, Any, Optional
 
-from typing import Dict, Any
+logger = logging.getLogger(__name__)
 
 class FrameworkRouter:
 
@@ -9,13 +11,15 @@ class FrameworkRouter:
         if framework == "huggingface":
             from superagentx_handlers.ml.huggingface import HuggingFaceRunner
             return HuggingFaceRunner()
+        if framework == "sklearn":
+            from superagentx_handlers.ml.sklearn_runner import SklearnRunner
+            return SklearnRunner()
         # if framework == "tensorflow":
         #     return TensorFlowRunner()
-        # if framework == "sklearn":
-        #     return SklearnRunner()
         # if framework == "spacy":
         #     return SpaCyRunner()
-        raise ValueError(f"Unsupported framework: {framework}")
+        raise ValueError(f"Unsupported framework: '{framework}'. "
+            f"Supported options: huggingface, sklearn")
 
 class UniversalMLHandler(BaseHandler):
     """
@@ -25,44 +29,65 @@ class UniversalMLHandler(BaseHandler):
     def __init__(self):
         super().__init__()
         self.router = FrameworkRouter()
+        self._runner_cache: Dict[tuple, Any] = {}
+
+    async def _get_runner(self, framework: str, model_path: Optional[str]):
+        key = (framework, model_path)
+        if key not in self._runner_cache:
+            logger.info(f"Creating new runner for framework='{framework}', model_path='{model_path}'")
+            self._runner_cache[key] = await self.router.route(framework)
+        return self._runner_cache[key]
 
     @tool
     async def run(
         self,
         framework: str,
-        task: str | None,
-        model_name: str | None,
-        # model_path: str | None,
-        inputs: Any,
+        task: Optional[str] = None,
+        model_name: Optional[str] = None,
+        model_path: Optional[str] = None,
+        inputs: Any = None,
         device: str = "cpu",
-        parameters: Dict[str, Any] | None = None,
-        optimization: Dict[str, Any] | None = None
+        parameters: Optional[Dict[str, Any]] = None,
+        optimization: Optional[Dict[str, Any]] = None
     ):
         """
         Run inference using any ML framework.
 
         Args:
-            framework: huggingface | tensorflow | sklearn | spacy
-            task: task name (HF only)
-            model_name: model identifier
-            inputs: input data
-            device: cpu | gpu
-            parameters: inference parameters
-            optimization: fp16, quantization, compile, etc.
+            framework:    huggingface | sklearn
+            task:         task name (HuggingFace only)
+            model_name:   model identifier (HuggingFace only)
+            model_path:   path to model file (sklearn only)
+            inputs:       input data (array-like for sklearn, text/dict for HF)
+            device:       cpu | gpu
+            parameters:   inference parameters (e.g. {"method": "predict"})
+            optimization: fp16, quantization, compile, etc. (HuggingFace only)
         """
 
-        runner = await self.router.route(framework)
+        logger.info(f"UniversalMLHandler.run called: framework={framework}, method={parameters}")
+
+        runner = await self._get_runner(framework, model_path)
 
         config = {
-            "task": task,
-            "model_name": model_name,
-            # "model_path": model_path,
             "device": device,
             **(optimization or {})
         }
 
+        if framework == "huggingface":
+            config.update({
+                "task": task,
+                "model_name": model_name,
+            })
+
+        elif framework == "sklearn":
+            config.update({
+                "model_path": model_path,
+            })
+
         await runner.load(config)
         output = await runner.run(inputs, parameters or {})
+
+        logger.info(f"Inference complete for framework='{framework}'")
 
         return {
             "framework": framework,
