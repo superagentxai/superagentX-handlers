@@ -1,8 +1,9 @@
 import numpy as np
-import os, pytest, tempfile, logging, joblib
+from aiopath import AsyncPath
+import pytest_asyncio, tempfile, logging, joblib, pytest
 from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
-
+from superagentx.utils.helper import sync_to_async
 from superagentx_handlers.ml.ml_handler import UniversalMLHandler
 
 logger = logging.getLogger(__name__)
@@ -17,8 +18,8 @@ pytest --log-cli-level=INFO tests/handlers/ml/test_sklearn_handler.py::TestSklea
 
 """
 
-@pytest.fixture(scope="module")
-def sklearn_model_path():
+@pytest_asyncio.fixture(scope="module")
+async def sklearn_model_path():
     """
     Create and save a dummy sklearn model once per module
     """
@@ -28,11 +29,11 @@ def sklearn_model_path():
     model.fit(x, y)
 
     tmp_dir = tempfile.gettempdir()
-    model_path = os.path.join(tmp_dir, "test_sklearn_model.joblib")
+    path = AsyncPath(tmp_dir) / "test_sklearn_model.joblib"
 
-    joblib.dump(model, model_path)
+    await sync_to_async(joblib.dump, model, str(path))
 
-    return model_path
+    return str(path)
 
 @pytest.fixture(scope="module")
 def sklearn_handler_init() -> UniversalMLHandler:

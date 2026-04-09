@@ -1,4 +1,5 @@
-import joblib, pickle, os, logging, warnings
+import joblib, pickle, logging, warnings
+from aiopath import AsyncPath
 from typing import Any
 import numpy as np
 import pandas as pd
@@ -32,10 +33,13 @@ class SklearnRunner(BaseRunner):
         if not model_path:
             raise ValueError("`model_path` is required for sklearn models.")
 
-        if not os.path.exists(model_path):
+        path = AsyncPath(model_path)
+
+        if not await path.exists():
             raise FileNotFoundError(f"Model file not found: '{model_path}'")
 
-        mtime = os.path.getmtime(model_path)
+        stat = await path.stat()
+        mtime = stat.st_mtime
         key = (model_path, mtime)
 
         if key not in self._cache:
