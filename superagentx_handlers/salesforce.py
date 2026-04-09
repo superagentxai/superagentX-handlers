@@ -1,43 +1,28 @@
 import os
 import logging
 from typing import Optional
-from simple_salesforce.aio import AsyncSalesforce
+
+from simple_salesforce import Salesforce
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.utils.helper import sync_to_async
 
 logger = logging.getLogger(__name__)
 
 
 class SalesforceERPHandler(BaseHandler):
-    """
-    Handler for interacting with Salesforce in an ERP-style workflow.
-
-    This class provides asynchronous methods to:
-    - Fetch Opportunities
-    - Create Orders
-    - Create Invoices (custom object)
-    - Check stock using SOQL queries
-    - Create Purchase Orders (custom object)
-    - Execute a full ERP flow when an Opportunity is Closed Won
-    """
 
     def __init__(
         self,
-        instance_url: Optional[str] = None,
-        access_token: Optional[str] = None
+        instance_url: str | None = None,
+        access_token: str | None = None
     ):
         """
-        Initialize the Salesforce ERP handler.
+        Initialize Salesforce handler with instance URL and access token.
 
         Args:
-            instance_url (Optional[str]): Salesforce instance URL.
-                If not provided, it will be read from the environment variable `SF_INSTANCE_URL`.
-
-            access_token (Optional[str]): OAuth access token.
-                If not provided, it will be read from the environment variable `SF_ACCESS_TOKEN`.
-
-        Raises:
-            ValueError: If instance_url or access_token is missing.
+            instance_url (str): Salesforce instance URL.
+            access_token (str): OAuth access token.
         """
         super().__init__()
 
@@ -47,7 +32,7 @@ class SalesforceERPHandler(BaseHandler):
         if not self.instance_url or not self.access_token:
             raise ValueError("Salesforce OAuth credentials are required")
 
-        self.sf = AsyncSalesforce(
+        self.sf = Salesforce(
             instance_url=self.instance_url,
             session_id=self.access_token
         )
@@ -58,177 +43,190 @@ class SalesforceERPHandler(BaseHandler):
         Fetch an Opportunity record from Salesforce.
 
         Args:
-            opportunity_id (str): The Salesforce Opportunity ID.
+            opportunity_id (str): Salesforce Opportunity ID.
 
         Returns:
-            dict: Opportunity details including fields like StageName, Amount, AccountId.
-
-        Raises:
-            Exception: If the API call fails.
+            dict: Opportunity details.
         """
         try:
-            return await self.sf.Opportunity.get(opportunity_id)
+            return await sync_to_async(self.sf.Opportunity.get, opportunity_id)
         except Exception as e:
             logger.error(f"Error fetching opportunity: {str(e)}")
             raise
 
     @tool
-    async def create_order(
-        self,
-        account_id: str,
-        order_data: Optional[dict] = None
-    ):
+    async def create_order(self, order_data: dict):
         """
         Create a new Order in Salesforce.
 
         Args:
-            account_id (str): Salesforce Account ID associated with the order.
-            order_data (Optional[dict]): Additional fields for the Order object.
+            order_data (dict): Complete order payload. Must include:
+
+                Required Fields:
+                    - AccountId (str): Salesforce Account ID
+                    - EffectiveDate (str): Order start date (YYYY-MM-DD)
+                    - Status (str): Order status (e.g., "Draft", "Activated")
+
+                Optional Fields:
+                    - Pricebook2Id (str): Price Book ID
+                    - ContractId (str): Related Contract ID
+                    - Description (str): Description of the order
+                    - EndDate (str): Order end date (YYYY-MM-DD)
+                    - Name (str): Order name
 
         Returns:
-            dict: Response from Salesforce containing Order creation details.
-
-        Raises:
-            Exception: If order creation fails.
+            dict: Created order response from Salesforce.
         """
-        try:
-            order_data = order_data or {}
 
-            order_data.setdefault("EffectiveDate", "2026-04-03")
-            order_data.setdefault("Status", "Draft")
-            order_data["AccountId"] = account_id
+        result = await sync_to_async(self.sf.Order.create, order_data)
+        return result
 
-            return await self.sf.Order.create(order_data)
-
-        except Exception as e:
-            logger.error(f"Error creating order: {str(e)}")
-            raise
-
+    # ------------------------------------------------------------------
+    # CREATE INVOICE
+    # ------------------------------------------------------------------
     @tool
     async def create_invoice(self, invoice_data: dict):
         """
-        Create a new Invoice record (custom object: Invoice__c).
+        Create a new Invoice (custom object) in Salesforce.
 
         Args:
-            invoice_data (dict): Fields required to create the invoice.
+            invoice_data (dict): Complete invoice payload. Must include:
+
+                Required Fields:
+                    - Account__c (str): Related Account ID
+                    - Amount__c (float): Invoice amount
+                    - Invoice_Date (str): Invoice date (YYYY-MM-DD)
+
+                Optional Fields:
+                    - Name (str): Invoice name
+                    - Order__c (str): Related Order ID
+                    - Due_Date__c (str): Payment due date (YYYY-MM-DD)
+                    - Status__c (str): Invoice status (e.g., "Draft", "Pending", "Paid")
+                    - CurrencyIsoCode (str): Currency code
+                    - Description__c (str): Additional notes
 
         Returns:
-            dict: Response from Salesforce containing Invoice creation details.
-
-        Raises:
-            Exception: If invoice creation fails.
+            dict: Created invoice response from Salesforce.
         """
-        try:
-            invoice_data.setdefault("Status__c", "Pending")
-            return await self.sf.Invoice__c.create(invoice_data)
-        except Exception as e:
-            logger.error(f"Error creating invoice: {str(e)}")
-            raise
 
+        result = await sync_to_async(self.sf.Invoice__c.create, invoice_data)
+        return result
+
+    # ------------------------------------------------------------------
+    # CHECK STOCK
+    # ------------------------------------------------------------------
     @tool
     async def check_stock(self, query: str):
         """
-        Execute a SOQL query to retrieve stock or inventory details.
+        Execute a SOQL query to check stock details.
 
         Args:
-            query (str): SOQL query string.
+            query (str): Complete SOQL query.
+
+                Example:
+                    SELECT Id, Name, Available_Quantity__c
+                    FROM Product__c
+                    WHERE Name = 'Laptop'
 
         Returns:
-            dict: Query result containing records and metadata.
-
-        Raises:
-            Exception: If query execution fails.
+            dict: Query result containing stock records.
         """
-        try:
-            return await self.sf.query(query)
-        except Exception as e:
-            logger.error(f"Error checking stock: {str(e)}")
-            raise
 
+        result = await sync_to_async(self.sf.query, query)
+        return result
+
+    # ------------------------------------------------------------------
+    # CREATE PURCHASE ORDER
+    # ------------------------------------------------------------------
     @tool
     async def create_purchase_order(self, po_data: dict):
         """
-        Create a Purchase Order (custom object: Purchase_Order__c).
+        Create a Purchase Order (custom object) in Salesforce.
 
         Args:
-            po_data (dict): Fields required to create the purchase order.
+            po_data (dict): Complete purchase order payload. Must include:
+
+                Required Fields:
+                    - Supplier__c (str): Supplier/Vendor Account ID
+                    - Order_Date__c (str): Purchase order date (YYYY-MM-DD)
+                    - Total_Amount__c (float): Total purchase amount
+
+                Optional Fields:
+                    - Name (str): Purchase order name
+                    - Order__c (str): Related Sales Order ID
+                    - Status__c (str): PO status (e.g., "Draft", "Approved", "Ordered")
+                    - Expected_Delivery__c (str): Delivery date (YYYY-MM-DD)
+                    - Description__c (str): Notes
 
         Returns:
-            dict: Response from Salesforce containing Purchase Order creation details.
-
-        Raises:
-            Exception: If purchase order creation fails.
+            dict: Created purchase order response from Salesforce.
         """
-        try:
-            po_data.setdefault("Status__c", "Draft")
-            return await self.sf.Purchase_Order__c.create(po_data)
-        except Exception as e:
-            logger.error(f"Error creating purchase order: {str(e)}")
-            raise
 
+        result = await sync_to_async(self.sf.Purchase_Order__c.create, po_data)
+        return result
+
+    # ------------------------------------------------------------------
+    # PROCESS CLOSED WON FLOW
+    # ------------------------------------------------------------------
     @tool
     async def process_closed_won(
-        self,
-        opportunity_id: str,
-        order_data: Optional[dict] = None,
-        invoice_data: Optional[dict] = None,
-        product_query: Optional[str] = None,
-        po_data: Optional[dict] = None
+            self,
+            opportunity_id: str,
+            order_data: dict,
+            invoice_data: dict,
+            product_query: Optional[str] = None,
+            po_data: Optional[dict] = None
     ):
         """
-        Execute ERP workflow when an Opportunity reaches 'Closed Won' stage.
+        Process ERP workflow when an Opportunity is marked as Closed Won.
 
-        This workflow includes:
-        - Fetching the Opportunity
-        - Creating an Order
-        - Creating an Invoice
-        - Checking stock using a SOQL query
-        - Optionally creating a Purchase Order
+        This includes:
+            - Creating an Order
+            - Creating an Invoice
+            - Checking Stock
+            - Creating a Purchase Order (optional)
 
         Args:
-            opportunity_id (str): Salesforce Opportunity ID.
-            order_data (Optional[dict]): Additional Order fields.
-            invoice_data (Optional[dict]): Additional Invoice fields.
-            product_query (Optional[str]): SOQL query to check stock.
-            po_data (Optional[dict]): Data for creating a Purchase Order.
+            opportunity_id (str): Salesforce Opportunity ID (must be Closed Won)
+
+            order_data (dict): Must include:
+                - AccountId
+                - EffectiveDate
+                - Status
+
+            invoice_data (dict): Must include:
+                - Account__c
+                - Amount__c
+                - Invoice_Date__c
+
+            product_query (str, optional): SOQL query for stock check
+
+            po_data (dict, optional): Must include:
+                - Supplier__c
+                - Order_Date__c
+                - Total_Amount__c
 
         Returns:
-            dict: Combined result including order, invoice, stock, and purchase order details.
-
-        Raises:
-            Exception: If any step in the workflow fails.
+            dict: Combined ERP operation results
         """
-        try:
-            opp = await self.sf.Opportunity.get(opportunity_id)
 
-            if opp["StageName"] != "Closed Won":
-                return {"message": "Opportunity not Closed Won"}
+        opp = await sync_to_async(self.sf.Opportunity.get, opportunity_id)
 
-            account_id = opp["AccountId"]
-            amount = opp.get("Amount", 0)
+        if opp["StageName"] != "Closed Won":
+            return {"message": "Opportunity not Closed Won"}
 
-            order = await self.create_order(account_id, order_data)
+        order = await self.create_order(order_data)
+        invoice = await self.create_invoice(invoice_data)
+        stock = await self.check_stock(product_query) if product_query else {}
 
-            invoice_payload = invoice_data or {
-                "Account__c": account_id,
-                "Amount__c": amount
-            }
-            invoice = await self.create_invoice(invoice_payload)
+        po = None
+        if po_data:
+            po = await self.create_purchase_order(po_data)
 
-            stock = await self.check_stock(product_query) if product_query else {}
-
-            po_result = None
-            if po_data:
-                po_result = await self.create_purchase_order(po_data)
-
-            return {
-                "status": "success",
-                "order": order,
-                "invoice": invoice,
-                "stock": stock,
-                "purchase_order": po_result
-            }
-
-        except Exception as e:
-            logger.error(f"Error processing ERP flow: {str(e)}")
-            raise
+        return {
+            "status": "success",
+            "order": order,
+            "invoice": invoice,
+            "stock": stock,
+            "purchase_order": po
+        }
