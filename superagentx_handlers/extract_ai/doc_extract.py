@@ -1,7 +1,6 @@
 import json
 import base64
 import logging
-import asyncio
 import aiofiles
 import os
 from io import BytesIO
