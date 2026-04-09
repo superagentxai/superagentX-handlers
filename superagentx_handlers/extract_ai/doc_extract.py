@@ -1,8 +1,9 @@
 import json
 import base64
 import logging
-
+import asyncio
 import aiofiles
+import os
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -24,9 +25,7 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"}
 
 class ExtractHandler(BaseHandler):
 
-    def __init__(
-            self, llm_config: Dict
-    ):
+    def __init__(self, llm_config: Dict):
         super().__init__()
         self.llm_client = LLMClient(llm_config=llm_config)
 
@@ -34,11 +33,6 @@ class ExtractHandler(BaseHandler):
         return convert_from_bytes(pdf_bytes)
 
     async def _load_images(self, file_path: str) -> tuple[list, str]:
-        """
-        Load images from a file path.
-        Supports both PDF and image files.
-        Returns (images, file_type)
-        """
         path = Path(file_path)
         ext = path.suffix.lower()
 
@@ -61,11 +55,6 @@ class ExtractHandler(BaseHandler):
             )
 
     async def _load_images_from_base64(self, b64_data: str) -> tuple[list, str]:
-        """
-        Decode a base64 string and return (images, file_type).
-        File type is auto-detected from magic bytes — no need for separate
-        base64_pdf / base64_image parameters.
-        """
         raw = base64.b64decode(b64_data)
 
         if raw[:4] == b"%PDF":
@@ -102,19 +91,11 @@ class ExtractHandler(BaseHandler):
 
     @tool
     async def extract_data(
-            self,
-            prompt: str,
-            file_path: Optional[str] = None,
-            base64_data: Optional[str] = None,
+        self,
+        prompt: str,
+        file_path: Optional[str] = None,
+        base64_data: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Extract information from a PDF or image file using the configured LLM.
-        Supports PDF (.pdf) and image (.jpg, .jpeg, .png, .bmp, .tiff, .webp) files.
-
-        Accepts input via:
-          - file_path   : local path to a PDF or image file
-          - base64_data : raw base64 string of a PDF or image; type is auto-detected
-        """
         try:
             images = []
             file_type = None
@@ -135,11 +116,14 @@ class ExtractHandler(BaseHandler):
                 }
 
             content: List[Any] = [{"type": "text", "text": prompt}]
+
             for img in images:
                 img_b64 = self._image_to_base64(img)
                 content.append({
                     "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{img_b64}"
+                    }
                 })
 
             response = await self.llm_client.achat_completion(
@@ -149,6 +133,7 @@ class ExtractHandler(BaseHandler):
             )
 
             text_output = response.choices[0].message.content
+
             return {
                 "success": True,
                 "pages_processed": len(images),
@@ -165,3 +150,14 @@ class ExtractHandler(BaseHandler):
                 "file_type": None,
                 "data": None
             }
+        finally:
+            # delete input file if provided
+            if file_path:
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        logger.info(f"Deleted input file: {file_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to delete file: {cleanup_error}")
+
+ 
