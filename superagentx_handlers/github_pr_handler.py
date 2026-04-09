@@ -6,6 +6,7 @@ import asyncio
 import requests
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+import aiohttp
 
 
 class CIPRHandler(BaseHandler):
@@ -14,14 +15,21 @@ class CIPRHandler(BaseHandler):
         super().__init__()
 
     @staticmethod
-    async def _run_tests(self):
+    async def run_tests(self, repo_dir: str):
+        process = await asyncio.create_subprocess_exec(
+            "pytest",
+            cwd=repo_dir,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await process.communicate()
 
         return {
-            "status": "passed",
-            "stdout": "All tests ran successfully",
-            "stderr": ""
+            "status": "passed" if process.returncode == 0 else "failed",
+            "stdout": stdout.decode(),
+            "stderr": stderr.decode(),
         }
-
     @tool
     async def handle_pr(self, pr_id: int, repo_url: str, branch: str):
         """
@@ -57,10 +65,17 @@ class CIPRHandler(BaseHandler):
 
         try:
             # Clone repo
-            subprocess.run(["git", "clone", repo_url, repo_dir], check=True)
+            process = await asyncio.create_subprocess_exec(
+                "git", "clone", repo_url, repo_dir
+            )
+            await process.wait()
 
             # Checkout branch
-            subprocess.run(["git", "checkout", branch], cwd=repo_dir, check=True)
+            process = await asyncio.create_subprocess_exec(
+                "git", "checkout", branch,
+                cwd=repo_dir
+            )
+            await process.wait()
 
             # Run tests
             result = await self._run_tests()
@@ -126,11 +141,12 @@ class CIPRHandler(BaseHandler):
         }
 
         try:
-            response = requests.post(url, json={"body": message}, headers=headers)
-            if response.status_code == 201:
-                print(f"Comment posted to PR #{pr_id}")
-            else:
-                print(f"Failed to post comment: {response.status_code}")
-                print(response.text)
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json={"body": message}, headers=headers) as response:
+                    if response.status == 201:
+                        print(f"Comment posted to PR #{pr_id}")
+                    else:
+                        print(f"Failed: {response.status}")
+                        print(await response.text())
         except Exception as e:
             print(f"Exception while posting comment: {e}")
