@@ -1,8 +1,13 @@
+import json
+from json import JSONDecodeError
+from typing import Optional, Any
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.llm import ChatCompletionParams, LLMClient
 
 
 class InvalidDatabase(Exception):
@@ -38,7 +43,8 @@ class SQLHandler(BaseHandler):
             host: str | None = None,
             port: int | None = None,
             username: str | None = None,
-            password: str | None = None
+            password: str | None = None,
+            llm: Optional[dict] = None  # ✅ NEW: LLM client optional
     ):
         """
         Initialize SQLHandler.
@@ -58,6 +64,7 @@ class SQLHandler(BaseHandler):
         self.username = username
         self.password = password
         self.database = database
+        self.llm = llm  # ✅ store LLM
         match self.database_type:
             case "postgres":
                 self._conn_str = self._postgres_conn_str()
@@ -472,3 +479,198 @@ class SQLHandler(BaseHandler):
                 })
 
             return final
+
+    @tool
+    async def prompt_to_db(self, *, user_prompt: str):
+        """
+    Execute database queries from natural language input.
+
+    This tool should be used when the user asks questions that require
+    retrieving, filtering, aggregating, or analyzing data from the database.
+
+    Capabilities:
+    - Converts natural language into SQL queries
+    - Fetches data from the database
+    - Performs aggregations (count, sum, avg, etc.)
+    - Returns structured results
+    - Optionally provides insights/analysis
+
+    Input:
+        user_prompt (str):
+            Natural language query from the user.
+            Example:
+                - "Get all users"
+                - "Top 5 customers by revenue"
+                - "How many orders were placed last month?"
+
+    Behavior:
+        - Automatically detects relevant tables and schema
+        - Generates safe SQL queries (SELECT only)
+        - Executes query against the database
+        - Returns results in structured format
+
+    When to use:
+        - Any question involving database data
+        - Reporting, analytics, or lookup queries
+
+    When NOT to use:
+        - General knowledge questions
+        - Non-database-related queries
+
+    Returns:
+        dict:
+            {
+                "status": "success" | "error",
+                "sql": "<generated SQL query>",
+                "rows": <number of rows>,
+                "data": [ ... ],
+                "analysis": { ... }  # optional
+            }
+    """
+
+        # --------------------------------------
+        # NO LLM → treat prompt as SQL
+        # --------------------------------------
+        if not self.llm:
+            raise ValueError()
+
+
+        # --------------------------------------
+        # STEP 1: Fetch schema internally
+        # --------------------------------------
+        schema = await self._get_schema()
+
+        # --------------------------------------
+        # STEP 2: Generate SQL
+        # --------------------------------------
+        sql_query = await self._generate_sql(user_prompt, schema)
+
+        if not sql_query:
+            return {
+                "status": "error",
+                "message": "Failed to generate SQL"
+            }
+
+        # --------------------------------------
+        # STEP 3: Execute SQL
+        # --------------------------------------
+        db_result = await self._execute_sql(sql_query)
+
+        if db_result["status"] != "success":
+            return db_result
+
+        # --------------------------------------
+        # STEP 4: Analyze (optional)
+        # --------------------------------------
+        # analysis = await self._analyze(
+        #     user_prompt=user_prompt,
+        #     sql_query=sql_query,
+        #     results=db_result["data"]
+        # )
+
+        return {
+            "status": "success",
+            # "sql": sql_query,
+            "rows": db_result["rows"],
+            "data": db_result["data"],
+            # "analysis": analysis
+        }
+
+    # ==================================================
+    # 🔹 INTERNAL HELPERS
+    # ==================================================
+
+    # ✅ INTERNAL SCHEMA FETCH (CACHED)
+    async def _get_schema(self) -> dict:
+
+        schema = await self.get_schema_metadata()
+        return schema
+
+    # ✅ SQL EXECUTION
+    async def _execute_sql(self, query: str):
+        try:
+            rows = await self.select(query=query)
+            data = [dict(r._mapping) for r in rows]
+
+            return {
+                "status": "success",
+                "rows": len(data),
+                "data": data
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "query": query,
+                "message": str(e)
+            }
+
+    # ✅ SQL GENERATION (LLM)
+    async def _generate_sql(self, user_prompt: str, schema: dict) -> Optional[str]:
+
+        prompt = f"""
+    You are an expert SQL generator.
+
+    User Request:
+    {user_prompt}
+
+    Database Schema:
+    {json.dumps(schema, indent=2)}
+
+    Rules:
+    - Only SELECT queries
+    - No explanation
+    - Return JSON: {{ "query": "..." }}
+    """
+
+        params = ChatCompletionParams(
+            messages=[{"role": "user", "content": prompt}]
+        )
+        llm_client: LLMClient = LLMClient(llm_config=self.llm)
+
+        res = await llm_client.achat_completion(chat_completion_params=params)
+
+        try:
+            content = res.choices[0].message.content
+            content = content.replace("```json", "").replace("```", "")
+            return json.loads(content).get("query")
+        except Exception:
+            return None
+
+    # ✅ RESULT ANALYSIS (LLM)
+    async def _analyze(
+            self,
+            *,
+            user_prompt: str,
+            sql_query: str,
+            results: list[dict]
+    ):
+        if not self.llm:
+            return None
+
+        prompt = f"""
+    User Request: {user_prompt}
+    SQL Used: {sql_query}
+    Results: {json.dumps(results)}
+
+    Return JSON:
+    {{
+      "summary": "...",
+      "insights": [],
+      "recommendation": "..."
+    }}
+    """
+
+        params = ChatCompletionParams(
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        llm_client: LLMClient = LLMClient(llm_config=self.llm)
+        res = await llm_client.achat_completion(chat_completion_params=params)
+
+        try:
+            content = res.choices[0].message.content
+            content = content.replace("```json", "").replace("```", "")
+            return json.loads(content)
+        except JSONDecodeError:
+            return {"raw": content}
+
