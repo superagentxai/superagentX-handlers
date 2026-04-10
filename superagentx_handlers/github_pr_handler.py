@@ -7,6 +7,10 @@ import requests
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
 import aiohttp
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class CIPRHandler(BaseHandler):
@@ -60,7 +64,7 @@ class CIPRHandler(BaseHandler):
                 - Uses `annotate_pr` to post comments to the PR.
                 - Test results can either be "passed" or "failed"; failure messages are formatted.
             """
-        print(f" Handling PR #{pr_id}")
+        logger.info(f" Handling PR #{pr_id}")
         repo_dir = f"temp_repo_{uuid.uuid4()}"
 
         try:
@@ -79,7 +83,7 @@ class CIPRHandler(BaseHandler):
 
             # Run tests
             result = await self._run_tests()
-            print(f"Result: {result}")
+            logger.info(f"Result: {result}")
 
             # Format message
             if result["status"] == "failed":
@@ -144,9 +148,9 @@ class CIPRHandler(BaseHandler):
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json={"body": message}, headers=headers) as response:
                     if response.status == 201:
-                        print(f"Comment posted to PR #{pr_id}")
+                        logger.info(f"Comment posted to PR #{pr_id}")
                     else:
-                        print(f"Failed: {response.status}")
-                        print(await response.text())
+                        logger.info(f"Failed: {response.status}")
+                        logger.info(await response.text())
         except Exception as e:
-            print(f"Exception while posting comment: {e}")
+            logger.info(f"Exception while posting comment: {e}")
