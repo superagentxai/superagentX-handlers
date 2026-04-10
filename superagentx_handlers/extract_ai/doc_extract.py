@@ -23,15 +23,49 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"}
 
 
 class ExtractHandler(BaseHandler):
+    """
+     Handler responsible for extracting structured data from PDF or image inputs
+     using an LLM. Supports file-based and base64-encoded inputs.
+     """
 
     def __init__(self, llm_config: Dict):
+        """
+            Initialize the ExtractHandler.
+
+            Args:
+                llm_config (Dict): Configuration dictionary used to initialize
+                    the LLM client.
+        """
         super().__init__()
         self.llm_client = LLMClient(llm_config=llm_config)
 
     async def _pdf_to_images(self, pdf_bytes: bytes) -> list:
+        """
+               Convert a PDF file (in bytes) into a list of PIL Image objects.
+
+               Args:
+                   pdf_bytes (bytes): Raw PDF file content.
+
+               Returns:
+                   list: List of PIL Image objects, one per page.
+       """
         return convert_from_bytes(pdf_bytes)
 
     async def _load_images(self, file_path: str) -> tuple[list, str]:
+        """
+                Load images from a file path. Supports PDFs and image files.
+
+                Args:
+                    file_path (str): Path to the input file.
+
+                Returns:
+                    tuple:
+                        - list: List of PIL Image objects.
+                        - str: File type ("pdf" or "image").
+
+                Raises:
+                    ValueError: If the file extension is not supported.
+        """
         path = Path(file_path)
         ext = path.suffix.lower()
 
@@ -54,6 +88,19 @@ class ExtractHandler(BaseHandler):
             )
 
     async def _load_images_from_base64(self, b64_data: str) -> tuple[list, str]:
+        """
+                Decode base64 input and load it as images.
+
+                Automatically detects whether the input is a PDF or an image.
+
+                Args:
+                    b64_data (str): Base64-encoded file content.
+
+                Returns:
+                    tuple:
+                        - list: List of PIL Image objects.
+                        - str: File type ("pdf" or "image").
+        """
         raw = base64.b64decode(b64_data)
 
         if raw[:4] == b"%PDF":
@@ -64,6 +111,19 @@ class ExtractHandler(BaseHandler):
         return [image], "image"
 
     def _image_to_base64(self, image) -> str:
+        """
+                Convert a PIL Image object into a base64-encoded JPEG string.
+
+                Ensures compatibility by converting images with alpha channels
+                or palette modes into RGB.
+
+                Args:
+                    image (PIL.Image.Image): Input image.
+
+                Returns:
+                    str: Base64-encoded JPEG string.
+        """
+
         buffer = BytesIO()
         if image.mode in ("RGBA", "P", "LA"):
             image = image.convert("RGB")
@@ -71,6 +131,19 @@ class ExtractHandler(BaseHandler):
         return base64.b64encode(buffer.getvalue()).decode()
 
     def _parse_json(self, text_output: str) -> Any:
+        """
+                Attempt to parse JSON output from the LLM response.
+
+                Handles cases where JSON is wrapped in markdown code blocks
+                or partially malformed.
+
+                Args:
+                    text_output (str): Raw text output from the LLM.
+
+                Returns:
+                    Any: Parsed JSON object if successful, otherwise a dictionary
+                        containing the raw text under the key "raw_text".
+        """
         try:
             return json.loads(text_output)
         except (json.JSONDecodeError, TypeError):
@@ -90,11 +163,31 @@ class ExtractHandler(BaseHandler):
 
     @tool
     async def extract_data(
-        self,
-        prompt: str,
-        file_path: Optional[str] = None,
-        base64_data: Optional[str] = None,
+            self,
+            prompt: str,
+            file_path: Optional[str] = None,
+            base64_data: Optional[str] = None,
     ) -> Dict[str, Any]:
+
+        """
+                Extract structured data from a PDF or image using an LLM.
+
+                The input can be provided either as a file path or as base64-encoded data.
+                The file is converted into images and sent to the LLM along with the prompt.
+
+                Args:
+                    prompt (str): Instruction or query describing what data to extract.
+                    file_path (Optional[str]): Path to the input file.
+                    base64_data (Optional[str]): Base64-encoded file content.
+
+                Returns:
+                    Dict[str, Any]: Result dictionary containing:
+                        - success (bool): Whether extraction succeeded.
+                        - error (str | None): Error message if failed.
+                        - pages_processed (int): Number of images/pages processed.
+                        - file_type (str | None): Type of input ("pdf" or "image").
+                        - data (Any): Parsed JSON output or raw text.
+        """
         try:
             images = []
             file_type = None
@@ -159,4 +252,4 @@ class ExtractHandler(BaseHandler):
                 except Exception as cleanup_error:
                     logger.warning(f"Failed to delete file: {cleanup_error}")
 
- 
+
