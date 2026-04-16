@@ -19,3 +19,4 @@ from .google import *
 from .wikipedia import WikipediaHandler
 from .zohohirs import ZohoHIRSHandler
 from .github import GitHubHandler
+from .salesforce import SalesforceERPHandler
