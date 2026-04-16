@@ -164,9 +164,9 @@ class ExtractHandler(BaseHandler):
     @tool
     async def extract_data(
             self,
-            prompt: str,
-            file_path: Optional[str] = None,
-            base64_data: Optional[str] = None,
+            prompt: str | None = None,
+            file_path: str | None = None,
+            base64_data: str | None = None,
     ) -> Dict[str, Any]:
 
         """
@@ -189,8 +189,6 @@ class ExtractHandler(BaseHandler):
                         - data (Any): Parsed JSON output or raw text.
         """
         try:
-            images = []
-            file_type = None
 
             if file_path:
                 images, file_type = await self._load_images(file_path)
@@ -242,14 +240,3 @@ class ExtractHandler(BaseHandler):
                 "file_type": None,
                 "data": None
             }
-        finally:
-            # delete input file if provided
-            if file_path:
-                try:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                        logger.info(f"Deleted input file: {file_path}")
-                except Exception as cleanup_error:
-                    logger.warning(f"Failed to delete file: {cleanup_error}")
-
-
