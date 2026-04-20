@@ -28,7 +28,7 @@ class ExtractHandler(BaseHandler):
      using an LLM. Supports file-based and base64-encoded inputs.
      """
 
-    def __init__(self, llm_config: Dict):
+    def __init__(self, llm_config: LLMClient):
         """
             Initialize the ExtractHandler.
 
@@ -37,7 +37,7 @@ class ExtractHandler(BaseHandler):
                     the LLM client.
         """
         super().__init__()
-        self.llm_client = LLMClient(llm_config=llm_config)
+        self.llm_client = llm_config
 
     async def _pdf_to_images(self, pdf_bytes: bytes) -> list:
         """
@@ -164,7 +164,7 @@ class ExtractHandler(BaseHandler):
     @tool
     async def extract_data(
             self,
-            prompt: str,
+            prompt: Optional[str] = None,
             file_path: Optional[str] = None,
             base64_data: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -189,8 +189,6 @@ class ExtractHandler(BaseHandler):
                         - data (Any): Parsed JSON output or raw text.
         """
         try:
-            images = []
-            file_type = None
 
             if file_path:
                 images, file_type = await self._load_images(file_path)
@@ -242,14 +240,3 @@ class ExtractHandler(BaseHandler):
                 "file_type": None,
                 "data": None
             }
-        finally:
-            # delete input file if provided
-            if file_path:
-                try:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                        logger.info(f"Deleted input file: {file_path}")
-                except Exception as cleanup_error:
-                    logger.warning(f"Failed to delete file: {cleanup_error}")
-
-
