@@ -28,7 +28,7 @@ class ExtractHandler(BaseHandler):
      using an LLM. Supports file-based and base64-encoded inputs.
      """
 
-    def __init__(self, llm_config: Dict):
+    def __init__(self, llm_config: LLMClient):
         """
             Initialize the ExtractHandler.
 
@@ -37,7 +37,7 @@ class ExtractHandler(BaseHandler):
                     the LLM client.
         """
         super().__init__()
-        self.llm_client = LLMClient(llm_config=llm_config)
+        self.llm_client = llm_config
 
     async def _pdf_to_images(self, pdf_bytes: bytes) -> list:
         """
@@ -164,9 +164,9 @@ class ExtractHandler(BaseHandler):
     @tool
     async def extract_data(
             self,
-            prompt: str | None = None,
-            file_path: str | None = None,
-            base64_data: str | None = None,
+            prompt: Optional[str] = None,
+            file_path: Optional[str] = None,
+            base64_data: Optional[str] = None,
     ) -> Dict[str, Any]:
 
         """
