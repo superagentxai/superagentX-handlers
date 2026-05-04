@@ -5,7 +5,7 @@ from .crm import *
 from .cybersecurity import *
 from .datadog import *
 from .ecommerce import *
-from .extract import *
+from .extract_ai import *
 from .gcp import *
 from .gitlab import GitlabHandler
 from .scrape import ScrapeHandler
@@ -19,3 +19,4 @@ from .google import *
 from .wikipedia import WikipediaHandler
 from .zohohirs import ZohoHIRSHandler
 from .github import GitHubHandler
+from .salesforce import SalesforceERPHandler

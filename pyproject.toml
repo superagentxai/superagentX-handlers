@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superagentx-handlers"
-version = "0.1.7"
+version = "0.1.7.4"
 description = ""
 authors = [
     "SuperAgentX AI <support@superagentx.ai>",
@@ -16,7 +16,7 @@ documentation = "https://docs.superagentx.ai/"
 keywords = ["superagentX", "AGI", "Agentic AI", "ASI", "superagentx", "agent", "LLM"]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<=3.13"
+python = ">=3.12,<=3.14"
 aiohttp = "^3.10.10"
 atlassian-python-api = "^3.41.16"
 hubspot-api-client = "^10.0.0"
@@ -42,6 +42,7 @@ boto3 = "^1.38.42"
 msgraph-sdk = "^1.34.0"
 google-cloud-resource-manager = "^1.14.2"
 python-gitlab = "6.1.0"
+pdf2image = "1.17.0"
 azure-mgmt-compute = "34.1.0"
 azure-mgmt-storage = "^23.0.1"
 azure-storage-blob = "^12.25.1"
@@ -58,6 +59,7 @@ azure-identity = "^1.23.0"
 azure-mgmt-apimanagement = "^5.0.0"
 azure-mgmt-authorization = "^4.0.0"
 pysnc = "1.1.10"
+simple-salesforce = "1.12.9"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.3"
