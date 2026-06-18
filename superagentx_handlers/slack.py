@@ -18,8 +18,9 @@ class SlackHandler(BaseHandler):
             self,
             bot_token: Optional[str] = None,
             channel_id: Optional[str] = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.bot_token = bot_token or os.getenv("SLACK_BOT_TOKEN")
         self.channel_id = channel_id or os.getenv("SLACK_CHANNEL_ID")

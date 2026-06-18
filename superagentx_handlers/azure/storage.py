@@ -30,7 +30,8 @@ class AzureStorageHandler(BaseHandler):
             subscription_id: str | None = None,
             tenant_id: str | None = None,
             client_id: str | None = None,
-            client_secret: str | None = None
+            client_secret: str | None = None,
+            **kwargs
     ):
         """
         Initializes the AzureStorageHandler.
@@ -44,7 +45,7 @@ class AzureStorageHandler(BaseHandler):
         Raises:
             AzureStorageClientInitFailed: If there's an error initializing the Azure Storage client.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         # Retrieve credentials from arguments or environment variables
         self.subscription_id = subscription_id or os.getenv("AZURE_SUBSCRIPTION_ID")
         self.tenant_id = tenant_id or os.getenv("AZURE_TENANT_ID")

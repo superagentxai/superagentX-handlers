@@ -33,7 +33,8 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
             self,
             aws_access_key_id: str | None = None,
             aws_secret_access_key: str | None = None,
-            region_name: str | None = None
+            region_name: str | None = None,
+            **kwargs
     ):
         """
         Initialize the AWS ELBv2 client using provided credentials or environment variables.
@@ -43,7 +44,7 @@ class AWSElasticLoadBalancerHandler(BaseHandler):
             aws_secret_access_key (Optional[str]): AWS secret access key. Defaults to environment variable.
             region_name (Optional[str]): AWS region. Defaults to environment variable.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         region = region_name or os.getenv("AWS_REGION")
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")

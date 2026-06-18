@@ -18,9 +18,10 @@ class AmazonHandler(BaseHandler):
             api_key: str | None = None,
             country: str = 'US',  # US, AU, BR, CA, CN, FR, DE, IN, IT, MX, NL, SG, ES, TR, AE, GB, JP, SA, PL, SE,
             # BE, EG
-            top_items: int | None = None
+            top_items: int | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.api_key = api_key or os.getenv('RAPID_API_KEY')
         self.country = country
         self.top_items = top_items

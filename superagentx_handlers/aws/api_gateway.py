@@ -44,7 +44,8 @@ class AWSAPIGatewayHandler(BaseHandler):
             self,
             aws_access_key_id: str | None = None,
             aws_secret_access_key: str | None = None,
-            region_name: str | None = None
+            region_name: str | None = None,
+            **kwargs
     ):
         """
         Retrieve comprehensive information about all API Gateways, their APIs, and VPC links.
@@ -52,7 +53,7 @@ class AWSAPIGatewayHandler(BaseHandler):
          Returns:
           Dict containing all API Gateway information
        """
-        super().__init__()
+        super().__init__(**kwargs)
         region = region_name or os.getenv("AWS_REGION")
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")

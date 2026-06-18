@@ -35,10 +35,11 @@ class ZohoHelpDeskHandler(BaseHandler):
             self,
             org_id: str,
             auth_token: str,
-            base_url="https://desk.zoho.com/api/v1"
+            base_url="https://desk.zoho.com/api/v1",
+            **kwargs
     ):
 
-        super().__init__()
+        super().__init__(**kwargs)
         self.base_url = base_url
         self.org_id = org_id
         self.token = auth_token

@@ -33,9 +33,10 @@ def _get_gateway_state(state_value: Union[str, int, apigateway_v1.Gateway.State]
 class GCPAPIGatewayHandler(BaseHandler):
     def __init__(
             self,
-            creds: str | dict | None = None
+            creds: str | dict | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.locations = [
             'us-central1', 'us-east1', 'us-east4', 'us-west1', 'us-west2', 'us-west3', 'us-west4',
