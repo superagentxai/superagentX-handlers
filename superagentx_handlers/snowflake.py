@@ -28,8 +28,9 @@ class SnowflakeHandler(BaseHandler):
         database: str | None = None,
         schema: str | None = None,
         role: str | None = None,
+        **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.config = {
             "user": user or os.getenv("SNOWFLAKE_USER"),
             "password": password or os.getenv("SNOWFLAKE_PASSWORD"),

@@ -17,7 +17,8 @@ class WalmartHandler(BaseHandler):
             self,
             *,
             api_key: str | None = None,
-            top_items: int | None = None
+            top_items: int | None = None,
+            **kwargs
     ):
         """
         Initializes the Walmart.com shopping handler.
@@ -32,7 +33,7 @@ class WalmartHandler(BaseHandler):
             process. If not provided, the default behavior is used.
 
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.api_key = api_key or os.getenv("RAPID_API_KEY")
         self.top_items = top_items
         if not self.top_items:

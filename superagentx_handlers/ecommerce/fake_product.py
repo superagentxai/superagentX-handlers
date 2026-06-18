@@ -18,9 +18,10 @@ class FakeProductHandler(BaseHandler, ABC):
             *,
             llm_client: LLMClient,
             product_models: list[dict],
-            total: int = 5
+            total: int = 5,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.llm_client: LLMClient = llm_client
         self.product_models = product_models
         self.total = total

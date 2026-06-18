@@ -67,7 +67,7 @@ class AWSS3Handler(BaseHandler):
             region_name: str | None = None,
             **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.region = region_name or os.getenv("AWS_REGION")
         self._storage = boto3.client(
            's3',

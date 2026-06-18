@@ -26,8 +26,11 @@ class UniversalMLHandler(BaseHandler):
     Framework-agnostic ML handler for SuperAgentX.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(
+            self,
+            **kwargs
+    ):
+        super().__init__(**kwargs)
         self.router = FrameworkRouter()
         self._runner_cache: Dict[tuple, Any] = {}
 
