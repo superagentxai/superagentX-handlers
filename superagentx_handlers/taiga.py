@@ -31,9 +31,14 @@ class TaigaHandler(BaseHandler):
         - get_all_processes: aggregate all workflow stages across all user projects
     """
 
-    def __init__(self, username, password, base_url="https://api.taiga.io/api/v1"):
+    def __init__(
+            self,
+            username,
+            password,
+            base_url="https://api.taiga.io/api/v1",
+            **kwargs):
 
-        super().__init__()
+        super().__init__(**kwargs)
         self.base_url = base_url
         self.username = username
         self.password = password

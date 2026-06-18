@@ -60,7 +60,7 @@ class GitHubHandler(BaseHandler):
             github_token: str | None = None,
             **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.api_base_url = api_base_url or os.getenv('GITHUB_API_BASE_URL') or "https://api.github.com"
         self.github_token = github_token or os.getenv('GITHUB_TOKEN')
         self._common_headers = {

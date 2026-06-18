@@ -16,9 +16,10 @@ logger = logging.getLogger(__name__)
 class GCPLoadBalancerHandler(BaseHandler):
     def __init__(
             self,
-            creds: str | dict | None = None
+            creds: str | dict | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         # Load credentials from path or dict
         creds = creds or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")

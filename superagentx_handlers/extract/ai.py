@@ -47,9 +47,10 @@ class ExtractAIHandler(BaseHandler):
             prompt_name: str,
             api_token: str | None = None,
             base_url: str | None = None,
-            project_id: str | None = None
+            project_id: str | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.prompt_name = prompt_name
         self.api_token = api_token or os.getenv("EXTRACT_API_TOKEN")
         self.base_url = base_url or os.getenv("BASE_URL")

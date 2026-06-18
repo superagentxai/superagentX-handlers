@@ -8,8 +8,11 @@ from superagentx.handler.decorators import tool
 logger = logging.getLogger(__name__)
 
 class ZohoHIRSHandler(BaseHandler):
-    def __init__(self, access_token: str = None):
-        super().__init__()
+    def __init__(
+            self,
+            access_token: str = None,
+            **kwargs):
+        super().__init__(**kwargs)
         self.base_url = "https://people.zoho.com/people/api"
         self.access_token = access_token or os.getenv("ZOHO_PEOPLE_ACCESS_TOKEN")
         self.headers = {

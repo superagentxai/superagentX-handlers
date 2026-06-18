@@ -18,9 +18,10 @@ class GCPIAMHandler(BaseHandler):
     def __init__(
             self,
             scope: list | None = None,
-            creds: str | dict | None = None
+            creds: str | dict | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.scope = scope
         self.creds = creds
         if not self.scope:

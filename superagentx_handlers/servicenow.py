@@ -11,7 +11,8 @@ class ServiceNowHandler(BaseHandler):
             self,
             instance_url: str = None,
             username: str = None,
-            password: str = None
+            password: str = None,
+            **kwargs
     ):
         """
        Initializes the ServiceNowHandler with instance details and authentication.
@@ -21,7 +22,7 @@ class ServiceNowHandler(BaseHandler):
            username (str, optional): Username for authentication. If not provided, fetched from environment variable SERVICENOW_USERNAME.
            password (str, optional): Password for authentication. If not provided, fetched from environment variable SERVICENOW_PASSWORD.
        """
-        super().__init__()
+        super().__init__(**kwargs)
         self.instance = (
                 instance_url or os.getenv("SERVICENOW_INSTANCE_URL")
         ).replace("https://", "").replace(".service-now.com", "")

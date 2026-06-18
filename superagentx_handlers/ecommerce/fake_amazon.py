@@ -10,7 +10,7 @@ class FakeAmazonHandler(FakeProductHandler):
     async def product_search(
             self,
             *,
-            query: str
+            query: str,
     ):
         """
         Searches for products on Amazon based on the given keyword.

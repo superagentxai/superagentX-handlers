@@ -48,8 +48,12 @@ class AsanaHandler(BaseHandler):
 
     """
 
-    def __init__(self, token: Optional[str] = None):
-        super().__init__()
+    def __init__(
+            self,
+            token: Optional[str] = None,
+            **kwargs
+    ):
+        super().__init__(**kwargs)
 
         access_token = token or os.getenv("ASANA_ACCESS_TOKEN")
         if not access_token:

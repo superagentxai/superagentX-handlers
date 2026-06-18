@@ -30,9 +30,10 @@ class HubSpotHandler(BaseHandler):
     def __init__(
             self,
             *,
-            token: str | None = None
+            token: str | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.token = token or os.getenv("HUBSPOT_TOKEN")
         self._connection: HubSpot = self._connect()
 

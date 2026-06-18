@@ -20,8 +20,12 @@ class WikipediaHandler(BaseHandler):
         from Wikipedia, including searching articles, fetching summaries, and accessing structured data.
     """
 
-    def __init__(self, lang: str = 'en'):
-        super().__init__()
+    def __init__(
+            self,
+            lang: str = 'en',
+            **kwargs
+    ):
+        super().__init__(**kwargs)
         self.wiki_client = Wikipedia('superagentx-wiki', lang)
 
     async def _get_wikipedia_page(self, query: str) -> WikipediaPage | None:

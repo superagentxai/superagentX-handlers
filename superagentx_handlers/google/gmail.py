@@ -60,7 +60,8 @@ class GmailHandler(BaseHandler):
     def __init__(
             self,
             access_token: str,
-            download_dir: str = "/tmp/gmail_downloads"
+            download_dir: str = "/tmp/gmail_downloads",
+            **kwargs
     ):
         """
         Initializes the Gmail handler with authentication details and configuration.
@@ -74,7 +75,7 @@ class GmailHandler(BaseHandler):
         Raises:
             ValueError: If the access_token is empty or invalid.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.access_token = access_token
         self.last_seen_id = None
 

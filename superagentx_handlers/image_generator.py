@@ -13,8 +13,12 @@ logger = logging.getLogger(__name__)
 
 class ClipDropClient(BaseHandler):
 
-    def __init__(self, api_key: str, end_point: str):
-        super().__init__()
+    def __init__(
+            self,
+            api_key: str,
+            end_point: str,
+            **kwargs):
+        super().__init__(**kwargs)
         self.api_key = api_key or os.getenv("CLIPDROP_API_KEY")
         self.endpoint = "https://clipdrop-api.co/text-to-image/v1"
 
