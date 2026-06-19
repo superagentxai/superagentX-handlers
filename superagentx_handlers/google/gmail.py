@@ -576,19 +576,21 @@ class GmailHandler(BaseHandler):
             max_results: int
     ):
         """
-        Reads latest Gmail messages and downloads attachments from new emails.
+        Downloads attachments only from unread Gmail emails based on max_results.
+        After processing, each email is marked as read.
 
         Returns:
-            list[dict]: Email metadata with downloaded attachment info
+            list[dict] | None: Email metadata with downloaded attachment info
         """
 
         try:
-            # Ensure download directory exists
             os.makedirs(download_dir, exist_ok=True)
 
+            # Fetch only unread emails
             result = await self.sync_to_async(
                 lambda: self.service.users().messages().list(
                     userId="me",
+                    q="is:unread",
                     maxResults=max_results
                 ).execute()
             )
@@ -597,14 +599,21 @@ class GmailHandler(BaseHandler):
             if not messages:
                 return None
 
-            new_emails = []
+            downloaded_emails = []
+
+            def extract_parts(parts):
+                all_parts = []
+
+                for part in parts:
+                    all_parts.append(part)
+
+                    if "parts" in part:
+                        all_parts.extend(extract_parts(part["parts"]))
+
+                return all_parts
 
             for msg in messages:
                 msg_id = msg["id"]
-
-                # Stop if we reached last seen email
-                if msg_id == self.last_seen_id:
-                    break
 
                 msg_data = await self.sync_to_async(
                     lambda msg_id=msg_id: self.service.users().messages().get(
@@ -621,21 +630,22 @@ class GmailHandler(BaseHandler):
                     "attachments": []
                 }
 
-                # Extract headers
+                # Extract useful headers
                 for header in headers:
-                    name = header["name"].lower()
+                    name = header.get("name", "").lower()
                     if name in ("from", "to", "subject", "date"):
-                        email_info[name] = header["value"]
+                        email_info[name] = header.get("value")
 
-                # Process attachments
-                parts = payload.get("parts", [])
+                # Extract attachments from nested email parts
+                parts = extract_parts(payload.get("parts", []))
+
                 for part in parts:
                     filename = part.get("filename")
                     attachment_id = part.get("body", {}).get("attachmentId")
 
                     if filename and attachment_id:
                         attachment = await self.sync_to_async(
-                            lambda attachment_id=attachment_id: self.service
+                            lambda msg_id=msg_id, attachment_id=attachment_id: self.service
                             .users()
                             .messages()
                             .attachments()
@@ -660,15 +670,23 @@ class GmailHandler(BaseHandler):
                             "path": file_path
                         })
 
-                        logger.info(f"Downloaded attachment → {file_path}")
+                        logger.info(f"Downloaded attachment: {file_path}")
 
-                new_emails.append(email_info)
+                # Mark the email as read after processing
+                await self.sync_to_async(
+                    lambda msg_id=msg_id: self.service.users().messages().modify(
+                        userId="me",
+                        id=msg_id,
+                        body={
+                            "removeLabelIds": ["UNREAD"]
+                        }
+                    ).execute()
+                )
 
-            # Update last seen message ID
-            self.last_seen_id = messages[0]["id"]
+                downloaded_emails.append(email_info)
 
-            return new_emails or None
+            return downloaded_emails or None
 
-        except Exception as e:
-            logger.exception("Error reading emails and downloading attachments")
+        except Exception:
+            logger.exception("Error reading unread emails and downloading attachments")
             return None
