@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
   Run Pytest:
     1.pytest --log-cli-level=INFO tests/google/test_gmail_handler.py::TestGmailHandler::test_send_email
     2.pytest --log-cli-level=INFO tests/google/test_gmail_handler.py::TestGmailHandler::test_read_last_mail
+    3.pytest --log-cli-level=INFO tests/google/test_gmail_handler.py::TestGmailHandler::test_download_attachments
 '''
 
 
@@ -103,37 +104,43 @@ class TestGmailHandler:
     # Test: Download Attachments
     # ------------------------------
     @pytest.mark.asyncio
-    async def test_download_attachments(self, gmail_handler_init: GmailHandler):
+    async def test_download_attachments(self, gmail_handler_init: GmailHandler, tmp_path):
         """
-        Finds the first email that has attachments.
-        Downloads them into /tmp/gmail_downloads.
+        Downloads attachments from unread Gmail emails and marks them as read.
         """
-        emails = await gmail_handler_init.read_latest_email(max_results=10)
-        assert emails, "No emails available"
 
-        attachment_msg_id = None
+        download_dir = ""
 
-        # Step 1: find an email with attachments
-        for email in emails:
-            full = await gmail_handler_init.read_email_details(email["id"])
-            if full.get("attachments"):
-                attachment_msg_id = email["id"]
-                break
-        logger.info(attachment_msg_id)
-        if attachment_msg_id is None:
-            pytest.skip("No email with attachments found — skipping")
+        emails = await gmail_handler_init.download_attachments(
+            download_dir=str(download_dir),
+            max_results=1
+        )
 
-        # Step 2: download attachments
-        files = await gmail_handler_init.get_email_attachments(attachment_msg_id)
+        if not emails:
+            pytest.skip("No unread emails found or no attachments downloaded")
 
-        logger.info(f"Downloaded files => {files}")
+        assert isinstance(emails, list)
 
-        assert isinstance(files, list)
-        assert len(files) >= 1
-        # for file in files:
-        #     logger.info(file['path'])
-        #     assert file["path"].startswith("/tmp/gmail_downloads")
-        #     assert os.path.exists(file["path"])
+        emails_with_attachments = [
+            email for email in emails if email.get("attachments")
+        ]
+
+        if not emails_with_attachments:
+            pytest.skip("Unread emails found, but none had attachments")
+
+        for email in emails_with_attachments:
+            assert "id" in email
+            assert isinstance(email["attachments"], list)
+            assert len(email["attachments"]) >= 1
+
+            for attachment in email["attachments"]:
+                assert attachment["filename"]
+                assert attachment["path"].startswith(str(download_dir))
+                assert os.path.exists(attachment["path"])
+                assert os.path.isfile(attachment["path"])
+                assert attachment["size"] >= 0
+
+                logger.info(f"Downloaded attachment => {attachment['path']}")
 
     @pytest.mark.asyncio
     async def test_delete_email(self, gmail_handler_init: GmailHandler):
