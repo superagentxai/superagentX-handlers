@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 import httpx
 
 from superagentx.handler.base import BaseHandler
@@ -12,7 +13,7 @@ class LinkedInHandler(BaseHandler):
 
     def __init__(
             self,
-            access_token: str = None,
+            access_token: Optional[str] = None,
             **kwargs
     ):
         """
@@ -67,18 +68,24 @@ class LinkedInHandler(BaseHandler):
                             f"Bearer {self.access_token}"
                     }
                 )
+                if response.status_code == 200:
+                    return response.json()
 
-                response.raise_for_status()
+                return {
+                    "success": False,
+                    "status_code": response.status_code,
+                    "error": response.text
+                }
 
-                return response.json()
-
-        except httpx.HTTPError as e:
-
+        except Exception as e:
             logger.error(
                 f"Failed to retrieve profile: {str(e)}"
             )
 
-            raise
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
     @tool
     async def create_post(
@@ -125,6 +132,9 @@ class LinkedInHandler(BaseHandler):
                 text = str(previous_agent_result)
 
             profile = await self.get_profile()
+
+            if not profile.get("sub"):
+                return profile
 
             person_urn = (
                 f"urn:li:person:{profile['sub']}"
@@ -177,7 +187,10 @@ class LinkedInHandler(BaseHandler):
                 f"Failed to create post: {str(e)}"
             )
 
-            raise
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
     @tool
     async def upload_image(
@@ -206,6 +219,9 @@ class LinkedInHandler(BaseHandler):
         try:
 
             profile = await self.get_profile()
+
+            if not profile.get("sub"):
+                return profile
 
             person_urn = (
                 f"urn:li:person:{profile['sub']}"
@@ -242,7 +258,14 @@ class LinkedInHandler(BaseHandler):
                     json=register_payload
                 )
 
-                register_response.raise_for_status()
+                if register_response.status_code != 200:
+                    return {
+                        "success": False,
+                        "status_code":
+                            register_response.status_code,
+                        "error":
+                            register_response.text
+                    }
 
                 upload_data = (
                     register_response.json()
@@ -273,7 +296,12 @@ class LinkedInHandler(BaseHandler):
                     content=image_bytes
                 )
 
-                upload_response.raise_for_status()
+                if upload_response.status_code not in (200, 201):
+                    return {
+                        "success": False,
+                        "status_code": upload_response.status_code,
+                        "error": upload_response.text
+                    }
 
                 return {
                     "success": True,
@@ -281,9 +309,11 @@ class LinkedInHandler(BaseHandler):
                 }
 
         except Exception as e:
-
             logger.error(
                 f"Failed to upload image: {str(e)}"
             )
 
-            raise
+            return {
+                "success": False,
+                "error": str(e)
+            }
