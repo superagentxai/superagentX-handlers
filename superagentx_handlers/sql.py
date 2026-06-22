@@ -44,7 +44,8 @@ class SQLHandler(BaseHandler):
             port: int | None = None,
             username: str | None = None,
             password: str | None = None,
-            llm: Optional[dict] = None  # ✅ NEW: LLM client optional
+            llm: Optional[dict] = None,  # ✅ NEW: LLM client optional
+            **kwargs
     ):
         """
         Initialize SQLHandler.
@@ -57,7 +58,7 @@ class SQLHandler(BaseHandler):
             username: DB user (sqlite typically doesn't use this)
             password: DB password
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.database_type = database_type.lower()
         self.host = host or "localhost"
         self.port = port

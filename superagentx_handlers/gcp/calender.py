@@ -24,9 +24,10 @@ class CalenderHandler(BaseHandler, ABC):
     def __init__(
             self,
             *,
-            credentials: str
+            credentials: str,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.service = None
         self.creds = None
         logger.debug(f'Calendar client initialization')

@@ -25,8 +25,9 @@ class AWSCognitoHandler(BaseHandler):
         aws_role_arn: Optional[str] = None,
         role_session_name: Optional[str] = None,
         external_id: Optional[str] = None,
+        **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         region = region_name or os.getenv("AWS_REGION")
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")

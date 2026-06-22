@@ -28,9 +28,10 @@ class GmailHandler(BaseHandler, ABC):
     def __init__(
             self,
             *,
-            credentials: str
+            credentials: str,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.creds = None
         logger.info(f'Gmail client initialization')
         self.credentials = credentials or {}

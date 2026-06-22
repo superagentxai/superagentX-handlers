@@ -23,8 +23,9 @@ class SFTPHandler(BaseHandler):
             *,
             username: str | None = None,
             password: str | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.config = {
             "username": username or os.getenv("SFTP_USERNAME"),
             "password": password or os.getenv("SFTP_PASSWORD"),
