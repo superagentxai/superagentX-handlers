@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 import httpx
 
 from superagentx.handler.base import BaseHandler
@@ -15,9 +16,9 @@ class TeamsHandler(BaseHandler):
 
     def __init__(
             self,
-            access_token: str = None,
-            team_id: str = None,
-            channel_id: str = None,
+            access_token:Optional[str] = None,
+            team_id:Optional[str] = None,
+            channel_id:Optional[str] = None,
             **kwargs
     ):
         """
@@ -70,35 +71,46 @@ class TeamsHandler(BaseHandler):
             self,
             endpoint: str
     ):
-        async with httpx.AsyncClient(
-                timeout=60
-        ) as client:
-            response = await client.get(
-                f"{self.GRAPH_BASE_URL}{endpoint}",
-                headers=self.headers
+        try:
+            async with httpx.AsyncClient(
+                    timeout=60
+            ) as client:
+                response = await client.get(
+                    f"{self.GRAPH_BASE_URL}{endpoint}",
+                    headers=self.headers
+                )
+
+                return response
+
+        except httpx.RequestError as e:
+            logger.error(
+                f"GET request failed: {str(e)}"
             )
-
-            response.raise_for_status()
-
-            return response
+            raise
 
     async def _post(
             self,
             endpoint: str,
             payload: dict
     ):
-        async with httpx.AsyncClient(
-                timeout=60
-        ) as client:
-            response = await client.post(
-                f"{self.GRAPH_BASE_URL}{endpoint}",
-                headers=self.headers,
-                json=payload
+        try:
+            async with httpx.AsyncClient(
+                    timeout=60
+            ) as client:
+                response = await client.post(
+                    f"{self.GRAPH_BASE_URL}{endpoint}",
+                    headers=self.headers,
+                    json=payload
+                )
+
+                return response
+
+        except httpx.RequestError as e:
+            logger.error(
+                f"POST request failed: {str(e)}"
             )
+            raise
 
-            response.raise_for_status()
-
-            return response
 
     @tool
     async def get_profile_info(self):
@@ -117,29 +129,40 @@ class TeamsHandler(BaseHandler):
             response = await self._get(
                 "/me"
             )
-            profile = response.json()
+
+            if response.status_code == 200:
+                profile = response.json()
+
+                return {
+                    "success":True,
+                    "id":profile.get("id"),
+                    "display_name":profile.get("displayName"),
+                    "given_name":profile.get("givenName"),
+                    "surname":profile.get("surname"),
+                    "email":profile.get("mail"),
+                    "user_principal_name":profile.get("userPrincipalName"),
+                    "job_title":profile.get("jobTitle"),
+                    "mobile_phone":profile.get("mobilePhone"),
+                    "office_location":profile.get("officeLocation"),
+                    "preferred_language":profile.get("preferredLanguage")
+                }
 
             return {
-                "id":profile.get("id"),
-                "display_name":profile.get("displayName"),
-                "given_name":profile.get("givenName"),
-                "surname":profile.get("surname"),
-                "email":profile.get("mail"),
-                "user_principal_name":profile.get("userPrincipalName"),
-                "job_title":profile.get("jobTitle"),
-                "mobile_phone":profile.get("mobilePhone"),
-                "office_location":profile.get("officeLocation"),
-                "preferred_language":profile.get("preferredLanguage")
+                "success": False,
+                "status_code": response.status_code,
+                "error": response.text
             }
 
         except Exception as e:
 
             logger.error(
-                f"Failed to retrieve profile: "
-                f"{str(e)}"
-            )
+                f"Failed to retrieve profile: {str(e)}"
 
-            raise
+            )
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
     @tool
     async def send_channel_message(
@@ -185,12 +208,17 @@ class TeamsHandler(BaseHandler):
                 payload
             )
 
-            result = response.json()
-
+            if response.status_code == 201:
+                result = response.json()
+                return {
+                    "success": True,
+                    "message_id":
+                        result.get("id")
+                }
             return {
-                "success": True,
-                "message_id":
-                    result.get("id")
+                "success": False,
+                "status_code": response.status_code,
+                "error": response.text
             }
 
         except Exception as e:
