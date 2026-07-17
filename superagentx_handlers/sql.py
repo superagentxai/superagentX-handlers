@@ -44,7 +44,7 @@ class SQLHandler(BaseHandler):
             port: int | None = None,
             username: str | None = None,
             password: str | None = None,
-            llm: Optional[dict] = None,  # ✅ NEW: LLM client optional
+            llm: Optional[LLMClient] = None,  # ✅ NEW: LLM client optional
             **kwargs
     ):
         """
@@ -626,9 +626,7 @@ class SQLHandler(BaseHandler):
         params = ChatCompletionParams(
             messages=[{"role": "user", "content": prompt}]
         )
-        llm_client: LLMClient = LLMClient(llm_config=self.llm)
-
-        res = await llm_client.achat_completion(chat_completion_params=params)
+        res = await self.llm.achat_completion(chat_completion_params=params)
 
         try:
             content = res.choices[0].message.content
@@ -665,8 +663,7 @@ class SQLHandler(BaseHandler):
             messages=[{"role": "user", "content": prompt}]
         )
 
-        llm_client: LLMClient = LLMClient(llm_config=self.llm)
-        res = await llm_client.achat_completion(chat_completion_params=params)
+        res = await self.llm.achat_completion(chat_completion_params=params)
 
         try:
             content = res.choices[0].message.content
