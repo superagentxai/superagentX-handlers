@@ -127,7 +127,10 @@ class SQLHandler(BaseHandler):
         """
         async with self._engine.connect() as conn:
             res = await conn.execute(text(query))
-            return res.all()
+            return [
+                dict(row._mapping)
+                for row in res.fetchall()
+            ]
 
     @tool
     async def insert(
@@ -591,12 +594,10 @@ class SQLHandler(BaseHandler):
     async def _execute_sql(self, query: str):
         try:
             rows = await self.select(query=query)
-            data = [dict(r._mapping) for r in rows]
-
             return {
                 "status": "success",
-                "rows": len(data),
-                "data": data
+                "rows": len(rows),
+                "data": rows
             }
         except Exception as e:
             return {
