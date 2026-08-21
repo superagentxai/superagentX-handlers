@@ -720,24 +720,3 @@ class BitbucketHandler(BaseHandler):
             )
         }
 
-# ================================================================
-# LOCAL TEST
-# ================================================================
-
-if __name__ == "__main__":
-
-    async def main():
-
-        handler = BitbucketHandler()
-
-        result = await handler.update_issue(
-            workspace="srigajalakshmi",
-            repository_name="test_bit",
-            issue_id=1,
-            title="Updated test issue"
-        )
-
-        print("\n========== UPDATE ISSUE ==========")
-        print(result)
-
-    asyncio.run(main())
