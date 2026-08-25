@@ -8,10 +8,12 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from confluent_kafka import Consumer
 from openpyxl import load_workbook
+from superagentx.handler.base import BaseHandler
+from superagentx.handler.decorators import tool
 
 from superagentx.llm.litellm import LiteLLMClient
 from superagentx.llm.models import ChatCompletionParams
@@ -51,20 +53,83 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 class WorkbookService:
+    """
+    Service responsible for writing policy evaluation results back to the
+    original Excel workbook.
+
+    Result columns are placed immediately after the last non-empty header
+    column instead of using ``worksheet.max_column``. This avoids writing
+    Decision / Threat Score / Threat Severity far to the right when the
+    workbook contains formatting or previously-used empty columns.
+    """
+
+    @staticmethod
+    def _find_last_used_header_column(worksheet) -> int:
+        """
+        Find the last non-empty header column in row 1.
+
+        Returns:
+            int:
+                Column index of the last real header. Returns 0 when no header
+                is present.
+        """
+        last_used_column = 0
+
+        for cell in worksheet[1]:
+            value = cell.value
+            if value is not None and str(value).strip():
+                last_used_column = cell.column
+
+        return last_used_column
 
     @staticmethod
     def _upsert_headers(worksheet) -> dict[str, int]:
-        header_map = {}
+        """
+        Ensure result headers exist directly after the last existing header.
+
+        Existing result headers are reused. Missing result headers are added
+        immediately after the last non-empty header in row 1.
+
+        Example:
+            If the last existing header is in column BB, the new fields become:
+
+            BC -> Decision
+            BD -> Threat Score
+            BE -> Threat Severity
+
+        Args:
+            worksheet:
+                Active openpyxl worksheet.
+
+        Returns:
+            dict[str, int]:
+                Mapping of result header name to worksheet column number.
+        """
+        header_map: dict[str, int] = {}
+
         for cell in worksheet[1]:
             if cell.value in RESULT_HEADERS:
                 header_map[str(cell.value)] = cell.column
 
-        next_column = worksheet.max_column + 1
+        last_used_column = WorkbookService._find_last_used_header_column(
+            worksheet
+        )
+
+        next_column = last_used_column + 1
+
         for header in RESULT_HEADERS:
-            if header not in header_map:
-                worksheet.cell(row=1, column=next_column, value=header)
-                header_map[header] = next_column
-                next_column += 1
+            if header in header_map:
+                continue
+
+            worksheet.cell(
+                row=1,
+                column=next_column,
+                value=header,
+            )
+
+            header_map[header] = next_column
+            next_column += 1
+
         return header_map
 
     def write_result(
@@ -76,18 +141,57 @@ class WorkbookService:
         threat_score: float | int | None,
         threat_severity: str | None,
     ) -> None:
+        """
+        Write policy evaluation output to the matching Excel row.
+
+        Args:
+            file_path:
+                Source Excel workbook path.
+            row_number:
+                Original Excel row number received from the Kafka record.
+            decision:
+                Policy authorization decision.
+            threat_score:
+                Numeric threat score.
+            threat_severity:
+                Threat severity value.
+        """
         logger.info(
             "Writing result row=%s decision=%s score=%s severity=%s",
-            row_number, decision, threat_score, threat_severity,
+            row_number,
+            decision,
+            threat_score,
+            threat_severity,
         )
+
         workbook = load_workbook(file_path)
         worksheet = workbook.active
-        header_map = self._upsert_headers(worksheet)
-        worksheet.cell(row=row_number, column=header_map["Decision"], value=decision)
-        worksheet.cell(row=row_number, column=header_map["Threat Score"], value=threat_score)
-        worksheet.cell(row=row_number, column=header_map["Threat Severity"], value=threat_severity)
-        workbook.save(file_path)
-        workbook.close()
+
+        try:
+            header_map = self._upsert_headers(worksheet)
+
+            worksheet.cell(
+                row=row_number,
+                column=header_map["Decision"],
+                value=decision,
+            )
+
+            worksheet.cell(
+                row=row_number,
+                column=header_map["Threat Score"],
+                value=threat_score,
+            )
+
+            worksheet.cell(
+                row=row_number,
+                column=header_map["Threat Severity"],
+                value=threat_severity,
+            )
+
+            workbook.save(file_path)
+
+        finally:
+            workbook.close()
 
 
 # ============================================================
@@ -907,56 +1011,131 @@ Transaction:
         }
 
 
+
 # ============================================================
 # KAFKA CONSUMER HANDLER
 # ============================================================
 
-class KafkaConsumerHandler:
+class KafkaConsumerHandler(BaseHandler):
+    """
+    SuperAgentX Kafka consumer handler for banking policy evaluation.
 
-    def __init__(self):
-        self.consumer = Consumer(
-            {
-                "bootstrap.servers": BOOTSTRAP_SERVERS,
-                "group.id": CONSUMER_GROUP_ID,
-                "auto.offset.reset": "earliest",
-                "enable.auto.commit": False,
-                "max.poll.interval.ms": 900000,
-            }
-        )
-        self.consumer.subscribe([TOPIC_NAME])
+    The handler consumes transaction batches from Kafka, evaluates each
+    transaction using PolicyEvaluator, writes Decision / Threat Score /
+    Threat Severity back to the original Excel file, commits the Kafka
+    message after successful batch processing, and stops automatically after
+    all expected batches and records for the current upload are complete.
+
+    The consumer does not import any constants or code from the producer.
+    Row information is read directly from the incoming Kafka record using
+    ``ROW_NUMBER_FIELD`` defined in this consumer module.
+    """
+
+    def __init__(
+        self,
+        bootstrap_servers: Optional[str] = None,
+        topic_name: Optional[str] = None,
+        consumer_group_id: Optional[str] = None,
+        poll_timeout_seconds: float = POLL_TIMEOUT_SECONDS,
+        **kwargs,
+    ):
+        """
+        Initialize the Kafka policy consumer handler.
+
+        Args:
+            bootstrap_servers: Kafka bootstrap server address.
+            topic_name: Kafka topic containing policy evaluation batches.
+            consumer_group_id: Kafka consumer group ID.
+            poll_timeout_seconds: Timeout used for each Kafka poll.
+            **kwargs: Additional arguments passed to BaseHandler.
+        """
+        super().__init__(**kwargs)
+
+        self.bootstrap_servers = bootstrap_servers or BOOTSTRAP_SERVERS
+        self.topic_name = topic_name or TOPIC_NAME
+        self.consumer_group_id = consumer_group_id or CONSUMER_GROUP_ID
+        self.poll_timeout_seconds = poll_timeout_seconds
+
+        if not self.bootstrap_servers:
+            raise ValueError("Kafka bootstrap servers are required")
+        if not self.topic_name:
+            raise ValueError("Kafka topic name is required")
+        if not self.consumer_group_id:
+            raise ValueError("Kafka consumer group ID is required")
 
         self.evaluator = PolicyEvaluator()
         self.workbook = WorkbookService()
+        self.consumer: Optional[Consumer] = None
 
-        self.current_upload_id = None
-        self.source_file_path = None
-        self.total_batches = 0
-        self.total_records = 0
-        self.processed_batch_ids = set()
-        self.processed_records = 0
-        self.all_work_done = False
+        self._reset_upload_state()
 
-    # ========================================================
-    # PROCESS RECORD
-    # ========================================================
+    def _reset_upload_state(self) -> None:
+        """Reset all upload-level tracking state."""
+        self.current_upload_id: Optional[str] = None
+        self.source_file_path: Optional[str] = None
+        self.total_batches: int = 0
+        self.total_records: int = 0
+        self.processed_batch_ids: set[int] = set()
+        self.processed_records: int = 0
+        self.all_work_done: bool = False
+
+    def _create_consumer(self) -> Consumer:
+        """
+        Create and subscribe the Confluent Kafka consumer.
+
+        Automatic offset commit is disabled so a message is committed only
+        after the complete batch has been processed.
+        """
+        consumer = Consumer(
+            {
+                "bootstrap.servers": self.bootstrap_servers,
+                "group.id": self.consumer_group_id,
+                "auto.offset.reset": "earliest",
+                "enable.auto.commit": False,
+                "max.poll.interval.ms": 900000,
+                "session.timeout.ms": 45000,
+            }
+        )
+        consumer.subscribe([self.topic_name])
+        return consumer
 
     @staticmethod
     def _is_noise_column(key: Any) -> bool:
-        """Excludes previously-written result columns and pandas'
-        'Unnamed: N' ghost columns from being fed back in as facts —
-        without this, re-running the consumer on an already-processed
-        file leaks last run's Decision/Threat Score into this run's
-        evaluation input."""
+        """
+        Return True for generated/internal columns that should not be sent to
+        the policy evaluator.
+        """
         text = str(key).strip()
+
         if not text:
             return True
         if text in RESULT_HEADERS:
             return True
         if text.lower().startswith("unnamed"):
             return True
+
         return False
 
-    async def process_record(self, record: dict, *, upload_id: str, batch_id: int, file_path: str):
+    async def _process_record(
+        self,
+        record: dict,
+        *,
+        upload_id: str,
+        batch_id: int,
+        file_path: Optional[str],
+    ) -> dict:
+        """
+        Evaluate one transaction and write its result to the source Excel row.
+
+        Args:
+            record: Transaction dictionary received from Kafka.
+            upload_id: Upload identifier.
+            batch_id: Current batch identifier.
+            file_path: Source Excel file path.
+
+        Returns:
+            Dictionary containing the row number and evaluation result.
+        """
         row_number = record.get(ROW_NUMBER_FIELD)
 
         clean_record = {
@@ -966,46 +1145,88 @@ class KafkaConsumerHandler:
         }
 
         logger.info("--------------------------------------------")
-        logger.info("Evaluating upload=%s batch=%s row=%s", upload_id, batch_id, row_number)
+        logger.info(
+            "Evaluating upload=%s batch=%s row=%s",
+            upload_id,
+            batch_id,
+            row_number,
+        )
 
         try:
             result = await self.evaluator.evaluate(clean_record)
+
             logger.info(
                 "Evaluation result row=%s decision=%s score=%s severity=%s policy=%s",
-                row_number, result["decision"], result["threat_score"],
-                result["threat_severity"], result.get("policy_sid"),
+                row_number,
+                result.get("decision"),
+                result.get("threat_score"),
+                result.get("threat_severity"),
+                result.get("policy_sid"),
             )
+
         except Exception as exc:
             logger.exception("Evaluation failed row=%s", row_number)
+
             result = {
                 "decision": "ERROR",
                 "threat_score": None,
                 "threat_severity": None,
                 "threat_reasons": [str(exc)],
+                "policy_sid": None,
+                "matched_policy_sids": [],
             }
 
-        if file_path and row_number:
-            await asyncio.to_thread(
-                self.workbook.write_result,
-                file_path,
-                row_number,
-                decision=result["decision"],
-                threat_score=result["threat_score"],
-                threat_severity=result["threat_severity"],
-            )
+        if file_path and row_number is not None:
+            try:
+                await asyncio.to_thread(
+                    self.workbook.write_result,
+                    file_path,
+                    int(row_number),
+                    decision=result.get("decision"),
+                    threat_score=result.get("threat_score"),
+                    threat_severity=result.get("threat_severity"),
+                )
+            except Exception as exc:
+                logger.exception(
+                    "Excel update failed row=%s file=%s",
+                    row_number,
+                    file_path,
+                )
+                result["excel_error"] = str(exc)
 
         self.processed_records += 1
-        logger.info("Record complete %s/%s", self.processed_records, self.total_records)
 
-    # ========================================================
-    # PROCESS BATCH
-    # ========================================================
+        logger.info(
+            "Record complete %s/%s",
+            self.processed_records,
+            self.total_records,
+        )
 
-    async def process_batch(self, batch: dict):
-        upload_id = batch.get("upload_id")
-        batch_id = batch.get("batch_id")
+        return {
+            "row_number": row_number,
+            **result,
+        }
+
+    async def _process_batch(self, batch: dict) -> list[dict]:
+        """
+        Process every valid transaction record in one Kafka batch.
+
+        Args:
+            batch: Kafka batch payload.
+
+        Returns:
+            List of per-record evaluation results.
+
+        Raises:
+            ValueError: If the batch records field is not a list.
+        """
+        upload_id = str(batch.get("upload_id") or "")
+        batch_id = int(batch.get("batch_id") or 0)
         file_path = batch.get("source_file_path")
-        records = batch.get("records", [])
+        records = batch.get("records") or []
+
+        if not isinstance(records, list):
+            raise ValueError("Kafka batch 'records' must be a list")
 
         if file_path:
             self.source_file_path = file_path
@@ -1015,25 +1236,189 @@ class KafkaConsumerHandler:
         logger.info("Records in batch: %s", len(records))
         logger.info("============================================")
 
+        results: list[dict] = []
+
         for record in records:
-            await self.process_record(record, upload_id=upload_id, batch_id=batch_id, file_path=file_path)
+            if not isinstance(record, dict):
+                logger.warning(
+                    "Skipping invalid record in batch %s: %r",
+                    batch_id,
+                    record,
+                )
+                continue
 
-    # ========================================================
-    # RUN CONSUMER
-    # ========================================================
+            result = await self._process_record(
+                record,
+                upload_id=upload_id,
+                batch_id=batch_id,
+                file_path=file_path,
+            )
+            results.append(result)
 
-    def run(self) -> bool:
-        """Consumes until every batch/record for the current upload has
-        been processed and written back into the Excel file, then stops.
-        Returns True if it stopped because all work completed, False if it
-        stopped for another reason (Kafka error or manual interrupt)."""
+        return results
+
+    def _register_upload(self, batch: dict) -> None:
+        """
+        Register upload metadata from the first received batch.
+
+        Args:
+            batch: Kafka batch containing upload metadata.
+
+        Raises:
+            ValueError: If upload_id is missing.
+        """
+        upload_id = str(batch.get("upload_id") or "")
+
+        if not upload_id:
+            raise ValueError("Kafka message is missing upload_id")
+
+        self.current_upload_id = upload_id
+        self.total_batches = int(batch.get("total_batches") or 0)
+        self.total_records = int(batch.get("total_data_count") or 0)
+        self.source_file_path = batch.get("source_file_path")
+
+        logger.info("============================================")
+        logger.info("NEW UPLOAD")
+        logger.info("Upload ID: %s", self.current_upload_id)
+        logger.info("Total batches: %s", self.total_batches)
+        logger.info("Total records: %s", self.total_records)
+        logger.info("Excel file: %s", self.source_file_path)
+        logger.info("============================================")
+
+    def _is_upload_complete(self) -> bool:
+        """
+        Return True only when all expected batches and all expected records
+        have been processed.
+        """
+        batches_done = (
+            self.total_batches > 0
+            and len(self.processed_batch_ids) >= self.total_batches
+        )
+
+        records_done = (
+            self.total_records > 0
+            and self.processed_records >= self.total_records
+        )
+
+        return batches_done and records_done
+
+    async def _handle_message(self, message) -> dict:
+        """
+        Decode and process one Kafka message.
+
+        Returns:
+            Processing status for the current message.
+
+        Raises:
+            ValueError: For empty or structurally invalid messages.
+            UnicodeDecodeError: For invalid UTF-8 payloads.
+            json.JSONDecodeError: For invalid JSON payloads.
+        """
+        raw_value = message.value()
+
+        if raw_value is None:
+            raise ValueError("Kafka message value is empty")
+
+        if isinstance(raw_value, bytes):
+            raw_value = raw_value.decode("utf-8")
+
+        batch = json.loads(raw_value)
+
+        if not isinstance(batch, dict):
+            raise ValueError("Kafka message must contain JSON object")
+
+        upload_id = str(batch.get("upload_id") or "")
+        batch_id = int(batch.get("batch_id") or 0)
+
+        if self.current_upload_id is None:
+            self._register_upload(batch)
+
+        if upload_id != self.current_upload_id:
+            logger.warning(
+                "Different upload received=%s current=%s. Ignoring for this run.",
+                upload_id,
+                self.current_upload_id,
+            )
+            return {
+                "status": "ignored",
+                "reason": "different_upload",
+                "upload_id": upload_id,
+                "batch_id": batch_id,
+            }
+
+        if batch_id in self.processed_batch_ids:
+            logger.warning("Duplicate batch %s ignored", batch_id)
+            return {
+                "status": "duplicate",
+                "upload_id": upload_id,
+                "batch_id": batch_id,
+            }
+
+        logger.info("Received batch %s/%s", batch_id, self.total_batches)
+
+        results = await self._process_batch(batch)
+
+        self.processed_batch_ids.add(batch_id)
+
+        logger.info(
+            "Completed batches: %s/%s",
+            len(self.processed_batch_ids),
+            self.total_batches,
+        )
+
+        return {
+            "status": "processed",
+            "upload_id": upload_id,
+            "batch_id": batch_id,
+            "records_processed": len(results),
+            "results": results,
+        }
+
+    @tool
+    async def consume_policy_batches(self, **kwargs) -> dict:
+        """
+        Consume banking policy batches from Kafka and process one full upload.
+
+        The tool waits for Kafka messages, evaluates every transaction, writes
+        results back to the original Excel file, manually commits each
+        successfully processed Kafka message, and stops after all expected
+        batches and records for the current upload are complete.
+
+        Args:
+            **kwargs: Optional SuperAgentX workflow arguments, including
+                ``previous_agent_result``.
+
+        Returns:
+            Dictionary containing upload ID, file path, total/processed batch
+            counts, total/processed record counts, completion status, and any
+            consumer-level error.
+        """
+        previous_agent_result = kwargs.get("previous_agent_result")
+
+        if previous_agent_result is not None:
+            logger.info("Previous agent result received: %s", previous_agent_result)
+
+        self._reset_upload_state()
+        self.consumer = self._create_consumer()
+
         logger.info("Consumer started.")
-        logger.info("Kafka=%s Topic=%s Group=%s", BOOTSTRAP_SERVERS, TOPIC_NAME, CONSUMER_GROUP_ID)
+        logger.info(
+            "Kafka=%s Topic=%s Group=%s",
+            self.bootstrap_servers,
+            self.topic_name,
+            self.consumer_group_id,
+        )
         logger.info("Waiting for producer batches...")
+
+        error_message: Optional[str] = None
 
         try:
             while True:
-                message = self.consumer.poll(POLL_TIMEOUT_SECONDS)
+                message = await asyncio.to_thread(
+                    self.consumer.poll,
+                    self.poll_timeout_seconds,
+                )
+
                 if message is None:
                     continue
 
@@ -1042,100 +1427,95 @@ class KafkaConsumerHandler:
                     continue
 
                 try:
-                    batch = json.loads(message.value().decode("utf-8"))
-                    upload_id = batch.get("upload_id")
-                    batch_id = batch.get("batch_id")
-                    incoming_total_batches = batch.get("total_batches")
-                    incoming_total_records = batch.get("total_data_count")
+                    result = await self._handle_message(message)
 
-                    if self.current_upload_id is None:
-                        self.current_upload_id = upload_id
-                        self.total_batches = int(incoming_total_batches or 0)
-                        self.total_records = int(incoming_total_records or 0)
-
-                        logger.info("============================================")
-                        logger.info("NEW UPLOAD")
-                        logger.info("Upload ID: %s", self.current_upload_id)
-                        logger.info("Total batches: %s", self.total_batches)
-                        logger.info("Total records: %s", self.total_records)
-                        logger.info("============================================")
-
-                    if upload_id != self.current_upload_id:
-                        logger.warning(
-                            "Different upload received=%s current=%s. Skipping for this consumer run.",
-                            upload_id, self.current_upload_id,
-                        )
+                    # Different-upload messages are intentionally not committed
+                    # here so another consumer/run can process them.
+                    if result.get("status") == "ignored":
                         continue
 
-                    if batch_id in self.processed_batch_ids:
-                        logger.warning("Duplicate batch %s ignored", batch_id)
-                        self.consumer.commit(message=message, asynchronous=False)
-                        continue
-
-                    logger.info("Received batch %s/%s", batch_id, self.total_batches)
-                    asyncio.run(self.process_batch(batch))
-
-                    self.consumer.commit(message=message, asynchronous=False)
-                    self.processed_batch_ids.add(batch_id)
-
-                    logger.info(
-                        "Completed batches: %s/%s",
-                        len(self.processed_batch_ids), self.total_batches,
+                    await asyncio.to_thread(
+                        self.consumer.commit,
+                        message=message,
+                        asynchronous=False,
                     )
 
-                    # Only stop once every batch has arrived AND every record
-                    # in those batches has actually been evaluated and written
-                    # back into the Excel file — not just when the batch count
-                    # matches, which could be true before the last write lands.
-                    batches_done = (
-                        self.total_batches > 0
-                        and len(self.processed_batch_ids) >= self.total_batches
-                    )
-                    records_done = (
-                        self.total_records > 0
-                        and self.processed_records >= self.total_records
-                    )
-
-                    if batches_done and records_done:
+                    if self._is_upload_complete():
                         self.all_work_done = True
+
                         logger.info("============================================")
                         logger.info("ALL BATCHES COMPLETED — EXCEL FULLY UPDATED")
                         logger.info("Upload ID: %s", self.current_upload_id)
                         logger.info("Excel file: %s", self.source_file_path)
                         logger.info(
                             "Processed batches: %s/%s",
-                            len(self.processed_batch_ids), self.total_batches,
+                            len(self.processed_batch_ids),
+                            self.total_batches,
                         )
-                        logger.info("Processed records: %s/%s", self.processed_records, self.total_records)
-                        logger.info("Stopping handler automatically...")
+                        logger.info(
+                            "Processed records: %s/%s",
+                            self.processed_records,
+                            self.total_records,
+                        )
+                        logger.info("Stopping Kafka handler...")
                         logger.info("============================================")
                         break
 
-                except Exception:
+                except Exception as exc:
+                    # Failed batch is not committed.
                     logger.exception("Batch processing failed")
-                    # failed Kafka batch is NOT committed
+                    error_message = str(exc)
+
+        except asyncio.CancelledError:
+            logger.info("Kafka consumer task cancelled.")
+            raise
 
         except KeyboardInterrupt:
             logger.info("Consumer manually stopped.")
 
+        except Exception as exc:
+            logger.exception("Kafka consumer failed")
+            error_message = str(exc)
+
         finally:
-            self.consumer.close()
+            if self.consumer is not None:
+                try:
+                    await asyncio.to_thread(self.consumer.close)
+                except Exception:
+                    logger.exception("Error closing Kafka consumer")
+                finally:
+                    self.consumer = None
+
             logger.info("Consumer stopped.")
 
-        return self.all_work_done
+        return {
+            "status": "completed" if self.all_work_done else "failed",
+            "upload_id": self.current_upload_id,
+            "source_file_path": self.source_file_path,
+            "total_batches": self.total_batches,
+            "processed_batches": len(self.processed_batch_ids),
+            "total_records": self.total_records,
+            "processed_records": self.processed_records,
+            "excel_updated": self.all_work_done,
+            "error": error_message,
+        }
 
+    @tool
+    async def get_consumer_status(self) -> dict:
+        """
+        Return the current Kafka consumer processing state.
 
-# ============================================================
-# MAIN
-# ============================================================
-
-if __name__ == "__main__":
-    handler = KafkaConsumerHandler()
-    completed = handler.run()
-
-    if completed:
-        logger.info("All data processed and Excel file fully updated. Exiting.")
-        sys.exit(0)
-    else:
-        logger.warning("Handler stopped before all work completed.")
-        sys.exit(1)
+        Returns:
+            Dictionary containing upload, batch, record, completion, and
+            running-state information.
+        """
+        return {
+            "upload_id": self.current_upload_id,
+            "source_file_path": self.source_file_path,
+            "total_batches": self.total_batches,
+            "processed_batches": len(self.processed_batch_ids),
+            "total_records": self.total_records,
+            "processed_records": self.processed_records,
+            "completed": self.all_work_done,
+            "running": self.consumer is not None,
+        }
