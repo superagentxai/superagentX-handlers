@@ -14,6 +14,7 @@ from confluent_kafka import Consumer
 from openpyxl import load_workbook
 from superagentx.handler.base import BaseHandler
 from superagentx.handler.decorators import tool
+from superagentx.llm import LLMClient
 
 from superagentx.llm.litellm import LiteLLMClient
 from superagentx.llm.models import ChatCompletionParams
@@ -30,15 +31,6 @@ from superagentx_policy_engine.store.file_store import FilePolicyStore
 BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC_NAME = os.environ.get("KAFKA_TOPIC_NAME", "policy-input")
 CONSUMER_GROUP_ID = os.environ.get("KAFKA_CONSUMER_GROUP_ID", "policy-evaluation-consumer")
-
-POLICY_FILE = os.environ.get(
-    "POLICY_FILE",
-    "/home/bala/Downloads/Banking-policy-evalution/"
-    "Kafka-policy-evalution/policy.json",
-)
-
-LLM_MODEL = os.environ.get("LLM_MODEL", "gemini/gemini-2.5-flash")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 ROW_NUMBER_FIELD = "__source_row_number"
 RESULT_HEADERS = ("Decision", "Threat Score", "Threat Severity")
@@ -268,12 +260,8 @@ class PolicyEvaluator:
         "app": "Application",
     }
 
-    def __init__(self):
-        self.policy_file = POLICY_FILE
-        self.model = LLM_MODEL
-
-        if GEMINI_API_KEY:
-            os.environ.setdefault("GEMINI_API_KEY", GEMINI_API_KEY)
+    def __init__(self, llm: LLMClient, policy_path: str):
+        self.policy_file = policy_path
 
         # Load policy ONCE
         policy_path = self._resolve_policy_path()
@@ -287,7 +275,7 @@ class PolicyEvaluator:
         self.policy_index = self._build_policy_index(self.all_statements)
 
         # LLM created ONCE
-        self.llm = LiteLLMClient(model=self.model)
+        self.llm = llm
 
     # ========================================================
     # PATH
@@ -955,7 +943,6 @@ Transaction:
 
         llm_response = await self.llm.achat_completion(
             chat_completion_params=ChatCompletionParams(
-                model=self.model,
                 temperature=0,
                 messages=[
                     {
@@ -1033,6 +1020,8 @@ class KafkaConsumerHandler(BaseHandler):
 
     def __init__(
         self,
+        llm: LLMClient,
+        policy_path: str,
         bootstrap_servers: Optional[str] = None,
         topic_name: Optional[str] = None,
         consumer_group_id: Optional[str] = None,
@@ -1063,7 +1052,7 @@ class KafkaConsumerHandler(BaseHandler):
         if not self.consumer_group_id:
             raise ValueError("Kafka consumer group ID is required")
 
-        self.evaluator = PolicyEvaluator()
+        self.evaluator = PolicyEvaluator(llm=llm, policy_path=policy_path)
         self.workbook = WorkbookService()
         self.consumer: Optional[Consumer] = None
 
