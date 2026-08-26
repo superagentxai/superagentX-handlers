@@ -1399,15 +1399,3 @@ class GitHubHandler(BaseHandler):
             logger.error(f"Unexpected error fetching packages: {e}")
         return all_packages_data
 
-if __name__ == "__main__":
-
-    async def main():
-        handler = GitHubHandler()
-
-        result = await handler.user_details(
-            username=""
-        )
-
-        print(result)
-
-    asyncio.run(main())

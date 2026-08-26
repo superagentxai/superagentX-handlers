@@ -13,57 +13,24 @@ logger = logging.getLogger(__name__)
 
 class BitbucketHandler(BaseHandler):
     """
-    Asynchronous handler for interacting with the Bitbucket Cloud REST API.
+    BitbucketHandler — Async Bitbucket Repository Handler
 
-    This handler provides tools for accessing Bitbucket account information,
-    user email addresses, workspaces, projects, repositories, and pull requests.
-    It also exposes issue-related methods that return an unsupported response
-    because the Bitbucket Cloud Issue Tracker API is deprecated.
+    Provides access to Bitbucket users, workspaces, projects,
+    repositories, pull requests, and issues.
 
     Authentication:
-        OAuth 2.0 Bearer Access Token.
+        OAuth 2.0 Bearer Access Token
 
-    Args:
-        api_base_url (str | None):
-            Base URL for the Bitbucket REST API. If not provided, the value is
-            read from the ``BITBUCKET_API_BASE_URL`` environment variable.
-            Defaults to ``https://api.bitbucket.org/2.0``.
-        access_token (str | None):
-            OAuth 2.0 Bearer access token. If not provided, the value is read
-            from the ``access_token`` environment variable.
-        **kwargs:
-            Additional keyword arguments passed to ``BaseHandler``.
-
-    Raises:
-        ValueError:
-            If an access token is not provided through either the constructor
-            or the environment variable.
-
-    API Reference:
+    API:
         https://api.bitbucket.org/2.0
     """
 
     def __init__(
         self,
         api_base_url: str | None = None,
-        access_token: str | None = None,
+        bitbucket_token: str | None = None,
         **kwargs
     ):
-        """
-        Initialize the Bitbucket handler and configure authentication.
-
-        Args:
-            api_base_url (str | None):
-                Base URL for the Bitbucket REST API.
-            access_token (str | None):
-                OAuth 2.0 Bearer access token used for API authentication.
-            **kwargs:
-                Additional keyword arguments forwarded to ``BaseHandler``.
-
-        Raises:
-            ValueError:
-                If no access token is provided.
-        """
         super().__init__(**kwargs)
 
         self.api_base_url = (
@@ -72,21 +39,21 @@ class BitbucketHandler(BaseHandler):
             or "https://api.bitbucket.org/2.0"
         ).rstrip("/")
 
-        self.access_token = (
-            access_token
-            or os.getenv("access_token")
+        self.bitbucket_token = (
+            bitbucket_token
+            or os.getenv("BITBUCKET_TOKEN")
         )
 
-        if not self.access_token:
+        if not self.bitbucket_token:
             raise ValueError(
-                "access_token is required. "
-                "Pass access_token or set access_token."
+                "BITBUCKET_TOKEN is required. "
+                "Pass bitbucket_token or set BITBUCKET_TOKEN."
             )
 
-        self.access_token = self.access_token.strip()
+        self.bitbucket_token = self.bitbucket_token.strip()
 
         self._common_headers = {
-            "Authorization": f"Bearer {self.access_token}",
+            "Authorization": f"Bearer {self.bitbucket_token}",
             "Accept": "application/json",
         }
 
@@ -99,25 +66,6 @@ class BitbucketHandler(BaseHandler):
         url: str,
         params: Optional[dict] = None
     ) -> list[dict]:
-        """
-        Fetch and aggregate results from all pages of a Bitbucket API endpoint.
-
-        Bitbucket API responses may include a ``next`` URL when additional
-        pages are available. This method follows the pagination links until
-        all available results have been retrieved or an error occurs.
-
-        Args:
-            url (str):
-                The initial Bitbucket API endpoint URL.
-            params (Optional[dict]):
-                Optional query parameters to include in the initial request.
-
-        Returns:
-            list[dict]:
-                A combined list containing items retrieved from all available
-                pages. Returns the data collected before an error occurs if
-                pagination is interrupted.
-        """
 
         all_data = []
         current_url = url
@@ -190,12 +138,7 @@ class BitbucketHandler(BaseHandler):
     @tool
     async def user_details(self) -> dict:
         """
-        Retrieve details of the currently authenticated Bitbucket user.
-
-        Returns:
-            dict:
-                The Bitbucket user profile returned by the API. Returns an
-                empty dictionary if the request fails.
+        Get details of the authenticated Bitbucket user.
         """
 
         url = f"{self.api_base_url}/user"
@@ -244,15 +187,7 @@ class BitbucketHandler(BaseHandler):
     @tool
     async def get_user_email(self) -> dict:
         """
-        Retrieve all email addresses associated with the authenticated user.
-
-        The returned result includes each email address along with its primary
-        and confirmation status.
-
-        Returns:
-            dict:
-                A dictionary containing the total number of email addresses
-                and a list of normalized email details.
+        Get email addresses of the authenticated Bitbucket user.
         """
 
         url = f"{self.api_base_url}/user/emails"
@@ -279,12 +214,7 @@ class BitbucketHandler(BaseHandler):
     @tool
     async def get_workspaces(self) -> dict:
         """
-        Retrieve all Bitbucket workspaces accessible to the authenticated user.
-
-        Returns:
-            dict:
-                A dictionary containing the total number of accessible
-                workspaces and their normalized metadata.
+        Get all Bitbucket workspaces accessible to the user.
         """
 
         url = f"{self.api_base_url}/user/workspaces"
@@ -317,20 +247,7 @@ class BitbucketHandler(BaseHandler):
         workspace: str
     ) -> dict:
         """
-        Retrieve all projects within the specified Bitbucket workspace.
-
-        Args:
-            workspace (str):
-                The workspace slug or identifier.
-
-        Returns:
-            dict:
-                A dictionary containing the workspace identifier, total project
-                count, and a list of normalized project details.
-
-        Raises:
-            ValueError:
-                If ``workspace`` is not provided.
+        Get projects from a Bitbucket workspace.
         """
 
         if not workspace:
@@ -371,26 +288,9 @@ class BitbucketHandler(BaseHandler):
         project_key: Optional[str] = None
     ) -> dict:
         """
-        Retrieve repositories from a Bitbucket workspace.
+        Get repositories from a Bitbucket workspace.
 
-        When ``project_key`` is provided, repositories associated with the
-        specified project are requested. Otherwise, repositories available in
-        the workspace are retrieved.
-
-        Args:
-            workspace (str):
-                The workspace slug or identifier.
-            project_key (Optional[str]):
-                Optional Bitbucket project key used to filter repositories.
-
-        Returns:
-            dict:
-                A dictionary containing the workspace, project key, repository
-                count, and normalized repository metadata.
-
-        Raises:
-            ValueError:
-                If ``workspace`` is not provided.
+        project_key is optional.
         """
 
         if not workspace:
@@ -456,22 +356,7 @@ class BitbucketHandler(BaseHandler):
         repository_name: str
     ) -> dict:
         """
-        Retrieve detailed information for a specific Bitbucket repository.
-
-        Args:
-            workspace (str):
-                The workspace containing the repository.
-            repository_name (str):
-                The repository name or slug.
-
-        Returns:
-            dict:
-                Repository details returned directly by the Bitbucket API.
-                Returns an empty dictionary if the request fails.
-
-        Raises:
-            ValueError:
-                If ``workspace`` or ``repository_name`` is not provided.
+        Get details of a single Bitbucket repository.
         """
 
         if not workspace:
@@ -536,27 +421,13 @@ class BitbucketHandler(BaseHandler):
         state: Optional[str] = None
     ) -> dict:
         """
-        Retrieve pull requests from a Bitbucket repository.
+        Get pull requests from a Bitbucket repository.
 
-        Args:
-            workspace (str):
-                The workspace containing the repository.
-            repository_name (str):
-                The repository name or slug.
-            state (Optional[str]):
-                Optional pull request state used to filter results. Supported
-                values include ``OPEN``, ``MERGED``, ``DECLINED``, and
-                ``SUPERSEDED``.
-
-        Returns:
-            dict:
-                A dictionary containing repository information, the requested
-                state filter, total pull request count, and normalized pull
-                request details.
-
-        Raises:
-            ValueError:
-                If ``workspace`` or ``repository_name`` is not provided.
+        state:
+            OPEN
+            MERGED
+            DECLINED
+            SUPERSEDED
         """
 
         if not workspace:
@@ -633,31 +504,7 @@ class BitbucketHandler(BaseHandler):
         description: Optional[str] = None
     ) -> dict:
         """
-        Create a new pull request in a Bitbucket repository.
-
-        Args:
-            workspace (str):
-                The workspace containing the repository.
-            repository_name (str):
-                The repository name or slug.
-            title (str):
-                Title of the pull request.
-            source_branch (str):
-                Name of the branch containing the proposed changes.
-            destination_branch (str):
-                Name of the branch into which the changes will be merged.
-            description (Optional[str]):
-                Optional description for the pull request.
-
-        Returns:
-            dict:
-                A dictionary containing the creation status and the Bitbucket
-                pull request response. If the request fails, an error response
-                containing status information is returned.
-
-        Raises:
-            ValueError:
-                If any required parameter is not provided.
+        Create a Bitbucket pull request.
         """
 
         if not workspace:
@@ -759,26 +606,10 @@ class BitbucketHandler(BaseHandler):
             state: Optional[str] = None
     ) -> dict:
         """
-        Return an unsupported response for Bitbucket Cloud issue retrieval.
+        Get issues from a Bitbucket repository.
 
-        Bitbucket Cloud's Issue Tracker API is deprecated and is no longer
-        available for repositories using the current API.
-
-        Args:
-            workspace (str):
-                The workspace containing the repository.
-            repository_name (str):
-                The repository name or slug.
-            state (Optional[str]):
-                Optional issue state filter retained for interface consistency.
-
-        Returns:
-            dict:
-                A dictionary indicating that issue retrieval is unsupported.
-
-        Raises:
-            ValueError:
-                If ``workspace`` or ``repository_name`` is not provided.
+        Note:
+            Bitbucket Cloud Issue Tracker API is deprecated.
         """
 
         if not workspace:
@@ -812,29 +643,10 @@ class BitbucketHandler(BaseHandler):
             content: Optional[str] = None
     ) -> dict:
         """
-        Return an unsupported response for Bitbucket Cloud issue creation.
+        Create a Bitbucket issue.
 
-        Bitbucket Cloud's Issue Tracker API is deprecated, so new issues can
-        no longer be created through this handler.
-
-        Args:
-            workspace (str):
-                The workspace containing the repository.
-            repository_name (str):
-                The repository name or slug.
-            title (str):
-                Title of the issue to create.
-            content (Optional[str]):
-                Optional issue content or description.
-
-        Returns:
-            dict:
-                A dictionary indicating that issue creation is unsupported.
-
-        Raises:
-            ValueError:
-                If ``workspace``, ``repository_name``, or ``title`` is not
-                provided.
+        Note:
+            Bitbucket Cloud Issue Tracker API is deprecated.
         """
 
         if not workspace:
@@ -873,33 +685,10 @@ class BitbucketHandler(BaseHandler):
             state: Optional[str] = None
     ) -> dict:
         """
-        Return an unsupported response for Bitbucket Cloud issue updates.
+        Update a Bitbucket issue.
 
-        Bitbucket Cloud's Issue Tracker API is deprecated, so existing issues
-        can no longer be updated through this handler.
-
-        Args:
-            workspace (str):
-                The workspace containing the repository.
-            repository_name (str):
-                The repository name or slug.
-            issue_id (int):
-                Identifier of the issue to update.
-            title (Optional[str]):
-                Optional updated issue title.
-            content (Optional[str]):
-                Optional updated issue content or description.
-            state (Optional[str]):
-                Optional updated issue state.
-
-        Returns:
-            dict:
-                A dictionary indicating that issue updates are unsupported.
-
-        Raises:
-            ValueError:
-                If ``workspace``, ``repository_name``, or ``issue_id`` is not
-                provided, or if no update field is specified.
+        Note:
+            Bitbucket Cloud Issue Tracker API is deprecated.
         """
 
         if not workspace:
@@ -930,3 +719,25 @@ class BitbucketHandler(BaseHandler):
                 "and issue updates are no longer available."
             )
         }
+
+# ================================================================
+# LOCAL TEST
+# ================================================================
+
+if __name__ == "__main__":
+
+    async def main():
+
+        handler = BitbucketHandler()
+
+        result = await handler.update_issue(
+            workspace="srigajalakshmi",
+            repository_name="test_bit",
+            issue_id=1,
+            title="Updated test issue"
+        )
+
+        print("\n========== UPDATE ISSUE ==========")
+        print(result)
+
+    asyncio.run(main())
