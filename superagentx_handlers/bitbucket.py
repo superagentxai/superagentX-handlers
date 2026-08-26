@@ -28,7 +28,7 @@ class BitbucketHandler(BaseHandler):
     def __init__(
         self,
         api_base_url: str | None = None,
-        bitbucket_token: str | None = None,
+        access_token: str | None = None,
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -39,21 +39,21 @@ class BitbucketHandler(BaseHandler):
             or "https://api.bitbucket.org/2.0"
         ).rstrip("/")
 
-        self.bitbucket_token = (
-            bitbucket_token
-            or os.getenv("BITBUCKET_TOKEN")
+        self.access_token = (
+            access_token
+            or os.getenv("access_token")
         )
 
-        if not self.bitbucket_token:
+        if not self.access_token:
             raise ValueError(
                 "BITBUCKET_TOKEN is required. "
-                "Pass bitbucket_token or set BITBUCKET_TOKEN."
+                "Pass access_token or set access_token."
             )
 
-        self.bitbucket_token = self.bitbucket_token.strip()
+        self.access_token = self.access_token.strip()
 
         self._common_headers = {
-            "Authorization": f"Bearer {self.bitbucket_token}",
+            "Authorization": f"Bearer {self.access_token}",
             "Accept": "application/json",
         }
 
