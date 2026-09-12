@@ -57,14 +57,14 @@ class GitHubHandler(BaseHandler):
     def __init__(
             self,
             api_base_url: str | None = None,
-            github_token: str | None = None,
+            access_token: str | None = None,
             **kwargs
     ):
         super().__init__(**kwargs)
         self.api_base_url = api_base_url or os.getenv('GITHUB_API_BASE_URL') or "https://api.github.com"
-        self.github_token = github_token or os.getenv('GITHUB_TOKEN')
+        self.access_token = access_token or os.getenv('access_token')
         self._common_headers = {
-            "Authorization": f"token {self.github_token}",
+            "Authorization": f"token {self.access_token}",
             "Accept": "application/vnd.github.v3+json",
         }
 
@@ -96,10 +96,10 @@ class GitHubHandler(BaseHandler):
             raise ValueError("repo_url, branch_name, and local_path are required")
 
         #  Inject token for private repos
-        if self.github_token and repo_url.startswith("https://"):
+        if self.access_token and repo_url.startswith("https://"):
             safe_repo_url = repo_url.replace(
                 "https://",
-                f"https://{self.github_token}@",
+                f"https://{self.access_token}@",
                 1
             )
         else:
@@ -1398,3 +1398,4 @@ class GitHubHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Unexpected error fetching packages: {e}")
         return all_packages_data
+
