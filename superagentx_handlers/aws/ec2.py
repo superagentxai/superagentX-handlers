@@ -70,9 +70,10 @@ class AWSEC2Handler(BaseHandler):
             self,
             aws_access_key_id: str | None = None,
             aws_secret_access_key: str | None = None,
-            region_name: str | None = None
+            region_name: str | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.region = region_name or os.getenv("AWS_REGION")
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")

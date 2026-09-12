@@ -38,7 +38,7 @@ class AWSIAMHandler(BaseHandler):
             aws_secret_access_key (str): The AWS secret access key.
             region_name (str): The AWS region to connect to.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.region = region_name or os.getenv("AWS_REGION")
         aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")

@@ -12,9 +12,10 @@ class DDIncidentsHandler(BaseHandler):
             self,
             host: str | None = None,
             api_key: str | None = None,
-            app_key: str | None = None
+            app_key: str | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         host = host or os.getenv('DD_SITE')
         api_key = api_key or os.getenv('DD_API_KEY')
         app_key = app_key or os.getenv('DD_APP_KEY')

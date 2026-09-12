@@ -19,9 +19,10 @@ class TwitterHandler(BaseHandler):
             api_key: str | None = None,
             api_secret_key: str | None = None,
             access_token: str | None = None,
-            access_token_secret: str | None = None
+            access_token_secret: str | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         # Define client as an instance attribute
         self.client = AsyncClient(
             consumer_key=api_key or os.getenv("CONSUMER_KEY"),

@@ -27,12 +27,13 @@ class YouTubeHandler(BaseHandler):
 
     def __init__(
             self,
-            access_token: str
+            access_token: str,
+            **kwargs
     ):
         if not access_token:
             raise ValueError("access_token is required")
 
-        super().__init__()
+        super().__init__(**kwargs)
 
         credentials = Credentials(
             token=access_token,

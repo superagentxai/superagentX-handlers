@@ -23,9 +23,10 @@ class SnykHandler(BaseHandler):
             api_token: str | None = None,
             base_url: str = "https://api.snyk.io/rest",
             version: str = "2024-10-15",
-            timeout: int = 30
+            timeout: int = 30,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.api_token = api_token or os.getenv("SNYK_API_TOKEN")
         self.base_url = base_url
         self.version = version

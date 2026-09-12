@@ -14,8 +14,9 @@ class AmazonWebHandler(BaseHandler):
 
     def __init__(
             self,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.deals_list = []
 
     @staticmethod

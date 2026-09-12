@@ -54,9 +54,10 @@ class BestbuyHandler(BaseHandler):
     def __init__(
             self,
             *,
-            api_key: str
+            api_key: str,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.api_key = api_key
 
     @tool

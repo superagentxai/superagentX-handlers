@@ -20,3 +20,5 @@ from .wikipedia import WikipediaHandler
 from .zohohirs import ZohoHIRSHandler
 from .github import GitHubHandler
 from .salesforce import SalesforceERPHandler
+from .microsoft import *
+from .linkedin import LinkedInHandler

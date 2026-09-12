@@ -44,7 +44,8 @@ class SQLHandler(BaseHandler):
             port: int | None = None,
             username: str | None = None,
             password: str | None = None,
-            llm: Optional[dict] = None  # ✅ NEW: LLM client optional
+            llm: Optional[LLMClient] = None,  # ✅ NEW: LLM client optional
+            **kwargs
     ):
         """
         Initialize SQLHandler.
@@ -57,7 +58,7 @@ class SQLHandler(BaseHandler):
             username: DB user (sqlite typically doesn't use this)
             password: DB password
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.database_type = database_type.lower()
         self.host = host or "localhost"
         self.port = port
@@ -126,7 +127,10 @@ class SQLHandler(BaseHandler):
         """
         async with self._engine.connect() as conn:
             res = await conn.execute(text(query))
-            return res.all()
+            return [
+                dict(row._mapping)
+                for row in res.fetchall()
+            ]
 
     @tool
     async def insert(
@@ -590,12 +594,10 @@ class SQLHandler(BaseHandler):
     async def _execute_sql(self, query: str):
         try:
             rows = await self.select(query=query)
-            data = [dict(r._mapping) for r in rows]
-
             return {
                 "status": "success",
-                "rows": len(data),
-                "data": data
+                "rows": len(rows),
+                "data": rows
             }
         except Exception as e:
             return {
@@ -625,9 +627,7 @@ class SQLHandler(BaseHandler):
         params = ChatCompletionParams(
             messages=[{"role": "user", "content": prompt}]
         )
-        llm_client: LLMClient = LLMClient(llm_config=self.llm)
-
-        res = await llm_client.achat_completion(chat_completion_params=params)
+        res = await self.llm.achat_completion(chat_completion_params=params)
 
         try:
             content = res.choices[0].message.content
@@ -664,8 +664,7 @@ class SQLHandler(BaseHandler):
             messages=[{"role": "user", "content": prompt}]
         )
 
-        llm_client: LLMClient = LLMClient(llm_config=self.llm)
-        res = await llm_client.achat_completion(chat_completion_params=params)
+        res = await self.llm.achat_completion(chat_completion_params=params)
 
         try:
             content = res.choices[0].message.content

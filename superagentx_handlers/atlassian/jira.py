@@ -45,8 +45,9 @@ class JiraHandler(BaseHandler):
             email: str | None = None,
             token: str | None = None,
             organization: str | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.email = email or os.getenv('ATLASSIAN_EMAIL')
         self.token = token or os.getenv('ATLASSIAN_TOKEN')
         self.organization = organization or os.getenv('ATLASSIAN_ORGANIZATION')

@@ -15,9 +15,10 @@ class FlipkartHandler(BaseHandler):
     def __init__(
             self,
             api_key: str | None = None,
-            top_items: int | None = None
+            top_items: int | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.api_key = api_key or os.getenv('RAPID_API_KEY')
         self.top_items = top_items
         if not self.top_items:

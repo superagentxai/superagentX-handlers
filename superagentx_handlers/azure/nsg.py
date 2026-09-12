@@ -29,9 +29,9 @@ class AzureNSGHandler(BaseHandler):
             tenant_id: str | None = None,
             client_id: str | None = None,
             client_secret: str | None = None,
-            **kwargs: Any
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.subscription_id = subscription_id or os.getenv("AZURE_SUBSCRIPTION_ID")
         self.tenant_id = tenant_id or os.getenv("AZURE_TENANT_ID")
         self.client_id = client_id or os.getenv("AZURE_CLIENT_ID")

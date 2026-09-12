@@ -22,9 +22,10 @@ class GitlabHandler(BaseHandler):
     def __init__(
             self,
             private_token: str | None = None,
-            url: str | None = None
+            url: str | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         if not url:
             url = "https://gitlab.com"
         self.token = private_token or os.getenv("GITLAB_PRIVATE_TOKEN")

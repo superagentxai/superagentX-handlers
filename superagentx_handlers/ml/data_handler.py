@@ -14,9 +14,10 @@ class FraudDataHandler(BaseHandler):
             self,
             *,
             folder_path: str,
-            sample_size: int = 1000
+            sample_size: int = 1000,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.folder_path = folder_path
         self.sample_size = sample_size
 

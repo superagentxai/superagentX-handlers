@@ -18,12 +18,15 @@ class ScrapeHandler(BaseHandler):
         - Processing and storing the scraped content.
     """
 
-    def __init__(self):
+    def __init__(
+            self,
+            **kwargs
+    ):
         """
         Initializes a new instance of the ScrapeHandler class.
 
         """
-        super().__init__()
+        super().__init__(**kwargs)
 
     @tool
     async def scrap_content(

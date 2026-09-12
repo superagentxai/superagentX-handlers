@@ -88,8 +88,9 @@ class GCPStorageHandler(BaseHandler):
     def __init__(
             self,
             service_account_info : dict | str | None = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         if service_account_info:
             if isinstance(service_account_info, str):
                 service_account_info = json.loads(service_account_info)

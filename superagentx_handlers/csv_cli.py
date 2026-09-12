@@ -17,8 +17,9 @@ class CsvHandler(BaseHandler):
             *,
             file_path: str,
             llm_client: LLMClient,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.file_path = file_path
         self.llm_client = llm_client
 

@@ -56,7 +56,11 @@ class GoogleSheetsHandler(BaseHandler):
         ValueError: If required parameters are missing or invalid.
     """
 
-    def __init__(self, access_token: str):
+    def __init__(
+            self,
+            access_token: str,
+            **kwargs
+    ):
         """
         Initializes the GoogleSheetsHandler with an OAuth2 access token.
 
@@ -67,7 +71,7 @@ class GoogleSheetsHandler(BaseHandler):
             Raises:
                 ValueError: If access_token is missing or empty.
         """
-        super().__init__()
+        super().__init__(**kwargs)
 
         if not access_token:
             raise ValueError("access_token is required")

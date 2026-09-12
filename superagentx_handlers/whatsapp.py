@@ -26,6 +26,7 @@ class WhatsappHandler(BaseHandler):
             phone_number_id: str,
             access_token: str,
             whatsapp_api_url: Optional[str] = None,
+            **kwargs
     ):
         """
             Initialize the WhatsappHandler with API configuration and credentials.
@@ -42,7 +43,7 @@ class WhatsappHandler(BaseHandler):
 
         """
 
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.whatsapp_api = whatsapp_api_url or os.getenv("WHATSAPP_API_URL") or "https://graph.facebook.com/v22.0"
         self.phone_number_id = phone_number_id or os.getenv("WHATSAPP_PHONE_NUMBER_ID")

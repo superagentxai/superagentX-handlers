@@ -15,7 +15,8 @@ class SalesforceERPHandler(BaseHandler):
     def __init__(
         self,
         instance_url: str | None = None,
-        access_token: str | None = None
+        access_token: str | None = None,
+        **kwargs
     ):
         """
         Initialize Salesforce handler with instance URL and access token.
@@ -24,7 +25,7 @@ class SalesforceERPHandler(BaseHandler):
             instance_url (str): Salesforce instance URL.
             access_token (str): OAuth access token.
         """
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.instance_url = instance_url or os.getenv("SF_INSTANCE_URL")
         self.access_token = access_token or os.getenv("SF_ACCESS_TOKEN")
