@@ -1,6 +1,8 @@
+import json
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
+
 import httpx
 
 from superagentx.handler.base import BaseHandler
@@ -167,30 +169,38 @@ class TeamsHandler(BaseHandler):
     @tool
     async def send_channel_message(
             self,
-            message: str,
+            message: Any,
             **kwargs
     ):
         """
         Sends a message to the configured Microsoft Teams channel.
 
         Args:
-            message (str): Message content to send.
+            message (Any):
+                Message content. Can be a string, dictionary, list,
+                or any other JSON-serializable Python value.
 
         Returns:
             dict: Result containing:
             - success (bool)
             - message_id (str) when successful
             - error (str) when failed
-
         """
 
         try:
 
-            previous_agent_result = kwargs.get("previous_agent_result")
+            previous_agent_result = kwargs.get(
+                "previous_agent_result"
+            )
 
-            if previous_agent_result:
-                message = str(
-                    previous_agent_result
+            if previous_agent_result is not None:
+                message = previous_agent_result
+
+            if not isinstance(message, str):
+                message = json.dumps(
+                    message,
+                    ensure_ascii=False,
+                    indent=2
                 )
 
             payload = {
@@ -210,11 +220,12 @@ class TeamsHandler(BaseHandler):
 
             if response.status_code == 201:
                 result = response.json()
+
                 return {
                     "success": True,
-                    "message_id":
-                        result.get("id")
+                    "message_id": result.get("id")
                 }
+
             return {
                 "success": False,
                 "status_code": response.status_code,
