@@ -1,6 +1,8 @@
+import json
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
+
 import httpx
 
 from superagentx.handler.base import BaseHandler
@@ -16,9 +18,9 @@ class TeamsHandler(BaseHandler):
 
     def __init__(
             self,
-            access_token:Optional[str] = None,
-            team_id:Optional[str] = None,
-            channel_id:Optional[str] = None,
+            access_token: Optional[str] = None,
+            team_id: Optional[str] = None,
+            channel_id: Optional[str] = None,
             **kwargs
     ):
         """
@@ -167,30 +169,38 @@ class TeamsHandler(BaseHandler):
     @tool
     async def send_channel_message(
             self,
-            message: str,
+            message: Any,
             **kwargs
     ):
         """
         Sends a message to the configured Microsoft Teams channel.
 
         Args:
-            message (str): Message content to send.
+            message (Any):
+                Message content. Can be a string, dictionary, list,
+                or any other JSON-serializable Python value.
 
         Returns:
             dict: Result containing:
             - success (bool)
             - message_id (str) when successful
             - error (str) when failed
-
         """
 
         try:
 
-            previous_agent_result = kwargs.get("previous_agent_result")
+            previous_agent_result = kwargs.get(
+                "previous_agent_result"
+            )
 
-            if previous_agent_result:
-                message = str(
-                    previous_agent_result
+            if previous_agent_result is not None:
+                message = previous_agent_result
+
+            if not isinstance(message, str):
+                message = json.dumps(
+                    message,
+                    ensure_ascii=False,
+                    indent=2
                 )
 
             payload = {
@@ -210,11 +220,12 @@ class TeamsHandler(BaseHandler):
 
             if response.status_code == 201:
                 result = response.json()
+
                 return {
                     "success": True,
-                    "message_id":
-                        result.get("id")
+                    "message_id": result.get("id")
                 }
+
             return {
                 "success": False,
                 "status_code": response.status_code,
@@ -226,6 +237,85 @@ class TeamsHandler(BaseHandler):
             logger.error(
                 f"Failed to send Teams message: "
                 f"{str(e)}"
+            )
+
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    @tool
+    async def send_chat_message(
+            self,
+            chat_id: str,
+            message: Any,
+            **kwargs
+    ):
+        """
+            Sends a message to a Microsoft Teams chat using
+            the specified chat ID.
+
+            Args:
+                chat_id (str):
+                    Microsoft Teams chat ID.
+
+                message (Any):
+                    Message content. Can be a string, dictionary,
+                    list, or any other JSON-serializable Python value.
+
+            Returns:
+                dict: Result containing:
+                - success (bool)
+                - message_id (str) when successful
+                - chat_id (str) when successful
+                - status_code (int) when failed
+                - error (str) when failed
+            """
+
+        try:
+            previous_agent_result = kwargs.get(
+                "previous_agent_result"
+            )
+
+            if previous_agent_result is not None:
+                message = previous_agent_result
+
+            if not isinstance(message, str):
+                message = json.dumps(
+                    message,
+                    ensure_ascii=False,
+                    indent=2
+                )
+
+            payload = {
+                "body": {
+                    "content": message
+                }
+            }
+
+            response = await self._post(
+                f"/chats/{chat_id}/messages",
+                payload
+            )
+
+            if response.status_code == 201:
+                result = response.json()
+
+                return {
+                    "success": True,
+                    "message_id": result.get("id"),
+                    "chat_id": chat_id
+                }
+
+            return {
+                "success": False,
+                "status_code": response.status_code,
+                "error": response.text
+            }
+
+        except Exception as e:
+            logger.error(
+                f"Failed to send Teams chat message: {str(e)}"
             )
 
             return {
