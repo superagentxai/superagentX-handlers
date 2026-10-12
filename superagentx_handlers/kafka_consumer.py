@@ -31,6 +31,7 @@ from superagentx_policy_engine.store.file_store import FilePolicyStore
 BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC_NAME = os.environ.get("KAFKA_TOPIC_NAME", "policy-input")
 CONSUMER_GROUP_ID = os.environ.get("KAFKA_CONSUMER_GROUP_ID", "policy-evaluation-consumer")
+DEFAULT_OUTPUT_DIR = os.environ.get("DEFAULT_OUTPUT_DIR", "/app/output")
 
 ROW_NUMBER_FIELD = "__source_row_number"
 RESULT_HEADERS = ("Decision", "Threat Score", "Threat Severity")
@@ -45,145 +46,108 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 class WorkbookService:
-    """
-    Service responsible for writing policy evaluation results back to the
-    original Excel workbook.
-
-    Result columns are placed immediately after the last non-empty header
-    column instead of using ``worksheet.max_column``. This avoids writing
-    Decision / Threat Score / Threat Severity far to the right when the
-    workbook contains formatting or previously-used empty columns.
-    """
-
-    @staticmethod
-    def _find_last_used_header_column(worksheet) -> int:
-        """
-        Find the last non-empty header column in row 1.
-
-        Returns:
-            int:
-                Column index of the last real header. Returns 0 when no header
-                is present.
-        """
-        last_used_column = 0
-
-        for cell in worksheet[1]:
-            value = cell.value
-            if value is not None and str(value).strip():
-                last_used_column = cell.column
-
-        return last_used_column
+    """Create a separate processed workbook without modifying the source file."""
 
     @staticmethod
     def _upsert_headers(worksheet) -> dict[str, int]:
         """
-        Ensure result headers exist directly after the last existing header.
-
-        Existing result headers are reused. Missing result headers are added
-        immediately after the last non-empty header in row 1.
-
-        Example:
-            If the last existing header is in column BB, the new fields become:
-
-            BC -> Decision
-            BD -> Threat Score
-            BE -> Threat Severity
-
-        Args:
-            worksheet:
-                Active openpyxl worksheet.
-
-        Returns:
-            dict[str, int]:
-                Mapping of result header name to worksheet column number.
+        Find the last column that holds real source data and place the
+        three generated result headers immediately after it, with zero
+        gap. Anything sitting to the right of the source data (old result
+        columns from a previous run, stray formatting, orphaned columns,
+        etc.) is wiped first so the new headers can never end up with
+        empty columns between them and the source data.
         """
         header_map: dict[str, int] = {}
 
-        for cell in worksheet[1]:
-            if cell.value in RESULT_HEADERS:
-                header_map[str(cell.value)] = cell.column
+        max_col = worksheet.max_column or 0
 
-        last_used_column = WorkbookService._find_last_used_header_column(
-            worksheet
-        )
+        # Real source data is a CONTIGUOUS run of headers starting at
+        # column A. The first empty (or result-header) cell marks the end
+        # of that run. Anything further right — even a non-empty cell,
+        # such as stray leftover text from a previous/corrupted run — is
+        # noise, not source data, and must NOT extend the boundary. This
+        # avoids the case where an isolated stray value sitting far out
+        # (e.g. a single leftover cell) gets mistaken for real data and
+        # leaves a gap between the actual source columns and the results.
+        last_source_column = 0
+        for col in range(1, max_col + 1):
+            value = worksheet.cell(row=1, column=col).value
 
-        next_column = last_used_column + 1
+            if value is not None:
+                value = str(value).strip()
 
-        for header in RESULT_HEADERS:
-            if header in header_map:
-                continue
+            if not value or value in RESULT_HEADERS:
+                # End of the contiguous source-header run.
+                break
 
-            worksheet.cell(
-                row=1,
-                column=next_column,
-                value=header,
+            last_source_column = col
+
+        if last_source_column == 0:
+            raise ValueError(
+                "No source headers found in Excel file."
             )
 
-            header_map[header] = next_column
-            next_column += 1
+        result_columns = {
+            "Decision": last_source_column + 1,
+            "Threat Score": last_source_column + 2,
+            "Threat Severity": last_source_column + 3,
+        }
+
+        # Wipe everything to the right of the source data (all rows).
+        # This removes any previously generated result columns no matter
+        # where they ended up, plus any stray blank/formatted columns,
+        # guaranteeing the new result columns sit immediately after the
+        # source data with no gap.
+        if max_col > last_source_column:
+            for row_number in range(1, worksheet.max_row + 1):
+                for col in range(last_source_column + 1, max_col + 1):
+                    worksheet.cell(row=row_number, column=col).value = None
+
+        # Create result headers directly after the last source column.
+        for header, column in result_columns.items():
+            worksheet.cell(
+                row=1,
+                column=column,
+                value=header,
+            )
+            header_map[header] = column
 
         return header_map
 
-    def write_result(
+    def create_output_workbook(
         self,
-        file_path: str,
-        row_number: int,
-        *,
-        decision: str,
-        threat_score: float | int | None,
-        threat_severity: str | None,
-    ) -> None:
-        """
-        Write policy evaluation output to the matching Excel row.
+        source_file_path: str,
+        output_file_path: str,
+        results: list[dict],
+    ) -> str:
+        source_path = Path(source_file_path)
+        output_path = Path(output_file_path)
 
-        Args:
-            file_path:
-                Source Excel workbook path.
-            row_number:
-                Original Excel row number received from the Kafka record.
-            decision:
-                Policy authorization decision.
-            threat_score:
-                Numeric threat score.
-            threat_severity:
-                Threat severity value.
-        """
-        logger.info(
-            "Writing result row=%s decision=%s score=%s severity=%s",
-            row_number,
-            decision,
-            threat_score,
-            threat_severity,
-        )
+        if not source_path.exists():
+            raise FileNotFoundError(f"Source Excel file not found: {source_path}")
 
-        workbook = load_workbook(file_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.info("Creating processed workbook source=%s output=%s results=%s", source_path, output_path, len(results))
+
+        workbook = load_workbook(source_path)
         worksheet = workbook.active
-
         try:
             header_map = self._upsert_headers(worksheet)
-
-            worksheet.cell(
-                row=row_number,
-                column=header_map["Decision"],
-                value=decision,
-            )
-
-            worksheet.cell(
-                row=row_number,
-                column=header_map["Threat Score"],
-                value=threat_score,
-            )
-
-            worksheet.cell(
-                row=row_number,
-                column=header_map["Threat Severity"],
-                value=threat_severity,
-            )
-
-            workbook.save(file_path)
-
+            for result in results:
+                row_number = result.get("row_number")
+                if row_number is None:
+                    logger.warning("Skipping result without source row number: %r", result)
+                    continue
+                worksheet.cell(row=int(row_number), column=header_map["Decision"], value=result.get("decision"))
+                worksheet.cell(row=int(row_number), column=header_map["Threat Score"], value=result.get("threat_score"))
+                worksheet.cell(row=int(row_number), column=header_map["Threat Severity"], value=result.get("threat_severity"))
+            workbook.save(output_path)
         finally:
             workbook.close()
+
+        logger.info("Processed Excel created: %s", output_path)
+        return str(output_path)
 
 
 # ============================================================
@@ -1008,10 +972,9 @@ class KafkaConsumerHandler(BaseHandler):
     SuperAgentX Kafka consumer handler for banking policy evaluation.
 
     The handler consumes transaction batches from Kafka, evaluates each
-    transaction using PolicyEvaluator, writes Decision / Threat Score /
-    Threat Severity back to the original Excel file, commits the Kafka
-    message after successful batch processing, and stops automatically after
-    all expected batches and records for the current upload are complete.
+    transaction using PolicyEvaluator, collects Decision / Threat Score / Threat Severity results, commits each Kafka
+    message after successful batch processing, and creates a separate output
+    Excel file only after all expected batches and records are complete.
 
     The consumer does not import any constants or code from the producer.
     Row information is read directly from the incoming Kafka record using
@@ -1025,6 +988,7 @@ class KafkaConsumerHandler(BaseHandler):
         bootstrap_servers: Optional[str] = None,
         topic_name: Optional[str] = None,
         consumer_group_id: Optional[str] = None,
+        output_dir_path: Optional[str] = None,
         poll_timeout_seconds: float = POLL_TIMEOUT_SECONDS,
         **kwargs,
     ):
@@ -1035,6 +999,8 @@ class KafkaConsumerHandler(BaseHandler):
             bootstrap_servers: Kafka bootstrap server address.
             topic_name: Kafka topic containing policy evaluation batches.
             consumer_group_id: Kafka consumer group ID.
+            output_dir_path: Optional directory for the final processed Excel file.
+                If omitted, DEFAULT_OUTPUT_DIR is used.
             poll_timeout_seconds: Timeout used for each Kafka poll.
             **kwargs: Additional arguments passed to BaseHandler.
         """
@@ -1043,6 +1009,7 @@ class KafkaConsumerHandler(BaseHandler):
         self.bootstrap_servers = bootstrap_servers or BOOTSTRAP_SERVERS
         self.topic_name = topic_name or TOPIC_NAME
         self.consumer_group_id = consumer_group_id or CONSUMER_GROUP_ID
+        self.output_dir_path = output_dir_path
         self.poll_timeout_seconds = poll_timeout_seconds
 
         if not self.bootstrap_servers:
@@ -1059,14 +1026,26 @@ class KafkaConsumerHandler(BaseHandler):
         self._reset_upload_state()
 
     def _reset_upload_state(self) -> None:
-        """Reset all upload-level tracking state."""
+        """Reset upload-level state without changing handler configuration."""
         self.current_upload_id: Optional[str] = None
         self.source_file_path: Optional[str] = None
+        self.output_file_path: Optional[str] = None
         self.total_batches: int = 0
         self.total_records: int = 0
         self.processed_batch_ids: set[int] = set()
         self.processed_records: int = 0
+        self.all_results: list[dict] = []
         self.all_work_done: bool = False
+
+    def _build_output_file_path(self) -> str:
+        """Build output path from output_dir_path or DEFAULT_OUTPUT_DIR."""
+        if not self.source_file_path:
+            raise ValueError("source_file_path is not available")
+
+        source_path = Path(self.source_file_path)
+        output_dir = Path(self.output_dir_path or DEFAULT_OUTPUT_DIR)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return str(output_dir / f"{source_path.stem}_processed.xlsx")
 
     def _create_consumer(self) -> Consumer:
         """
@@ -1111,16 +1090,14 @@ class KafkaConsumerHandler(BaseHandler):
         *,
         upload_id: str,
         batch_id: int,
-        file_path: Optional[str],
     ) -> dict:
         """
-        Evaluate one transaction and write its result to the source Excel row.
+        Evaluate one transaction and return its result without modifying Excel.
 
         Args:
             record: Transaction dictionary received from Kafka.
             upload_id: Upload identifier.
             batch_id: Current batch identifier.
-            file_path: Source Excel file path.
 
         Returns:
             Dictionary containing the row number and evaluation result.
@@ -1165,23 +1142,6 @@ class KafkaConsumerHandler(BaseHandler):
                 "matched_policy_sids": [],
             }
 
-        if file_path and row_number is not None:
-            try:
-                await asyncio.to_thread(
-                    self.workbook.write_result,
-                    file_path,
-                    int(row_number),
-                    decision=result.get("decision"),
-                    threat_score=result.get("threat_score"),
-                    threat_severity=result.get("threat_severity"),
-                )
-            except Exception as exc:
-                logger.exception(
-                    "Excel update failed row=%s file=%s",
-                    row_number,
-                    file_path,
-                )
-                result["excel_error"] = str(exc)
 
         self.processed_records += 1
 
@@ -1240,9 +1200,9 @@ class KafkaConsumerHandler(BaseHandler):
                 record,
                 upload_id=upload_id,
                 batch_id=batch_id,
-                file_path=file_path,
             )
             results.append(result)
+            self.all_results.append(result)
 
         return results
 
@@ -1368,10 +1328,9 @@ class KafkaConsumerHandler(BaseHandler):
         """
         Consume banking policy batches from Kafka and process one full upload.
 
-        The tool waits for Kafka messages, evaluates every transaction, writes
-        results back to the original Excel file, manually commits each
-        successfully processed Kafka message, and stops after all expected
-        batches and records for the current upload are complete.
+        The tool waits for Kafka messages, evaluates every transaction, collects all
+        results, manually commits each successfully processed Kafka message, and
+        creates a separate output workbook after the full upload is complete.
 
         Args:
             **kwargs: Optional SuperAgentX workflow arguments, including
@@ -1430,22 +1389,26 @@ class KafkaConsumerHandler(BaseHandler):
                     )
 
                     if self._is_upload_complete():
+                        logger.info("All batches and records processed. Creating output Excel...")
+
+                        self.output_file_path = self._build_output_file_path()
+
+                        await asyncio.to_thread(
+                            self.workbook.create_output_workbook,
+                            self.source_file_path,
+                            self.output_file_path,
+                            self.all_results,
+                        )
+
                         self.all_work_done = True
 
                         logger.info("============================================")
-                        logger.info("ALL BATCHES COMPLETED — EXCEL FULLY UPDATED")
+                        logger.info("ALL BATCHES COMPLETED — OUTPUT EXCEL CREATED")
                         logger.info("Upload ID: %s", self.current_upload_id)
-                        logger.info("Excel file: %s", self.source_file_path)
-                        logger.info(
-                            "Processed batches: %s/%s",
-                            len(self.processed_batch_ids),
-                            self.total_batches,
-                        )
-                        logger.info(
-                            "Processed records: %s/%s",
-                            self.processed_records,
-                            self.total_records,
-                        )
+                        logger.info("Source Excel: %s", self.source_file_path)
+                        logger.info("Output Excel: %s", self.output_file_path)
+                        logger.info("Processed batches: %s/%s", len(self.processed_batch_ids), self.total_batches)
+                        logger.info("Processed records: %s/%s", self.processed_records, self.total_records)
                         logger.info("Stopping Kafka handler...")
                         logger.info("============================================")
                         break
@@ -1481,11 +1444,13 @@ class KafkaConsumerHandler(BaseHandler):
             "status": "completed" if self.all_work_done else "failed",
             "upload_id": self.current_upload_id,
             "source_file_path": self.source_file_path,
+            "output_file_path": self.output_file_path,
+            "output_dir_path": self.output_dir_path or DEFAULT_OUTPUT_DIR,
             "total_batches": self.total_batches,
             "processed_batches": len(self.processed_batch_ids),
             "total_records": self.total_records,
             "processed_records": self.processed_records,
-            "excel_updated": self.all_work_done,
+            "output_excel_created": self.all_work_done,
             "error": error_message,
         }
 
@@ -1501,6 +1466,8 @@ class KafkaConsumerHandler(BaseHandler):
         return {
             "upload_id": self.current_upload_id,
             "source_file_path": self.source_file_path,
+            "output_file_path": self.output_file_path,
+            "output_dir_path": self.output_dir_path or DEFAULT_OUTPUT_DIR,
             "total_batches": self.total_batches,
             "processed_batches": len(self.processed_batch_ids),
             "total_records": self.total_records,
@@ -1508,3 +1475,52 @@ class KafkaConsumerHandler(BaseHandler):
             "completed": self.all_work_done,
             "running": self.consumer is not None,
         }
+
+
+# ============================================================
+
+# MAIN
+
+# ============================================================
+
+if __name__ == "__main__":
+
+    llm_config = {
+        "model": "gemini-2.5-flash",
+        "llm_type": "gemini",
+    }
+
+    llm_client: LLMClient = LLMClient(
+        llm_config=llm_config
+    )
+
+    handler = KafkaConsumerHandler(
+        policy_path="/home/bala/Downloads/Banking-policy-evalution/Kafka-policy-evalution/policy.json",
+        llm=llm_client,
+        output_dir_path="/home/bala/Downloads/"
+    )
+
+    result = asyncio.run(
+
+        handler.consume_policy_batches()
+
+    )
+
+    if result.get("status") == "completed":
+        logger.info(
+
+            "All data processed and Excel file fully updated. Exiting."
+
+        )
+
+        sys.exit(0)
+
+    logger.warning(
+
+        "Handler stopped before all work completed. Result=%s",
+
+        result,
+
+    )
+
+    sys.exit(1)
