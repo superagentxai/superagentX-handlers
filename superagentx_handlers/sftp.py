@@ -32,7 +32,7 @@ class SFTPHandler(BaseHandler):
         - delete_file
         - create_directory
         - get_file_info
-        - scan_sftp_metadata
+        - scan_metadata
 
     Private key:
         The private_key parameter must contain the decrypted private-key
@@ -924,7 +924,7 @@ class SFTPHandler(BaseHandler):
     # ---------------------------------------------------------
 
     @tool
-    async def scan_sftp_metadata(
+    async def scan_metadata(
         self,
         batch_size: int = 100,
         cursor: dict[str, Any] | None = None,
